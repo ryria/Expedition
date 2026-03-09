@@ -1,6 +1,10 @@
 import { DbConnection } from "./generated";
 import type { SubscriptionHandle } from "./generated";
 
+export interface ExpeditionProcedures {
+  requestAiCoaching(args: { logId: bigint }): void;
+}
+
 // VITE_STDB_URI: WebSocket URI for SpacetimeDB Maincloud, e.g. "wss://maincloud.spacetimedb.com"
 const STDB_URI = import.meta.env.VITE_STDB_URI as string;
 const STDB_DB = "expedition";
@@ -10,6 +14,10 @@ let _conn: DbConnection | null = null;
 export function getConnection(): DbConnection {
   if (!_conn) throw new Error("SpacetimeDB not connected — call initConnection() first");
   return _conn;
+}
+
+export function getProcedures(): ExpeditionProcedures {
+  return getConnection().procedures as ExpeditionProcedures;
 }
 
 export function initConnection(

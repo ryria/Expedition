@@ -26,7 +26,7 @@ export function ActivityCard({ entry }: Props) {
         </span>
         <strong>{entry.personName}</strong>
         <span className="km">{entry.distanceKm.toFixed(1)} km</span>
-        <span className="ts">{new Date(entry.timestamp).toLocaleString()}</span>
+        <span className="ts">{entry.timestamp.toDate().toLocaleString()}</span>
       </div>
       {entry.note && <p className="note">{entry.note}</p>}
       {entry.aiResponse && <p className="ai-response">{entry.aiResponse}</p>}

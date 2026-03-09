@@ -28,7 +28,7 @@ export function CommentThread({ logId }: Props) {
           {comments.map((c) => (
             <div key={String(c.id)} className="comment">
               <strong>{c.author}</strong>: {c.body}
-              <span className="comment-ts">{new Date(c.timestamp).toLocaleTimeString()}</span>
+              <span className="comment-ts">{c.timestamp.toDate().toLocaleTimeString()}</span>
             </div>
           ))}
           <form onSubmit={handleSubmit} className="comment-form">

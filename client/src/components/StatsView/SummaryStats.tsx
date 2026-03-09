@@ -1,11 +1,12 @@
 import { useActivityLog } from "../../hooks/useActivityLog";
 import { LANDMARKS } from "../../data/route";
+import { ROUTE_TOTAL_KM } from "../../config";
 
 export function SummaryStats() {
   const { entries } = useActivityLog();
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
-  const pct = ((totalKm / 14_500) * 100).toFixed(2);
-  const remaining = (14_500 - totalKm).toFixed(1);
+  const pct = ((totalKm / ROUTE_TOTAL_KM) * 100).toFixed(2);
+  const remaining = (ROUTE_TOTAL_KM - totalKm).toFixed(1);
   const next = LANDMARKS.find((l) => l.km > totalKm);
   return (
     <div className="summary-stats">

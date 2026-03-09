@@ -1,3 +1,5 @@
+import { ROUTE_TOTAL_KM } from "../config";
+
 // Clockwise from Sydney.
 // Format: [lat, lng, cumulativeKm]
 export const WAYPOINTS: [number, number, number][] = [
@@ -68,7 +70,7 @@ export const WAYPOINTS: [number, number, number][] = [
   [-36.55, 150.18, 13100],
   [-35.36, 150.47, 13280],   // Ulladulla
   [-34.42, 150.89, 13480],   // Wollongong
-  [-33.87, 151.21, 14500],   // Sydney (end)
+  [-33.87, 151.21, ROUTE_TOTAL_KM],   // Sydney (end)
 ];
 
 export interface Landmark {
@@ -92,13 +94,13 @@ export const LANDMARKS: Landmark[] = [
   { name: "Adelaide", km: 10810, fact: "City of Churches. The Barossa and McLaren Vale begin at the city's edge.", lat: -34.93, lng: 138.60 },
   { name: "Melbourne", km: 12440, fact: "Australia's cultural capital. Laneways, coffee, street art. Claims most liveable city regularly.", lat: -37.81, lng: 144.97 },
   { name: "Eden", km: 12940, fact: "Orcas and Humpbacks interact in Twofold Bay. The final stretch home begins.", lat: -37.07, lng: 149.91 },
-  { name: "Sydney", km: 14500, fact: "Journey complete.", lat: -33.87, lng: 151.21 },
+  { name: "Sydney", km: ROUTE_TOTAL_KM, fact: "Journey complete.", lat: -33.87, lng: 151.21 },
 ];
 
 // ─── Interpolation ────────────────────────────────────────────────────────────
 
 export function interpolatePosition(km: number): { lat: number; lng: number } {
-  const clamped = Math.max(0, Math.min(km, 14_500));
+  const clamped = Math.max(0, Math.min(km, ROUTE_TOTAL_KM));
   for (let i = 1; i < WAYPOINTS.length; i++) {
     const [lat0, lng0, km0] = WAYPOINTS[i - 1];
     const [lat1, lng1, km1] = WAYPOINTS[i];

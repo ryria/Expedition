@@ -14,7 +14,7 @@ vi.mock("../spacetime/connection", () => {
   };
   return {
     getConnection: vi.fn(() => ({
-      db: { activityLog: mockTable },
+      db: { activity_log: mockTable },
     })),
   };
 });

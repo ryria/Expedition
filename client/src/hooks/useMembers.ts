@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { Timestamp } from "spacetimedb";
 import { getConnection } from "../spacetime/connection";
 
 export interface MemberRow {
   id: bigint;
   name: string;
   colorHex: string;
-  createdAt: Date;
+  createdAt: Timestamp;
 }
 
 type InsertCb = (ctx: unknown, row: MemberRow) => void;
@@ -24,7 +25,7 @@ export function useMembers() {
 
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.member as MemberTable;
+    const table = conn.db.member as MemberTable;
 
     // Load rows already in local cache from subscription
     const existing = [...table].sort((a, b) => Number(a.id - b.id));

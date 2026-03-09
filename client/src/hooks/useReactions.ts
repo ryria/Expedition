@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Timestamp } from "spacetimedb";
 import { getConnection } from "../spacetime/connection";
 
 export interface ReactionRow {
@@ -6,7 +7,7 @@ export interface ReactionRow {
   logId: bigint;
   emoji: string;
   reactedBy: string;
-  timestamp: Date;
+  timestamp: Timestamp;
 }
 
 type InsertCb = (ctx: unknown, row: ReactionRow) => void;
@@ -25,7 +26,7 @@ export function useReactions() {
 
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.reaction as ReactionTable;
+    const table = conn.db.reaction as ReactionTable;
 
     setReactions([...table]);
 

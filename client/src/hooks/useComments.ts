@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Timestamp } from "spacetimedb";
 import { getConnection } from "../spacetime/connection";
 
 export interface CommentRow {
@@ -6,7 +7,7 @@ export interface CommentRow {
   logId: bigint;
   author: string;
   body: string;
-  timestamp: Date;
+  timestamp: Timestamp;
 }
 
 type InsertCb = (ctx: unknown, row: CommentRow) => void;
@@ -25,7 +26,7 @@ export function useComments() {
 
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.comment as CommentTable;
+    const table = conn.db.comment as CommentTable;
 
     setComments([...table]);
 
@@ -47,7 +48,7 @@ export function useComments() {
   function commentsFor(logId: bigint) {
     return comments
       .filter((c) => c.logId === logId)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      .sort((a, b) => a.timestamp.toDate().getTime() - b.timestamp.toDate().getTime());
   }
 
   return { commentsFor };

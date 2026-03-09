@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useMembers } from "../../hooks/useMembers";
-import { getConnection } from "../../spacetime/connection";
+import { getConnection, getProcedures } from "../../spacetime/connection";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
+
+type ActivityLogInsertRow = { id: bigint; personName: string };
+type ActivityInsertCb = (ctx: unknown, row: ActivityLogInsertRow) => void;
+
+interface ActivityLogInsertTable {
+  onInsert(cb: ActivityInsertCb): void;
+  removeOnInsert(cb: ActivityInsertCb): void;
+}
 
 export function LogForm() {
   const { members } = useMembers();
@@ -17,14 +25,14 @@ export function LogForm() {
   // Listen for new activity inserts; call AI coaching on the first match
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.activity_log;
-    const onInsert = (_ctx: unknown, row: { id: bigint; personName: string }) => {
+    const table = (conn.db.activity_log as ActivityLogInsertTable);
+    const onInsert: ActivityInsertCb = (_ctx, row) => {
       if (pendingPerson.current && row.personName === pendingPerson.current) {
         pendingPerson.current = null;
         try {
-          (conn as any).procedures.requestAiCoaching({ logId: row.id });
-        } catch {
-          // Procedure call is best-effort; silently ignore errors
+          getProcedures().requestAiCoaching({ logId: row.id });
+        } catch (err) {
+          console.warn("requestAiCoaching failed", err);
         }
       }
     };
