@@ -5,7 +5,7 @@ import { PersonLegend } from "./PersonLegend";
 import { useActivityLog } from "../../hooks/useActivityLog";
 import { useMembers } from "../../hooks/useMembers";
 import { getTrailSegments } from "../../data/route";
-import { ROUTE_TOTAL_KM } from "../../config";
+import { useRoadRoute } from "../../hooks/useRoadRoute";
 import "./MapView.css";
 
 type ViewMode = "asRan" | "contribution";
@@ -13,6 +13,7 @@ type ViewMode = "asRan" | "contribution";
 export function MapView() {
   const { entries } = useActivityLog();
   const { members } = useMembers();
+  const { waypoints, routeTotalKm } = useRoadRoute();
   const [mode, setMode] = useState<ViewMode>("asRan");
 
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
@@ -25,10 +26,10 @@ export function MapView() {
     <div className="map-view">
       <div className="map-stats-bar">
         <span>{totalKm.toFixed(1)} km logged</span>
-        <span>{((totalKm / ROUTE_TOTAL_KM) * 100).toFixed(1)}% complete</span>
-        <span>{(ROUTE_TOTAL_KM - totalKm).toFixed(1)} km remaining</span>
+        <span>{((totalKm / routeTotalKm) * 100).toFixed(1)}% complete</span>
+        <span>{Math.max(routeTotalKm - totalKm, 0).toFixed(1)} km remaining</span>
       </div>
-      <MapLeaflet segments={segments} totalKm={totalKm} />
+      <MapLeaflet segments={segments} totalKm={totalKm} waypoints={waypoints} />
       <div className="map-controls">
         <ModeToggle mode={mode} onChange={setMode} />
         <PersonLegend />

@@ -1,20 +1,29 @@
 import { useState } from "react";
+import { useAuth } from "react-oidc-context";
 import { useComments } from "../../hooks/useComments";
+import { useMembers } from "../../hooks/useMembers";
 import { getConnection } from "../../spacetime/connection";
 
 interface Props { logId: bigint; }
 
 export function CommentThread({ logId }: Props) {
+  const auth = useAuth();
+  const { members } = useMembers();
   const { commentsFor } = useComments();
   const [open, setOpen] = useState(false);
-  const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
   const comments = commentsFor(logId);
+  const sub = auth.user?.profile?.sub as string | undefined;
+  const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!author.trim() || !body.trim()) return;
-    getConnection().reducers.addComment({ logId, author: author.trim(), body: body.trim() });
+    if (!linkedMember || !body.trim()) return;
+    getConnection().reducers.addComment({
+      logId,
+      author: linkedMember.name,
+      body: body.trim(),
+    });
     setBody("");
   }
 
@@ -32,11 +41,12 @@ export function CommentThread({ logId }: Props) {
             </div>
           ))}
           <form onSubmit={handleSubmit} className="comment-form">
-            <input value={author} onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Your name" maxLength={30} />
             <input value={body} onChange={(e) => setBody(e.target.value)}
-              placeholder="Add a comment" maxLength={300} />
-            <button type="submit">Post</button>
+              placeholder={linkedMember ? "Add a comment" : "Create your member profile to comment"}
+              maxLength={300}
+              disabled={!linkedMember}
+            />
+            <button type="submit" disabled={!linkedMember || !body.trim()}>Post</button>
           </form>
         </>
       )}

@@ -1,5 +1,20 @@
 use spacetimedb::{ProcedureContext, ReducerContext, Table, Timestamp};
 
+const STDB_AUTH_ISSUER: &str = "https://auth.spacetimedb.com/oidc";
+
+fn authenticated_subject(ctx: &ReducerContext) -> Result<String, String> {
+    let jwt = ctx
+        .sender_auth()
+        .jwt()
+        .ok_or("Authentication required".to_string())?;
+
+    if jwt.issuer() != STDB_AUTH_ISSUER {
+        return Err("Invalid token issuer".to_string());
+    }
+
+    Ok(jwt.subject().to_string())
+}
+
 // ─── Lifecycle reducers ───────────────────────────────────────────────────────
 
 #[spacetimedb::reducer(init)]
@@ -42,12 +57,22 @@ pub struct Member {
     pub id: u64,
     #[unique]
     pub name: String,
+    #[unique]
+    pub owner_sub: String,
     pub color_hex: String, // e.g. "#8b2020"
     pub created_at: Timestamp,
 }
 
 #[spacetimedb::reducer]
 pub fn add_member(ctx: &ReducerContext, name: String, color_hex: String) {
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("add_member: {}", err);
+            return;
+        }
+    };
+
     let name = name.trim().to_string();
     if name.is_empty() {
         log::error!("add_member: name cannot be empty");
@@ -57,9 +82,25 @@ pub fn add_member(ctx: &ReducerContext, name: String, color_hex: String) {
         log::error!("add_member: invalid colour hex: {}", color_hex);
         return;
     }
+
+    if let Some(existing_with_name) = ctx.db.member().name().find(name.clone()) {
+        if existing_with_name.owner_sub != owner_sub {
+            log::error!("add_member: name already taken");
+            return;
+        }
+    }
+
+    if let Some(mut me) = ctx.db.member().owner_sub().find(owner_sub.clone()) {
+        me.name = name;
+        me.color_hex = color_hex;
+        ctx.db.member().id().update(me);
+        return;
+    }
+
     ctx.db.member().insert(Member {
         id: 0,
         name,
+        owner_sub,
         color_hex,
         created_at: ctx.timestamp,
     });
@@ -67,6 +108,24 @@ pub fn add_member(ctx: &ReducerContext, name: String, color_hex: String) {
 
 #[spacetimedb::reducer]
 pub fn remove_member(ctx: &ReducerContext, id: u64) {
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("remove_member: {}", err);
+            return;
+        }
+    };
+
+    let Some(member) = ctx.db.member().id().find(id) else {
+        log::error!("remove_member: member not found");
+        return;
+    };
+
+    if member.owner_sub != owner_sub {
+        log::error!("remove_member: cannot remove another user's profile");
+        return;
+    }
+
     ctx.db.member().id().delete(id);
 }
 
@@ -93,11 +152,30 @@ pub fn log_activity(
     distance_km: f64,
     note: String,
 ) {
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("log_activity: {}", err);
+            return;
+        }
+    };
+
     let person_name = person_name.trim().to_string();
     if person_name.is_empty() {
         log::error!("log_activity: person_name required");
         return;
     }
+
+    let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
+        log::error!("log_activity: profile not found for authenticated user");
+        return;
+    };
+
+    if me.name != person_name {
+        log::error!("log_activity: you can only log activity for your own profile");
+        return;
+    }
+
     let valid_types = ["run", "row", "walk", "cycle"];
     if !valid_types.contains(&activity_type.as_str()) {
         log::error!("log_activity: invalid activity_type: {}", activity_type);

@@ -8,8 +8,43 @@ export interface ExpeditionProcedures {
 // VITE_STDB_URI: WebSocket URI for SpacetimeDB Maincloud, e.g. "wss://maincloud.spacetimedb.com"
 const STDB_URI = import.meta.env.VITE_STDB_URI as string;
 const STDB_DB = "expedition";
+const CONNECT_TIMEOUT_MS = 15_000;
 
 let _conn: DbConnection | null = null;
+let _pendingConn: DbConnection | null = null;
+let _connectAttempt = 0;
+let _connectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function validateStdbUri(uri: string): string {
+  const trimmed = uri.trim();
+  if (!trimmed) {
+    throw new Error("Missing VITE_STDB_URI for SpacetimeDB connection");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`Invalid VITE_STDB_URI: ${trimmed}`);
+  }
+
+  if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+    throw new Error(
+      `VITE_STDB_URI must use ws:// or wss:// (received ${parsed.protocol})`
+    );
+  }
+
+  return trimmed;
+}
+
+function normalizeConnectError(err: Error): Error {
+  if (err.message.includes("Failed to fetch")) {
+    return new Error(
+      "WebSocket connection failed (Failed to fetch). Check VITE_STDB_URI, network/firewall access to maincloud.spacetimedb.com, and that your browser allows secure WebSocket (wss)."
+    );
+  }
+  return err;
+}
 
 export function getConnection(): DbConnection {
   if (!_conn) throw new Error("SpacetimeDB not connected — call initConnection() first");
@@ -20,20 +55,81 @@ export function getProcedures(): ExpeditionProcedures {
   return getConnection().procedures as ExpeditionProcedures;
 }
 
+function clearConnectTimeout() {
+  if (_connectTimeout) {
+    clearTimeout(_connectTimeout);
+    _connectTimeout = null;
+  }
+}
+
+export function disconnectConnection() {
+  clearConnectTimeout();
+  (_pendingConn as { disconnect?: () => void } | null)?.disconnect?.();
+  _pendingConn = null;
+  (_conn as { disconnect?: () => void } | null)?.disconnect?.();
+  _conn = null;
+}
+
 export function initConnection(
   onConnected: (conn: DbConnection) => void,
   onError: (err: Error) => void,
+  token?: string,
 ): DbConnection {
+  const attempt = ++_connectAttempt;
+  disconnectConnection();
+
+  let stdbUri = "";
+  try {
+    stdbUri = validateStdbUri(STDB_URI);
+  } catch (err) {
+    const asError = err instanceof Error ? err : new Error(String(err));
+    onError(asError);
+    throw asError;
+  }
+
+  if (!stdbUri) {
+    const err = new Error("Missing VITE_STDB_URI for SpacetimeDB connection");
+    onError(err);
+    throw err;
+  }
+
+  const fail = (err: Error) => {
+    if (attempt !== _connectAttempt) return;
+    clearConnectTimeout();
+    onError(err);
+  };
+
+  _connectTimeout = setTimeout(() => {
+    fail(new Error(`SpacetimeDB connection timed out after ${CONNECT_TIMEOUT_MS}ms`));
+  }, CONNECT_TIMEOUT_MS);
+
   const conn = DbConnection.builder()
-    .withUri(STDB_URI)
+    .withUri(stdbUri)
     .withDatabaseName(STDB_DB)
+    .withToken(token)
     .onConnect((ctx) => {
+      if (attempt !== _connectAttempt) {
+        ctx.disconnect();
+        return;
+      }
+
       _conn = ctx;
+      _pendingConn = ctx;
+
       const sub: SubscriptionHandle = ctx
         .subscriptionBuilder()
         .onApplied(() => {
+          if (attempt !== _connectAttempt) return;
+          clearConnectTimeout();
           console.log("[SpacetimeDB] connected and subscribed");
           onConnected(ctx);
+        })
+        .onError((ctx) => {
+          if (attempt !== _connectAttempt) return;
+          const err = ctx.event instanceof Error ? ctx.event : new Error("SpacetimeDB subscription failed");
+          const normalized = normalizeConnectError(err);
+          console.error("[SpacetimeDB] subscription failed:", normalized);
+          fail(normalized);
         })
         .subscribe([
           "SELECT * FROM member",
@@ -43,10 +139,26 @@ export function initConnection(
         ]);
       void sub;
     })
+    .onDisconnect((_ctx, err) => {
+      if (attempt !== _connectAttempt) return;
+      _conn = null;
+      _pendingConn = null;
+      clearConnectTimeout();
+
+      if (err) {
+        const normalized = normalizeConnectError(err);
+        console.error("[SpacetimeDB] disconnected with error:", normalized);
+        onError(normalized);
+      }
+    })
     .onConnectError((_ctx, err) => {
-      console.error("[SpacetimeDB] connection failed:", err);
-      onError(err);
+      if (attempt !== _connectAttempt) return;
+      const normalized = normalizeConnectError(err);
+      console.error("[SpacetimeDB] connection failed:", normalized);
+      fail(normalized);
     })
     .build();
+
+  _pendingConn = conn;
   return conn;
 }

@@ -2,11 +2,12 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { TrailsPolyline } from "./TrailsPolyline";
 import { LandmarksMarkers } from "./LandmarksMarkers";
-import type { TrailSegment } from "../../data/route";
+import type { RouteWaypoint, TrailSegment } from "../../data/route";
 
 interface Props {
   segments: TrailSegment[];
   totalKm: number;
+  waypoints: RouteWaypoint[];
 }
 
 // Australia bounds
@@ -15,7 +16,7 @@ const BOUNDS: [[number, number], [number, number]] = [
   [-10, 154],
 ];
 
-export function MapLeaflet({ segments, totalKm }: Props) {
+export function MapLeaflet({ segments, totalKm, waypoints }: Props) {
   return (
     <MapContainer
       bounds={BOUNDS}
@@ -29,7 +30,7 @@ export function MapLeaflet({ segments, totalKm }: Props) {
         subdomains="abcd"
         maxZoom={19}
       />
-      <TrailsPolyline segments={segments} totalKm={totalKm} />
+      <TrailsPolyline segments={segments} totalKm={totalKm} waypoints={waypoints} />
       <LandmarksMarkers totalKm={totalKm} />
     </MapContainer>
   );

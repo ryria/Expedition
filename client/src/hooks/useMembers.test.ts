@@ -7,8 +7,10 @@ vi.mock("../spacetime/connection", () => {
   const mockMember = {
     [Symbol.iterator]: () => [][Symbol.iterator](),
     onInsert: vi.fn(),
+    onUpdate: vi.fn(),
     onDelete: vi.fn(),
     removeOnInsert: vi.fn(),
+    removeOnUpdate: vi.fn(),
     removeOnDelete: vi.fn(),
   };
   return {

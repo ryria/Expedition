@@ -1,8 +1,10 @@
 import { ROUTE_TOTAL_KM } from "../config";
 
+export type RouteWaypoint = [number, number, number];
+
 // Clockwise from Sydney.
 // Format: [lat, lng, cumulativeKm]
-export const WAYPOINTS: [number, number, number][] = [
+export const WAYPOINTS: RouteWaypoint[] = [
   [-33.87, 151.21, 0],       // Sydney
   [-33.42, 151.34, 60],
   [-32.93, 151.77, 130],     // Newcastle area
@@ -100,16 +102,28 @@ export const LANDMARKS: Landmark[] = [
 // ─── Interpolation ────────────────────────────────────────────────────────────
 
 export function interpolatePosition(km: number): { lat: number; lng: number } {
-  const clamped = Math.max(0, Math.min(km, ROUTE_TOTAL_KM));
-  for (let i = 1; i < WAYPOINTS.length; i++) {
-    const [lat0, lng0, km0] = WAYPOINTS[i - 1];
-    const [lat1, lng1, km1] = WAYPOINTS[i];
+  return interpolatePositionOnRoute(km, WAYPOINTS);
+}
+
+export function interpolatePositionOnRoute(
+  km: number,
+  waypoints: RouteWaypoint[]
+): { lat: number; lng: number } {
+  if (waypoints.length === 0) {
+    return { lat: 0, lng: 0 };
+  }
+
+  const routeTotalKm = waypoints[waypoints.length - 1][2] ?? ROUTE_TOTAL_KM;
+  const clamped = Math.max(0, Math.min(km, routeTotalKm));
+  for (let i = 1; i < waypoints.length; i++) {
+    const [lat0, lng0, km0] = waypoints[i - 1];
+    const [lat1, lng1, km1] = waypoints[i];
     if (clamped <= km1) {
       const t = km1 === km0 ? 0 : (clamped - km0) / (km1 - km0);
       return { lat: lat0 + t * (lat1 - lat0), lng: lng0 + t * (lng1 - lng0) };
     }
   }
-  const last = WAYPOINTS[WAYPOINTS.length - 1];
+  const last = waypoints[waypoints.length - 1];
   return { lat: last[0], lng: last[1] };
 }
 
@@ -170,16 +184,48 @@ export function getTrailSegments(
 // ─── LatLng path helpers ──────────────────────────────────────────────────────
 
 /** Build an array of [lat, lng] pairs for a segment from fromKm to toKm */
-export function buildSegmentLatLngs(fromKm: number, toKm: number): [number, number][] {
+export function buildSegmentLatLngs(
+  fromKm: number,
+  toKm: number,
+  waypoints: RouteWaypoint[] = WAYPOINTS
+): [number, number][] {
   if (toKm <= fromKm) return [];
 
-  const from = interpolatePosition(fromKm);
-  const to = interpolatePosition(toKm);
-  const midWaypoints = WAYPOINTS.filter(([, , km]) => km > fromKm && km < toKm);
+  const from = interpolatePositionOnRoute(fromKm, waypoints);
+  const to = interpolatePositionOnRoute(toKm, waypoints);
+  const midWaypoints = waypoints.filter(([, , km]) => km > fromKm && km < toKm);
 
   return [
     [from.lat, from.lng],
     ...midWaypoints.map(([lat, lng]): [number, number] => [lat, lng]),
     [to.lat, to.lng],
   ];
+}
+
+function haversineMeters(a: [number, number], b: [number, number]): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLng = Math.sin(dLng / 2);
+  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+export function buildDistanceWaypointsFromPath(path: [number, number][]): RouteWaypoint[] {
+  if (path.length === 0) return [];
+
+  const waypoints: RouteWaypoint[] = [[path[0][0], path[0][1], 0]];
+  let totalMeters = 0;
+
+  for (let i = 1; i < path.length; i++) {
+    totalMeters += haversineMeters(path[i - 1], path[i]);
+    waypoints.push([path[i][0], path[i][1], totalMeters / 1000]);
+  }
+
+  return waypoints;
 }

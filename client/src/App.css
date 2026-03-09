@@ -30,6 +30,11 @@ body { background: #0a0a0a; color: #e0e0e0; font-family: 'Inter', system-ui, san
 /* Main content area */
 .app-main { flex: 1; overflow: auto; }
 
+.app-main.expedition-main {
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* Responsive: on very small screens, title shrinks */
 @media (max-width: 400px) {
   .app-title { font-size: 1rem; }

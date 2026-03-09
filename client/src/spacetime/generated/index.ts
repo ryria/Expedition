@@ -85,10 +85,14 @@ const tablesSchema = __schema({
       { name: 'name', algorithm: 'btree', columns: [
         'name',
       ] },
+      { name: 'owner_sub', algorithm: 'btree', columns: [
+        'ownerSub',
+      ] },
     ],
     constraints: [
       { name: 'member_id_key', constraint: 'unique', columns: ['id'] },
       { name: 'member_name_key', constraint: 'unique', columns: ['name'] },
+      { name: 'member_owner_sub_key', constraint: 'unique', columns: ['ownerSub'] },
     ],
   }, MemberRow),
   reaction: __table({

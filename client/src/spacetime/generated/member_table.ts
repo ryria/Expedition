@@ -13,6 +13,7 @@ import {
 export default __t.row({
   id: __t.u64().primaryKey(),
   name: __t.string(),
+  ownerSub: __t.string().name("owner_sub"),
   colorHex: __t.string().name("color_hex"),
   createdAt: __t.timestamp().name("created_at"),
 });

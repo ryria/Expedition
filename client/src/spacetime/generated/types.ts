@@ -39,6 +39,7 @@ export type Config = __Infer<typeof Config>;
 export const Member = __t.object("Member", {
   id: __t.u64(),
   name: __t.string(),
+  ownerSub: __t.string(),
   colorHex: __t.string(),
   createdAt: __t.timestamp(),
 });

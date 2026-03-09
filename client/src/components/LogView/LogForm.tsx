@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "react-oidc-context";
 import { useMembers } from "../../hooks/useMembers";
 import { getConnection, getProcedures } from "../../spacetime/connection";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
@@ -12,6 +13,7 @@ interface ActivityLogInsertTable {
 }
 
 export function LogForm() {
+  const auth = useAuth();
   const { members } = useMembers();
   const [person, setPerson] = useState("");
   const [actType, setActType] = useState<string>("run");
@@ -21,6 +23,15 @@ export function LogForm() {
   const [submitting, setSubmitting] = useState(false);
   // Track the person who just submitted so we can call AI coaching on their new entry
   const pendingPerson = useRef<string | null>(null);
+  const sub = auth.user?.profile?.sub as string | undefined;
+
+  const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
+
+  useEffect(() => {
+    if (linkedMember) {
+      setPerson(linkedMember.name);
+    }
+  }, [linkedMember]);
 
   // Listen for new activity inserts; call AI coaching on the first match
   useEffect(() => {
@@ -44,7 +55,15 @@ export function LogForm() {
     e.preventDefault();
     setError("");
     const km = parseFloat(dist);
+    if (sub && !linkedMember) {
+      setError("Create your member profile first (Members tab)");
+      return;
+    }
     if (!person) { setError("Select a person"); return; }
+    if (linkedMember && person !== linkedMember.name) {
+      setError("You can only log activity for your linked member profile");
+      return;
+    }
     if (!dist || isNaN(km) || km <= 0 || km > 500) {
       setError("Distance must be 0–500 km"); return;
     }
@@ -64,7 +83,7 @@ export function LogForm() {
 
   return (
     <form onSubmit={handleSubmit} className="log-form">
-      <select value={person} onChange={(e) => setPerson(e.target.value)} required>
+      <select value={person} onChange={(e) => setPerson(e.target.value)} required disabled={!!linkedMember}>
         <option value="">Who are you?</option>
         {members.map((m) => (
           <option key={String(m.id)} value={m.name}>{m.name}</option>

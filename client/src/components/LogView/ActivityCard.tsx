@@ -1,21 +1,30 @@
 import type { ActivityEntry } from "../../hooks/useActivityLog";
 import { useReactions } from "../../hooks/useReactions";
+import { useMembers } from "../../hooks/useMembers";
 import { CommentThread } from "./CommentThread";
 import { ACTIVITY_ICONS } from "../../config";
 import { getConnection } from "../../spacetime/connection";
+import { useAuth } from "react-oidc-context";
 
 const EMOJIS = ["🔥", "💪", "🌊", "🎉", "😮", "❤️"];
 
 interface Props { entry: ActivityEntry; }
 
 export function ActivityCard({ entry }: Props) {
+  const auth = useAuth();
+  const { members } = useMembers();
   const { reactionsFor } = useReactions();
   const reactionList = reactionsFor(entry.id);
+  const sub = auth.user?.profile?.sub as string | undefined;
+  const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
   function handleReact(emoji: string) {
-    const name = window.prompt("Your name?");
-    if (!name?.trim()) return;
-    getConnection().reducers.addReaction({ logId: entry.id, emoji, reactedBy: name.trim() });
+    if (!linkedMember) return;
+    getConnection().reducers.addReaction({
+      logId: entry.id,
+      emoji,
+      reactedBy: linkedMember.name,
+    });
   }
 
   return (
@@ -34,7 +43,13 @@ export function ActivityCard({ entry }: Props) {
         {EMOJIS.map((e) => {
           const count = reactionList.filter((r) => r.emoji === e).length;
           return (
-            <button key={e} className="reaction-btn" onClick={() => handleReact(e)}>
+            <button
+              key={e}
+              className="reaction-btn"
+              onClick={() => handleReact(e)}
+              disabled={!linkedMember}
+              title={linkedMember ? "React" : "Create your member profile to react"}
+            >
               {e}{count > 0 && <span className="reaction-count">{count}</span>}
             </button>
           );
