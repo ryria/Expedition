@@ -1,0 +1,26 @@
+.stats-view { padding: 1rem; max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* Summary stats */
+.summary-stats { display: flex; gap: 1rem; flex-wrap: wrap; background: #f9f5ec; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; }
+.stat { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 80px; }
+.stat-value { font-size: 1.4rem; font-weight: 700; color: #1a5c3a; font-family: 'IM Fell English', serif; }
+.stat-label { font-size: 0.75rem; color: #888; margin-top: 0.1rem; text-align: center; }
+
+/* Person breakdown */
+.person-breakdown h3, .act-type-chart h3, .landmarks-passed h3 { margin: 0 0 0.75rem; font-size: 1rem; color: #333; }
+.person-stat { border: 1px solid #eee; border-radius: 6px; padding: 0.75rem; margin-bottom: 0.5rem; }
+.person-stat-header { display: flex; align-items: center; gap: 0.5rem; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+.act-breakdown { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.4rem; font-size: 0.85rem; color: #555; }
+
+/* Activity type chart */
+.stacked-bar { display: flex; height: 24px; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
+.bar-segment { transition: width 0.3s ease; }
+.act-legend { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.act-legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; }
+.act-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+
+/* Landmarks passed */
+.landmark-item { border-left: 3px solid #1a5c3a; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; }
+.km-badge { background: #e8f5ee; color: #1a5c3a; border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.8rem; margin-left: 0.4rem; }
+.landmark-item p { margin: 0.2rem 0 0; font-size: 0.85rem; color: #555; font-style: italic; }
