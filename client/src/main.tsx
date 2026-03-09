@@ -5,9 +5,17 @@ import App from "./App.tsx";
 import "./index.css";
 import { disconnectConnection, initConnection } from "./spacetime/connection";
 
-const AUTH_CLIENT_ID =
-  (import.meta.env.VITE_STDB_AUTH_CLIENT_ID as string | undefined) ??
-  (import.meta.env.VITE_STDB_CLIENT_ID as string | undefined);
+function firstNonEmptyEnv(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (value && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+const AUTH_CLIENT_ID = firstNonEmptyEnv(
+  import.meta.env.VITE_STDB_AUTH_CLIENT_ID as string | undefined,
+  import.meta.env.VITE_STDB_CLIENT_ID as string | undefined,
+);
 
 const APP_BASE = import.meta.env.BASE_URL ?? "/";
 const REDIRECT_URI = new URL("callback", window.location.origin + APP_BASE).toString();
