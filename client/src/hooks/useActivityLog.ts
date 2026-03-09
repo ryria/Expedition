@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Timestamp } from "spacetimedb";
 import { getConnection } from "../spacetime/connection";
 
 export interface ActivityEntry {
@@ -7,7 +8,7 @@ export interface ActivityEntry {
   activityType: string;
   distanceKm: number;
   note: string;
-  timestamp: Date;
+  timestamp: Timestamp;
   aiResponse: string;
 }
 
@@ -33,14 +34,14 @@ export function useActivityLog() {
     const table = (conn as any).db.activity_log as ActivityLogTable;
 
     const existing = [...table].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
     );
     setEntries(existing);
 
     const onInsert: InsertCb = (_ctx, row) =>
       setEntries((prev) =>
         [row, ...prev].sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
         )
       );
 

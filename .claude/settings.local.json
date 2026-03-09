@@ -70,7 +70,13 @@
       "Bash(npx vitest run src/data/route.test.ts src/hooks/useActivityLog.test.ts src/hooks/useMembers.test.ts)",
       "Bash(npx vitest run)",
       "Bash(rtk grep -r \"Symbol.iterator\\\\|\\\\.iter\\\\\\(\\\\\\)\\\\|getAll\\\\|\\\\.rows\\\\b\" node_modules/spacetimedb/dist --include=\"*.js\" -l)",
-      "Bash(grep -n \"addReaction\\\\|addComment\\\\|logActivity\" c:/Coding/Expedition/client/src/spacetime/generated/*.ts)"
+      "Bash(grep -n \"addReaction\\\\|addComment\\\\|logActivity\" c:/Coding/Expedition/client/src/spacetime/generated/*.ts)",
+      "Bash(spacetime sql --server maincloud expedition \"DELETE FROM activity_log\")",
+      "Bash(spacetime sql --server maincloud expedition \"DELETE FROM reaction\")",
+      "Bash(spacetime sql --server maincloud expedition \"DELETE FROM comment\")",
+      "Bash(spacetime sql --server maincloud expedition \"DELETE FROM member\")",
+      "Bash(spacetime sql --server maincloud expedition \"DELETE FROM config\")",
+      "WebFetch(domain:spacetimedb.com)"
     ]
   }
 }

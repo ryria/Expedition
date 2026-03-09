@@ -22,7 +22,7 @@ export function TrailsPolyline({ segments, totalKm }: Props) {
         if (positions.length < 2) return null;
         const distKm = (seg.toKm - seg.fromKm).toFixed(1);
         const dateStr = seg.date
-          ? new Date(seg.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+          ? seg.date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
           : null;
         return (
           <Polyline key={`core-${i}`} positions={positions} pathOptions={{ color: seg.color, weight: 3, opacity: 0.95 }}>
