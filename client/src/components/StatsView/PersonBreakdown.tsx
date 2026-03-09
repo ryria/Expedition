@@ -9,7 +9,7 @@ export function PersonBreakdown() {
     <div className="person-breakdown">
       <h3>Per Person</h3>
       {members.map((m) => {
-        const myEntries = entries.filter((e) => e.personName === m.name);
+        const myEntries = entries.filter((e) => e.memberId === m.id);
         const totalKm = myEntries.reduce((s, e) => s + e.distanceKm, 0);
         return (
           <div key={String(m.id)} className="person-stat">

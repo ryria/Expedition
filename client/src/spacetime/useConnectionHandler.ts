@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { disconnectConnection, initConnection } from "./connection";
+import { disconnectConnection, initConnection, isConnectionReady } from "./connection";
 
 export type ConnectionPhase =
   | "idle"
@@ -21,9 +21,21 @@ interface ConnectionHandlerState {
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 const RETRY_BASE_MS = 2_000;
 const RETRY_MAX_MS = 15_000;
+const CONNECTION_DEBUG =
+  import.meta.env.DEV &&
+  (import.meta.env.VITE_STDB_CONN_DEBUG === "1" ||
+    import.meta.env.VITE_STDB_CONN_DEBUG === "true");
 
 function isOnline(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine;
+}
+
+function isTransientVisibilityError(message: string): boolean {
+  return (
+    message.includes("browser lifecycle event") ||
+    message.includes("WebSocket is closed before the connection is established") ||
+    message.includes("connection timed out")
+  );
 }
 
 export function useConnectionHandler(token?: string): ConnectionHandlerState {
@@ -38,14 +50,31 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
   const hasConnectedOnceRef = useRef(false);
   const tokenRef = useRef<string | undefined>(token);
   const phaseRef = useRef<ConnectionPhase>("idle");
+  const sessionStartedRef = useRef(false);
+  const connectSequenceRef = useRef(0);
+  const connectInFlightRef = useRef(false);
+
+  const debugLog = useCallback((event: string, details?: Record<string, unknown>) => {
+    if (!CONNECTION_DEBUG) return;
+    const payload = {
+      phase: phaseRef.current,
+      retryAttempt: retryAttemptRef.current,
+      ...details,
+    };
+    console.log(`[ConnDebug] ${event}`, payload);
+  }, []);
+
+  const setPhaseSafe = useCallback((next: ConnectionPhase) => {
+    if (CONNECTION_DEBUG && phaseRef.current !== next) {
+      console.log("[ConnDebug] phase", { from: phaseRef.current, to: next });
+    }
+    phaseRef.current = next;
+    setPhase(next);
+  }, []);
 
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
-
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
 
   useEffect(() => {
     hasConnectedOnceRef.current = hasConnectedOnce;
@@ -79,57 +108,114 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
   }, [clearInactivityTimer]);
 
   const connect = useCallback(
-    (kind: "initial" | "reconnect") => {
+    (kind: "initial" | "reconnect", reason: string) => {
       const currentToken = tokenRef.current;
+      const sequence = ++connectSequenceRef.current;
+      debugLog("connect.request", { sequence, kind, reason, hasToken: Boolean(currentToken) });
+
+      if (phaseRef.current === "connecting" || phaseRef.current === "reconnecting") {
+        debugLog("connect.skip", { sequence, why: "already-connecting" });
+        return;
+      }
+
+      if (connectInFlightRef.current) {
+        debugLog("connect.skip", { sequence, why: "connect-in-flight" });
+        return;
+      }
+
+      if (phaseRef.current === "connected" && kind === "reconnect") {
+        debugLog("connect.skip", { sequence, why: "already-connected" });
+        return;
+      }
 
       if (!currentToken) {
-        setPhase("idle");
+        debugLog("connect.skip", { sequence, why: "missing-token" });
+        setPhaseSafe("idle");
         return;
       }
 
       if (!isOnline()) {
-        setPhase("offline");
+        debugLog("connect.skip", { sequence, why: "offline" });
+        setPhaseSafe("offline");
         return;
       }
 
       if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-        setPhase("background");
+        debugLog("connect.skip", { sequence, why: "hidden" });
+        setPhaseSafe("background");
         return;
       }
 
       setLastError(null);
-      setPhase(kind === "initial" && !hasConnectedOnceRef.current ? "connecting" : "reconnecting");
+      setPhaseSafe(kind === "initial" && !hasConnectedOnceRef.current ? "connecting" : "reconnecting");
+      connectInFlightRef.current = true;
 
       try {
         initConnection(
           () => {
+            connectInFlightRef.current = false;
+            debugLog("connect.success", { sequence });
             retryAttemptRef.current = 0;
             inactiveRef.current = false;
             hasConnectedOnceRef.current = true;
             setHasConnectedOnce(true);
             setLastError(null);
-            setPhase("connected");
+            setPhaseSafe("connected");
             startInactivityTimer();
           },
           (err) => {
-            setLastError(err.message);
+            connectInFlightRef.current = false;
+            debugLog("connect.error-callback", { sequence, message: err.message });
 
-            if (!hasConnectedOnceRef.current && kind === "initial") {
-              setPhase("error");
+            const hidden =
+              typeof document !== "undefined" && document.visibilityState === "hidden";
+            const inBackgroundPhase = phaseRef.current === "background";
+            if ((hidden || inBackgroundPhase) && isTransientVisibilityError(err.message)) {
+              debugLog("connect.error-transient", {
+                sequence,
+                message: err.message,
+                hidden,
+                inBackgroundPhase,
+              });
+              setPhaseSafe("background");
               return;
             }
 
-            setPhase(isOnline() ? "reconnecting" : "offline");
+            setLastError(err.message);
+
+            if (!hasConnectedOnceRef.current && kind === "initial") {
+              setPhaseSafe("error");
+              return;
+            }
+
+            setPhaseSafe(isOnline() ? "reconnecting" : "offline");
           },
           currentToken,
         );
       } catch (err) {
+        connectInFlightRef.current = false;
         const message = err instanceof Error ? err.message : String(err);
+        debugLog("connect.error-throw", { sequence, message });
+
+        const hidden =
+          typeof document !== "undefined" && document.visibilityState === "hidden";
+        const inBackgroundPhase = phaseRef.current === "background";
+        if ((hidden || inBackgroundPhase) && isTransientVisibilityError(message)) {
+          debugLog("connect.throw-transient", {
+            sequence,
+            message,
+            hidden,
+            inBackgroundPhase,
+          });
+          setPhaseSafe("background");
+          return;
+        }
+
         setLastError(message);
-        setPhase(hasConnectedOnceRef.current ? "reconnecting" : "error");
+        setPhaseSafe(hasConnectedOnceRef.current ? "reconnecting" : "error");
       }
     },
-    [startInactivityTimer],
+    [debugLog, setPhaseSafe, startInactivityTimer],
   );
 
   const scheduleReconnect = useCallback(() => {
@@ -137,18 +223,21 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
     if (!tokenRef.current) return;
     if (!isOnline()) return;
     if (inactiveRef.current) return;
+    if (connectInFlightRef.current) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const delay = Math.min(RETRY_BASE_MS * 2 ** retryAttemptRef.current, RETRY_MAX_MS);
     retryAttemptRef.current += 1;
+    debugLog("reconnect.scheduled", { delayMs: delay, attempt: retryAttemptRef.current });
 
     retryTimerRef.current = setTimeout(() => {
-      connect("reconnect");
+      connect("reconnect", "scheduled-retry");
     }, delay);
-  }, [clearRetryTimer, connect]);
+  }, [clearRetryTimer, connect, debugLog]);
 
   useEffect(() => {
     if (!token) {
+      sessionStartedRef.current = false;
       clearRetryTimer();
       clearInactivityTimer();
       retryAttemptRef.current = 0;
@@ -156,13 +245,20 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
       hasConnectedOnceRef.current = false;
       setHasConnectedOnce(false);
       setLastError(null);
-      setPhase("idle");
+      setPhaseSafe("idle");
+      debugLog("session.reset");
       disconnectConnection();
       return;
     }
 
-    connect("initial");
-  }, [token, clearInactivityTimer, clearRetryTimer, connect]);
+    if (sessionStartedRef.current) {
+      debugLog("session.skip-initial", { why: "already-started" });
+      return;
+    }
+
+    sessionStartedRef.current = true;
+    connect("initial", "session-start");
+  }, [token, clearInactivityTimer, clearRetryTimer, connect, debugLog, setPhaseSafe]);
 
   useEffect(() => {
     return () => {
@@ -192,42 +288,60 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
       if (!token) return;
       if (inactiveRef.current) return;
       if (phaseRef.current === "connected" || phaseRef.current === "connecting") return;
-      connect("reconnect");
+      debugLog("event.online");
+      connect("reconnect", "network-online");
     };
 
     const onOffline = () => {
+      debugLog("event.offline");
       disconnectConnection();
-      setPhase("offline");
+      setPhaseSafe("offline");
     };
 
     const onVisibilityChange = () => {
       if (!token) return;
+      debugLog("event.visibility", { state: document.visibilityState });
 
       if (document.visibilityState === "hidden") {
-        setPhase("background");
+        connectInFlightRef.current = false;
+        disconnectConnection();
+        setPhaseSafe("background");
         clearRetryTimer();
         clearInactivityTimer();
         return;
       }
 
       if (inactiveRef.current) return;
+      if (phaseRef.current === "background" && isConnectionReady()) {
+        debugLog("event.visibility-resume-active");
+        setPhaseSafe("connected");
+        startInactivityTimer();
+        return;
+      }
+      if (phaseRef.current === "background" && connectInFlightRef.current) {
+        debugLog("event.visibility-pending-connect");
+        setPhaseSafe(hasConnectedOnceRef.current ? "reconnecting" : "connecting");
+        return;
+      }
       if (phaseRef.current === "connected" || phaseRef.current === "connecting") {
         startInactivityTimer();
         return;
       }
-      connect("reconnect");
+      connect("reconnect", "visibility-visible");
     };
 
     const onPageHide = () => {
+      debugLog("event.pagehide");
       disconnectConnection();
-      setPhase("background");
+      setPhaseSafe("background");
     };
 
     const onActivity = () => {
       if (!token) return;
       if (inactiveRef.current) {
         inactiveRef.current = false;
-        connect("reconnect");
+        debugLog("event.activity-reconnect");
+        connect("reconnect", "activity-after-inactive");
         return;
       }
 
@@ -264,12 +378,13 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
         window.removeEventListener(evt, onActivity);
       }
     };
-  }, [clearInactivityTimer, clearRetryTimer, connect, startInactivityTimer, token]);
+  }, [clearInactivityTimer, clearRetryTimer, connect, debugLog, setPhaseSafe, startInactivityTimer, token]);
 
   const retryNow = useCallback(() => {
     inactiveRef.current = false;
     retryAttemptRef.current = 0;
-    connect("reconnect");
+    debugLog("retry.manual");
+    connect("reconnect", "manual-retry");
   }, [connect]);
 
   return useMemo(

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Timestamp } from "spacetimedb";
-import { getConnection } from "../spacetime/connection";
+import { useLiveTable } from "./useLiveTable";
 
 export interface ReactionRow {
   id: bigint;
@@ -24,45 +24,28 @@ interface ReactionTable {
 export function useReactions() {
   const [reactions, setReactions] = useState<ReactionRow[]>([]);
 
-  useEffect(() => {
-    let disposed = false;
-    let table: ReactionTable | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  const getTable = useCallback((conn: ReturnType<typeof import("../spacetime/connection").getConnection>) => conn.db.reaction as ReactionTable, []);
 
-    const onInsert: InsertCb = (_ctx, row) =>
-      setReactions((prev) => [...prev, row]);
-
-    const onDelete: DeleteCb = (_ctx, row) =>
-      setReactions((prev) => prev.filter((r) => r.id !== row.id));
-
-    const attach = () => {
-      if (disposed) return;
-
-      let conn;
-      try {
-        conn = getConnection();
-      } catch {
-        retryTimer = setTimeout(attach, 250);
-        return;
-      }
-
-      table = conn.db.reaction as ReactionTable;
-      setReactions([...table]);
-      table.onInsert(onInsert);
-      table.onDelete(onDelete);
-    };
-
-    attach();
-
-    return () => {
-      disposed = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      table?.removeOnInsert(onInsert);
-      table?.removeOnDelete(onDelete);
-    };
+  const onInitialRows = useCallback((rows: ReactionRow[]) => {
+    setReactions(rows);
   }, []);
+
+  const onInsert: InsertCb = useCallback(
+    (_ctx, row) => setReactions((prev) => [...prev, row]),
+    [],
+  );
+
+  const onDelete: DeleteCb = useCallback(
+    (_ctx, row) => setReactions((prev) => prev.filter((r) => r.id !== row.id)),
+    [],
+  );
+
+  useLiveTable<ReactionRow, ReactionTable>({
+    getTable,
+    onInitialRows,
+    onInsert,
+    onDelete,
+  });
 
   function reactionsFor(logId: bigint) {
     return reactions.filter((r) => r.logId === logId);

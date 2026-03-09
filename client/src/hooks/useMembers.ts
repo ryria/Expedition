@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Timestamp } from "spacetimedb";
-import { getConnection } from "../spacetime/connection";
+import { useLiveTable } from "./useLiveTable";
 
 export interface MemberRow {
   id: bigint;
@@ -27,57 +27,39 @@ interface MemberTable {
 export function useMembers() {
   const [members, setMembers] = useState<MemberRow[]>([]);
 
-  useEffect(() => {
-    let disposed = false;
-    let table: MemberTable | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  const getTable = useCallback((conn: ReturnType<typeof import("../spacetime/connection").getConnection>) => conn.db.member as MemberTable, []);
 
-    const onInsert: InsertCb = (_ctx, row) =>
-      setMembers((prev) => [...prev, row].sort((a, b) => Number(a.id - b.id)));
+  const onInitialRows = useCallback((rows: MemberRow[]) => {
+    setMembers(rows.sort((a, b) => Number(a.id - b.id)));
+  }, []);
 
-    const onUpdate: UpdateCb = (_ctx, oldRow, newRow) =>
+  const onInsert: InsertCb = useCallback(
+    (_ctx, row) => setMembers((prev) => [...prev, row].sort((a, b) => Number(a.id - b.id))),
+    [],
+  );
+
+  const onUpdate: UpdateCb = useCallback(
+    (_ctx, oldRow, newRow) =>
       setMembers((prev) =>
         prev
           .map((m) => (m.id === oldRow.id ? newRow : m))
           .sort((a, b) => Number(a.id - b.id))
-      );
+      ),
+    [],
+  );
 
-    const onDelete: DeleteCb = (_ctx, row) =>
-      setMembers((prev) => prev.filter((m) => m.id !== row.id));
+  const onDelete: DeleteCb = useCallback(
+    (_ctx, row) => setMembers((prev) => prev.filter((m) => m.id !== row.id)),
+    [],
+  );
 
-    const attach = () => {
-      if (disposed) return;
-
-      let conn;
-      try {
-        conn = getConnection();
-      } catch {
-        retryTimer = setTimeout(attach, 250);
-        return;
-      }
-
-      table = conn.db.member as MemberTable;
-
-      const existing = [...table].sort((a, b) => Number(a.id - b.id));
-      setMembers(existing);
-
-      table.onInsert(onInsert);
-      table.onUpdate(onUpdate);
-      table.onDelete(onDelete);
-    };
-
-    attach();
-
-    return () => {
-      disposed = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      table?.removeOnInsert(onInsert);
-      table?.removeOnUpdate(onUpdate);
-      table?.removeOnDelete(onDelete);
-    };
-  }, []);
+  useLiveTable<MemberRow, MemberTable>({
+    getTable,
+    onInitialRows,
+    onInsert,
+    onUpdate,
+    onDelete,
+  });
 
   return { members };
 }

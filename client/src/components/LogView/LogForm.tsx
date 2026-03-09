@@ -4,7 +4,7 @@ import { useMembers } from "../../hooks/useMembers";
 import { getConnection, getProcedures } from "../../spacetime/connection";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
 
-type ActivityLogInsertRow = { id: bigint; personName: string };
+type ActivityLogInsertRow = { id: bigint; memberId: bigint };
 type ActivityInsertCb = (ctx: unknown, row: ActivityLogInsertRow) => void;
 
 interface ActivityLogInsertTable {
@@ -15,21 +15,21 @@ interface ActivityLogInsertTable {
 export function LogForm() {
   const auth = useAuth();
   const { members } = useMembers();
-  const [person, setPerson] = useState("");
+  const [personMemberId, setPersonMemberId] = useState("");
   const [actType, setActType] = useState<string>("run");
   const [dist, setDist] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // Track the person who just submitted so we can call AI coaching on their new entry
-  const pendingPerson = useRef<string | null>(null);
+  // Track the member who just submitted so we can call AI coaching on their new entry
+  const pendingMemberId = useRef<bigint | null>(null);
   const sub = auth.user?.profile?.sub as string | undefined;
 
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
   useEffect(() => {
     if (linkedMember) {
-      setPerson(linkedMember.name);
+      setPersonMemberId(String(linkedMember.id));
     }
   }, [linkedMember]);
 
@@ -40,8 +40,8 @@ export function LogForm() {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onInsert: ActivityInsertCb = (_ctx, row) => {
-      if (pendingPerson.current && row.personName === pendingPerson.current) {
-        pendingPerson.current = null;
+      if (pendingMemberId.current != null && row.memberId === pendingMemberId.current) {
+        pendingMemberId.current = null;
         try {
           getProcedures().requestAiCoaching({ logId: row.id });
         } catch (err) {
@@ -84,8 +84,13 @@ export function LogForm() {
       setError("Create your member profile first (Members tab)");
       return;
     }
-    if (!person) { setError("Select a person"); return; }
-    if (linkedMember && person !== linkedMember.name) {
+    if (!personMemberId) { setError("Select a person"); return; }
+    const selectedMember = members.find((m) => String(m.id) === personMemberId) ?? null;
+    if (!selectedMember) {
+      setError("Selected member not found");
+      return;
+    }
+    if (linkedMember && selectedMember.id !== linkedMember.id) {
       setError("You can only log activity for your linked member profile");
       return;
     }
@@ -95,12 +100,12 @@ export function LogForm() {
     setSubmitting(true);
     try {
       const conn = getConnection();
-      pendingPerson.current = person;
-      conn.reducers.logActivity({ personName: person, activityType: actType, distanceKm: km, note: note.trim() });
+      pendingMemberId.current = selectedMember.id;
+      conn.reducers.logActivity({ memberId: selectedMember.id, activityType: actType, distanceKm: km, note: note.trim() });
       setDist("");
       setNote("");
     } catch (err: unknown) {
-      pendingPerson.current = null;
+      pendingMemberId.current = null;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
@@ -109,10 +114,10 @@ export function LogForm() {
 
   return (
     <form onSubmit={handleSubmit} className="log-form">
-      <select value={person} onChange={(e) => setPerson(e.target.value)} required disabled={!!linkedMember}>
+      <select value={personMemberId} onChange={(e) => setPersonMemberId(e.target.value)} required disabled={!!linkedMember}>
         <option value="">Who are you?</option>
         {members.map((m) => (
-          <option key={String(m.id)} value={m.name}>{m.name}</option>
+          <option key={String(m.id)} value={String(m.id)}>{m.name}</option>
         ))}
       </select>
 

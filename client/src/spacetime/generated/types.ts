@@ -18,6 +18,7 @@ export const ActivityLog = __t.object("ActivityLog", {
   note: __t.string(),
   timestamp: __t.timestamp(),
   aiResponse: __t.string(),
+  memberId: __t.u64(),
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 

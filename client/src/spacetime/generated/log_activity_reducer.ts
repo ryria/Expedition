@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  personName: __t.string(),
+  memberId: __t.u64(),
   activityType: __t.string(),
   distanceKm: __t.f64(),
   note: __t.string(),

@@ -139,12 +139,13 @@ export interface TrailSegment {
 }
 
 type EntryInput = {
+  memberId: bigint;
   personName: string;
   distanceKm: number;
   activityType?: string;
   timestamp?: { toDate(): Date };
 };
-type MemberInput = { name: string; colorHex: string };
+type MemberInput = { id: bigint; name: string; colorHex: string };
 
 /**
  * asRan: segments follow chronological order of entries (shared odometer)
@@ -155,7 +156,8 @@ export function getTrailSegments(
   members: MemberInput[],
   mode: "asRan" | "contribution"
 ): TrailSegment[] {
-  const colorMap = new Map(members.map((m) => [m.name, m.colorHex]));
+  const colorMap = new Map(members.map((m) => [m.id, m.colorHex]));
+  const nameMap = new Map(members.map((m) => [m.id, m.name]));
 
   if (mode === "asRan") {
     const segs: TrailSegment[] = [];
@@ -165,10 +167,10 @@ export function getTrailSegments(
       const to = cursor + e.distanceKm;
       const date = e.timestamp == null ? undefined : "toDate" in e.timestamp ? e.timestamp.toDate() : e.timestamp;
       segs.push({
-        person: e.personName,
+        person: nameMap.get(e.memberId) ?? e.personName,
         fromKm: from,
         toKm: to,
-        color: colorMap.get(e.personName) ?? "#888",
+        color: colorMap.get(e.memberId) ?? "#888",
         activityType: e.activityType,
         date,
       });
@@ -177,15 +179,15 @@ export function getTrailSegments(
     return segs;
   }
 
-  const totals = new Map<string, number>();
+  const totals = new Map<bigint, number>();
   for (const e of entries) {
-    totals.set(e.personName, (totals.get(e.personName) ?? 0) + e.distanceKm);
+    totals.set(e.memberId, (totals.get(e.memberId) ?? 0) + e.distanceKm);
   }
 
   const segs: TrailSegment[] = [];
   let cursor = 0;
   for (const m of members) {
-    const km = totals.get(m.name) ?? 0;
+    const km = totals.get(m.id) ?? 0;
     if (km > 0) {
       segs.push({ person: m.name, fromKm: cursor, toKm: cursor + km, color: m.colorHex });
       cursor += km;

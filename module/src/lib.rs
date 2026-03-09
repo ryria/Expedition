@@ -1,6 +1,10 @@
+use serde::Deserialize;
 use spacetimedb::{ProcedureContext, ReducerContext, Table, Timestamp};
 
 const STDB_AUTH_ISSUER: &str = "https://auth.spacetimedb.com/oidc";
+const CONFIG_OWNER_SUB_KEY: &str = "_config_owner_sub";
+const DEFAULT_AI_COACHING_FALLBACK: &str =
+    "Keep it up! Every step counts toward the 14,500 km goal!";
 
 fn authenticated_subject(ctx: &ReducerContext) -> Result<String, String> {
     let jwt = ctx
@@ -38,6 +42,38 @@ pub struct Config {
 
 #[spacetimedb::reducer]
 pub fn set_config(ctx: &ReducerContext, key: String, value: String) {
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("set_config: {}", err);
+            return;
+        }
+    };
+
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        log::error!("set_config: key cannot be empty");
+        return;
+    }
+
+    if key == CONFIG_OWNER_SUB_KEY {
+        log::error!("set_config: key is reserved");
+        return;
+    }
+
+    let owner_key = CONFIG_OWNER_SUB_KEY.to_string();
+    if let Some(owner) = ctx.db.config().key().find(owner_key.clone()) {
+        if owner.value != owner_sub {
+            log::error!("set_config: only config owner may update configuration");
+            return;
+        }
+    } else {
+        ctx.db.config().insert(Config {
+            key: owner_key,
+            value: owner_sub,
+        });
+    }
+
     if ctx.db.config().key().find(key.clone()).is_some() {
         ctx.db.config().key().update(Config {
             key,
@@ -142,12 +178,14 @@ pub struct ActivityLog {
     pub note: String,         // empty string if none
     pub timestamp: Timestamp,
     pub ai_response: String,  // empty until request_ai_coaching patches it
+    #[default(0u64)]
+    pub member_id: u64,
 }
 
 #[spacetimedb::reducer]
 pub fn log_activity(
     ctx: &ReducerContext,
-    person_name: String,
+    member_id: u64,
     activity_type: String,
     distance_km: f64,
     note: String,
@@ -160,18 +198,12 @@ pub fn log_activity(
         }
     };
 
-    let person_name = person_name.trim().to_string();
-    if person_name.is_empty() {
-        log::error!("log_activity: person_name required");
-        return;
-    }
-
     let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
         log::error!("log_activity: profile not found for authenticated user");
         return;
     };
 
-    if me.name != person_name {
+    if me.id != member_id {
         log::error!("log_activity: you can only log activity for your own profile");
         return;
     }
@@ -187,7 +219,8 @@ pub fn log_activity(
     }
     ctx.db.activity_log().insert(ActivityLog {
         id: 0,
-        person_name,
+        member_id,
+        person_name: me.name,
         activity_type,
         distance_km,
         note: note.trim().to_string(),
@@ -214,18 +247,37 @@ pub fn add_reaction(
     ctx: &ReducerContext,
     log_id: u64,
     emoji: String,
-    reacted_by: String,
+    _reacted_by: String,
 ) {
-    let reacted_by = reacted_by.trim().to_string();
-    if reacted_by.is_empty() {
-        log::error!("add_reaction: reacted_by required");
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("add_reaction: {}", err);
+            return;
+        }
+    };
+
+    let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
+        log::error!("add_reaction: profile not found for authenticated user");
+        return;
+    };
+
+    if ctx.db.activity_log().id().find(log_id).is_none() {
+        log::error!("add_reaction: activity log not found");
         return;
     }
+
+    let emoji = emoji.trim().to_string();
+    if emoji.is_empty() {
+        log::error!("add_reaction: emoji required");
+        return;
+    }
+
     ctx.db.reaction().insert(Reaction {
         id: 0,
         log_id,
         emoji,
-        reacted_by,
+        reacted_by: me.name,
         timestamp: ctx.timestamp,
     });
 }
@@ -247,23 +299,37 @@ pub struct Comment {
 pub fn add_comment(
     ctx: &ReducerContext,
     log_id: u64,
-    author: String,
+    _author: String,
     body: String,
 ) {
-    let author = author.trim().to_string();
-    let body = body.trim().to_string();
-    if author.is_empty() {
-        log::error!("add_comment: author required");
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("add_comment: {}", err);
+            return;
+        }
+    };
+
+    let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
+        log::error!("add_comment: profile not found for authenticated user");
+        return;
+    };
+
+    if ctx.db.activity_log().id().find(log_id).is_none() {
+        log::error!("add_comment: activity log not found");
         return;
     }
+
+    let body = body.trim().to_string();
     if body.is_empty() {
         log::error!("add_comment: body cannot be empty");
         return;
     }
+
     ctx.db.comment().insert(Comment {
         id: 0,
         log_id,
-        author,
+        author: me.name,
         body,
         timestamp: ctx.timestamp,
     });
@@ -358,26 +424,31 @@ pub fn request_ai_coaching(ctx: &mut ProcedureContext, log_id: u64) {
 /// Extract the text content from a Claude API response body.
 /// Response shape: `{"content":[{"type":"text","text":"..."}],...}`
 fn extract_claude_text(body: &str) -> String {
-    if let Some(idx) = body.find("\"text\":\"") {
-        let after = &body[idx + 8..];
-        let mut result = String::new();
-        let mut chars = after.chars().peekable();
-        while let Some(c) = chars.next() {
-            match c {
-                '"' => break,
-                '\\' => match chars.next() {
-                    Some('n') => result.push('\n'),
-                    Some('t') => result.push('\t'),
-                    Some('"') => result.push('"'),
-                    Some('\\') => result.push('\\'),
-                    _ => {}
-                },
-                _ => result.push(c),
+    let parsed: Result<ClaudeApiResponse, serde_json::Error> = serde_json::from_str(body);
+    if let Ok(response) = parsed {
+        for block in response.content {
+            if block.kind == "text" {
+                let text = block.text.trim();
+                if !text.is_empty() {
+                    return text.to_string();
+                }
             }
         }
-        if !result.is_empty() {
-            return result;
-        }
     }
-    "Keep it up! Every step counts toward the 14,500 km goal!".to_string()
+
+    DEFAULT_AI_COACHING_FALLBACK.to_string()
+}
+
+#[derive(Deserialize)]
+struct ClaudeApiResponse {
+    #[serde(default)]
+    content: Vec<ClaudeApiContentBlock>,
+}
+
+#[derive(Deserialize)]
+struct ClaudeApiContentBlock {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    text: String,
 }

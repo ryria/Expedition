@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { MapJournalView } from "./components/MapView/MapJournalView";
 import { MembersPanel } from "./components/MembersPanel/MembersPanel";
 import { SettingsPanel } from "./components/SettingsPanel/SettingsPanel";
@@ -37,7 +37,6 @@ export default function App() {
   const [mapMode, setMapMode] = useState<MapMode>(loadInitialMapMode);
   const auth = useAuth();
   const { members } = useMembers();
-  const onboardingPrompted = useRef(false);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const isRegistered = members.some((m) => sub != null && m.ownerSub === sub);
@@ -52,18 +51,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
   }, [mapMode]);
-
-  useEffect(() => {
-    if (!isRegistered && !onboardingPrompted.current) {
-      onboardingPrompted.current = true;
-      setTab("settings");
-      return;
-    }
-
-    if (isRegistered) {
-      onboardingPrompted.current = false;
-    }
-  }, [isRegistered]);
 
   return (
     <div className="app">

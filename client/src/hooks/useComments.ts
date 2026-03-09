@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Timestamp } from "spacetimedb";
-import { getConnection } from "../spacetime/connection";
+import { useLiveTable } from "./useLiveTable";
 
 export interface CommentRow {
   id: bigint;
@@ -24,45 +24,28 @@ interface CommentTable {
 export function useComments() {
   const [comments, setComments] = useState<CommentRow[]>([]);
 
-  useEffect(() => {
-    let disposed = false;
-    let table: CommentTable | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  const getTable = useCallback((conn: ReturnType<typeof import("../spacetime/connection").getConnection>) => conn.db.comment as CommentTable, []);
 
-    const onInsert: InsertCb = (_ctx, row) =>
-      setComments((prev) => [...prev, row]);
-
-    const onDelete: DeleteCb = (_ctx, row) =>
-      setComments((prev) => prev.filter((c) => c.id !== row.id));
-
-    const attach = () => {
-      if (disposed) return;
-
-      let conn;
-      try {
-        conn = getConnection();
-      } catch {
-        retryTimer = setTimeout(attach, 250);
-        return;
-      }
-
-      table = conn.db.comment as CommentTable;
-      setComments([...table]);
-      table.onInsert(onInsert);
-      table.onDelete(onDelete);
-    };
-
-    attach();
-
-    return () => {
-      disposed = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      table?.removeOnInsert(onInsert);
-      table?.removeOnDelete(onDelete);
-    };
+  const onInitialRows = useCallback((rows: CommentRow[]) => {
+    setComments(rows);
   }, []);
+
+  const onInsert: InsertCb = useCallback(
+    (_ctx, row) => setComments((prev) => [...prev, row]),
+    [],
+  );
+
+  const onDelete: DeleteCb = useCallback(
+    (_ctx, row) => setComments((prev) => prev.filter((c) => c.id !== row.id)),
+    [],
+  );
+
+  useLiveTable<CommentRow, CommentTable>({
+    getTable,
+    onInitialRows,
+    onInsert,
+    onDelete,
+  });
 
   function commentsFor(logId: bigint) {
     return comments

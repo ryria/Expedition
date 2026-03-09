@@ -38,7 +38,7 @@ function onSigninCallback() {
 function MissingAuthConfig() {
   return (
     <pre style={{ color: "red", padding: "2rem", whiteSpace: "pre-wrap" }}>
-      Missing SpacetimeAuth client ID.
+      Missing authentication client ID.
       {"\n\n"}
       Add one of the following to your client env file:
       {"\n"}
@@ -55,12 +55,14 @@ function ConnectionIntermission({
   title,
   message,
   detail,
-  onRetry,
+  actionLabel,
+  onAction,
 }: {
   title: string;
   message: string;
   detail?: string;
-  onRetry?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <main
@@ -69,31 +71,63 @@ function ConnectionIntermission({
         display: "grid",
         placeItems: "center",
         padding: "1.5rem",
+        background:
+          "radial-gradient(circle at top, color-mix(in srgb, var(--accent) 10%, transparent), transparent 45%), var(--bg)",
       }}
     >
       <section
         style={{
           width: "100%",
-          maxWidth: "560px",
+          maxWidth: "580px",
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "1.25rem",
+          borderRadius: "14px",
+          padding: "1.4rem",
           display: "grid",
-          gap: "0.75rem",
+          gap: "0.85rem",
+          boxShadow: "0 10px 30px color-mix(in srgb, black 35%, transparent)",
         }}
       >
-        <h2 style={{ fontSize: "1.1rem" }}>{title}</h2>
-        <p style={{ color: "var(--text-muted)" }}>{message}</p>
+        <div
+          style={{
+            fontSize: "0.72rem",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--text-dim)",
+          }}
+        >
+          Session status
+        </div>
+        <h2 style={{ fontSize: "1.2rem", lineHeight: 1.3 }}>{title}</h2>
+        <p style={{ color: "var(--text-muted)", lineHeight: 1.45 }}>{message}</p>
         {detail ? (
-          <pre style={{ color: "var(--danger-text)", whiteSpace: "pre-wrap", margin: 0 }}>
+          <pre
+            style={{
+              color: "var(--danger-text)",
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              background: "color-mix(in srgb, var(--danger-border) 18%, transparent)",
+              border: "1px solid var(--danger-border)",
+              borderRadius: "10px",
+              padding: "0.7rem 0.75rem",
+              fontSize: "0.86rem",
+            }}
+          >
             {detail}
           </pre>
         ) : null}
-        {onRetry ? (
+        {onAction ? (
           <div>
-            <button type="button" onClick={onRetry}>
-              Retry now
+            <button
+              type="button"
+              onClick={onAction}
+              style={{
+                borderColor: "var(--accent-border)",
+                background: "var(--accent-bg)",
+                color: "var(--accent-text)",
+              }}
+            >
+              {actionLabel ?? "Continue"}
             </button>
           </div>
         ) : null}
@@ -110,15 +144,42 @@ function AuthenticatedApp() {
   );
 
   if (auth.isLoading) {
-    return <div style={{ padding: "2rem" }}>Loading authentication…</div>;
+    return (
+      <ConnectionIntermission
+        title="Preparing session"
+        message="Loading authentication…"
+      />
+    );
   }
 
   if (auth.error) {
-    return <pre style={{ color: "red", padding: "2rem" }}>Authentication failed:\n{auth.error.message}</pre>;
+    const authMessage = auth.error.message ?? "Authentication failed";
+    const needsReauth = authMessage.toLowerCase().includes("end-user authentication is required");
+
+    return (
+      <ConnectionIntermission
+        title={needsReauth ? "Authentication required" : "Authentication failed"}
+        message={needsReauth ? "Your login session expired. Sign in again to continue." : "Unable to complete sign-in right now."}
+        detail={authMessage}
+        actionLabel="Sign in again"
+        onAction={() => {
+          void auth.signinRedirect();
+        }}
+      />
+    );
   }
 
   if (!auth.isAuthenticated) {
-    return <div style={{ padding: "2rem" }}>Redirecting to login…</div>;
+    return (
+      <ConnectionIntermission
+        title="Sign in required"
+        message="Sign in to continue to Expedition."
+        actionLabel="Sign in"
+        onAction={() => {
+          void auth.signinRedirect();
+        }}
+      />
+    );
   }
 
   if (phase !== "connected") {
@@ -129,7 +190,7 @@ function AuthenticatedApp() {
       },
       connecting: {
         title: "Connecting",
-        message: "Connecting to SpacetimeDB…",
+        message: "Connecting to server…",
       },
       reconnecting: {
         title: "Reconnecting",
@@ -168,7 +229,8 @@ function AuthenticatedApp() {
         title={current.title}
         message={current.message}
         detail={phase === "error" ? lastError ?? "Unknown connection error" : undefined}
-        onRetry={current.retry ? retryNow : undefined}
+        actionLabel={current.retry ? "Retry now" : undefined}
+        onAction={current.retry ? retryNow : undefined}
       />
     );
   }

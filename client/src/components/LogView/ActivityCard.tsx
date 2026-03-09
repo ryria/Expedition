@@ -17,6 +17,7 @@ export function ActivityCard({ entry }: Props) {
   const { reactionsFor } = useReactions();
   const [actionError, setActionError] = useState("");
   const reactionList = reactionsFor(entry.id);
+  const displayName = members.find((m) => m.id === entry.memberId)?.name ?? entry.personName;
   const sub = auth.user?.profile?.sub as string | undefined;
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
@@ -40,7 +41,7 @@ export function ActivityCard({ entry }: Props) {
         <span className="act-icon">
           {ACTIVITY_ICONS[entry.activityType as keyof typeof ACTIVITY_ICONS] ?? "🏅"}
         </span>
-        <strong>{entry.personName}</strong>
+        <strong>{displayName}</strong>
         <span className="km">{entry.distanceKm.toFixed(1)} km</span>
         <span className="ts">{entry.timestamp.toDate().toLocaleString()}</span>
       </div>

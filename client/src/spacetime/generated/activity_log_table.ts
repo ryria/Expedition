@@ -18,4 +18,5 @@ export default __t.row({
   note: __t.string(),
   timestamp: __t.timestamp(),
   aiResponse: __t.string().name("ai_response"),
+  memberId: __t.u64().name("member_id"),
 });

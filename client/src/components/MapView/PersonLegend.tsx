@@ -8,7 +8,7 @@ export function PersonLegend() {
     <div className="person-legend">
       {members.map((m) => {
         const km = entries
-          .filter((e) => e.personName === m.name)
+          .filter((e) => e.memberId === m.id)
           .reduce((s, e) => s + e.distanceKm, 0);
         return (
           <div key={String(m.id)} className="legend-row">

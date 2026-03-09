@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Timestamp } from "spacetimedb";
-import { getConnection } from "../spacetime/connection";
+import { useLiveTable } from "./useLiveTable";
 
 export interface ActivityEntry {
   id: bigint;
+  memberId: bigint;
   personName: string;
   activityType: string;
   distanceKm: number;
@@ -29,59 +30,43 @@ interface ActivityLogTable {
 export function useActivityLog() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
 
-  useEffect(() => {
-    let disposed = false;
-    let table: ActivityLogTable | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  const getTable = useCallback((conn: ReturnType<typeof import("../spacetime/connection").getConnection>) => conn.db.activity_log as ActivityLogTable, []);
 
-    const onInsert: InsertCb = (_ctx, row) =>
+  const onInitialRows = useCallback((rows: ActivityEntry[]) => {
+    setEntries(
+      rows.sort(
+        (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
+      )
+    );
+  }, []);
+
+  const onInsert: InsertCb = useCallback(
+    (_ctx, row) =>
       setEntries((prev) =>
         [row, ...prev].sort(
           (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
         )
-      );
+      ),
+    [],
+  );
 
-    const onUpdate: UpdateCb = (_ctx, oldRow, newRow) =>
-      setEntries((prev) => prev.map((e) => (e.id === oldRow.id ? newRow : e)));
+  const onUpdate: UpdateCb = useCallback(
+    (_ctx, oldRow, newRow) => setEntries((prev) => prev.map((e) => (e.id === oldRow.id ? newRow : e))),
+    [],
+  );
 
-    const onDelete: DeleteCb = (_ctx, row) =>
-      setEntries((prev) => prev.filter((e) => e.id !== row.id));
+  const onDelete: DeleteCb = useCallback(
+    (_ctx, row) => setEntries((prev) => prev.filter((e) => e.id !== row.id)),
+    [],
+  );
 
-    const attach = () => {
-      if (disposed) return;
-
-      let conn;
-      try {
-        conn = getConnection();
-      } catch {
-        retryTimer = setTimeout(attach, 250);
-        return;
-      }
-
-      table = conn.db.activity_log as ActivityLogTable;
-
-      const existing = [...table].sort(
-        (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
-      );
-      setEntries(existing);
-
-      table.onInsert(onInsert);
-      table.onUpdate(onUpdate);
-      table.onDelete(onDelete);
-    };
-
-    attach();
-
-    return () => {
-      disposed = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      table?.removeOnInsert(onInsert);
-      table?.removeOnUpdate(onUpdate);
-      table?.removeOnDelete(onDelete);
-    };
-  }, []);
+  useLiveTable<ActivityEntry, ActivityLogTable>({
+    getTable,
+    onInitialRows,
+    onInsert,
+    onUpdate,
+    onDelete,
+  });
 
   return { entries };
 }

@@ -14,6 +14,7 @@ let _conn: DbConnection | null = null;
 let _pendingConn: DbConnection | null = null;
 let _connectAttempt = 0;
 let _connectTimeout: ReturnType<typeof setTimeout> | null = null;
+let _isReady = false;
 
 function validateStdbUri(uri: string): string {
   const trimmed = uri.trim();
@@ -61,8 +62,13 @@ function isTransientBackgroundError(err: Error): boolean {
   return (
     err.message === "WebSocket connection interrupted by browser lifecycle event." ||
     err.message === "[object Event]" ||
-    err.message.includes("WebSocket is closed before the connection is established")
+    err.message.includes("WebSocket is closed before the connection is established") ||
+    err.message.includes("connection timed out")
   );
+}
+
+function shouldIgnoreTransientError(err: Error, hadPendingConnection: boolean): boolean {
+  return isTransientBackgroundError(err) && (isDocumentHidden() || !hadPendingConnection);
 }
 
 export function getConnection(): DbConnection {
@@ -74,6 +80,14 @@ export function getProcedures(): ExpeditionProcedures {
   return getConnection().procedures as ExpeditionProcedures;
 }
 
+export function isConnectionActive(): boolean {
+  return _conn != null || _pendingConn != null;
+}
+
+export function isConnectionReady(): boolean {
+  return _isReady;
+}
+
 function clearConnectTimeout() {
   if (_connectTimeout) {
     clearTimeout(_connectTimeout);
@@ -83,6 +97,7 @@ function clearConnectTimeout() {
 
 export function disconnectConnection() {
   clearConnectTimeout();
+  _isReady = false;
   (_pendingConn as { disconnect?: () => void } | null)?.disconnect?.();
   _pendingConn = null;
   (_conn as { disconnect?: () => void } | null)?.disconnect?.();
@@ -96,6 +111,7 @@ export function initConnection(
 ): DbConnection {
   const attempt = ++_connectAttempt;
   disconnectConnection();
+  _isReady = false;
 
   let stdbUri = "";
   try {
@@ -134,12 +150,14 @@ export function initConnection(
 
       _conn = ctx;
       _pendingConn = ctx;
+      _isReady = false;
 
       const sub: SubscriptionHandle = ctx
         .subscriptionBuilder()
         .onApplied(() => {
           if (attempt !== _connectAttempt) return;
           clearConnectTimeout();
+          _isReady = true;
           console.log("[SpacetimeDB] connected and subscribed");
           onConnected(ctx);
         })
@@ -147,6 +165,9 @@ export function initConnection(
           if (attempt !== _connectAttempt) return;
           const err = ctx.event instanceof Error ? ctx.event : new Error("SpacetimeDB subscription failed");
           const normalized = normalizeConnectError(err);
+          if (shouldIgnoreTransientError(normalized, _pendingConn != null || _conn != null)) {
+            return;
+          }
           console.error("[SpacetimeDB] subscription failed:", normalized);
           fail(normalized);
         })
@@ -160,13 +181,15 @@ export function initConnection(
     })
     .onDisconnect((_ctx, err) => {
       if (attempt !== _connectAttempt) return;
+      const hadPendingConnection = _pendingConn != null || _conn != null;
       _conn = null;
       _pendingConn = null;
+      _isReady = false;
       clearConnectTimeout();
 
       if (err) {
         const normalized = normalizeConnectError(err);
-        if (isDocumentHidden() && isTransientBackgroundError(normalized)) {
+        if (shouldIgnoreTransientError(normalized, hadPendingConnection)) {
           return;
         }
         console.error("[SpacetimeDB] disconnected with error:", normalized);
@@ -176,7 +199,7 @@ export function initConnection(
     .onConnectError((_ctx, err) => {
       if (attempt !== _connectAttempt) return;
       const normalized = normalizeConnectError(err);
-      if (isDocumentHidden() && isTransientBackgroundError(normalized)) {
+      if (shouldIgnoreTransientError(normalized, _pendingConn != null || _conn != null)) {
         return;
       }
       console.error("[SpacetimeDB] connection failed:", normalized);

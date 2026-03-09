@@ -24,12 +24,12 @@ describe("interpolatePosition", () => {
 describe("getTrailSegments — As Ran", () => {
   it("produces one segment per entry", () => {
     const entries = [
-      { personName: "Rob", distanceKm: 10 },
-      { personName: "Sam", distanceKm: 5 },
+      { memberId: 1n, personName: "Rob", distanceKm: 10 },
+      { memberId: 2n, personName: "Sam", distanceKm: 5 },
     ];
     const members = [
-      { name: "Rob", colorHex: "#8b2020" },
-      { name: "Sam", colorHex: "#1a5c3a" },
+      { id: 1n, name: "Rob", colorHex: "#8b2020" },
+      { id: 2n, name: "Sam", colorHex: "#1a5c3a" },
     ];
     const segs = getTrailSegments(entries, members, "asRan");
     expect(segs).toHaveLength(2);
@@ -41,13 +41,13 @@ describe("getTrailSegments — As Ran", () => {
 describe("getTrailSegments — Contribution", () => {
   it("stacks per-person totals", () => {
     const entries = [
-      { personName: "Rob", distanceKm: 10 },
-      { personName: "Sam", distanceKm: 5 },
-      { personName: "Rob", distanceKm: 5 },
+      { memberId: 1n, personName: "Rob", distanceKm: 10 },
+      { memberId: 2n, personName: "Sam", distanceKm: 5 },
+      { memberId: 1n, personName: "Rob", distanceKm: 5 },
     ];
     const members = [
-      { name: "Rob", colorHex: "#8b2020" },
-      { name: "Sam", colorHex: "#1a5c3a" },
+      { id: 1n, name: "Rob", colorHex: "#8b2020" },
+      { id: 2n, name: "Sam", colorHex: "#1a5c3a" },
     ];
     const segs = getTrailSegments(entries, members, "contribution");
     expect(segs).toHaveLength(2);
