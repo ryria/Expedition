@@ -6,8 +6,20 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
+import * as LinkStravaAccountProcedure from "../link_strava_account_procedure";
 import * as RequestAiCoachingProcedure from "../request_ai_coaching_procedure";
+import * as SetMyStravaTokensProcedure from "../set_my_strava_tokens_procedure";
+import * as SyncAllStravaActivitiesProcedure from "../sync_all_strava_activities_procedure";
+import * as SyncMyStravaActivitiesProcedure from "../sync_my_strava_activities_procedure";
 
+export type LinkStravaAccountArgs = __Infer<typeof LinkStravaAccountProcedure.params>;
+export type LinkStravaAccountResult = __Infer<typeof LinkStravaAccountProcedure.returnType>;
 export type RequestAiCoachingArgs = __Infer<typeof RequestAiCoachingProcedure.params>;
 export type RequestAiCoachingResult = __Infer<typeof RequestAiCoachingProcedure.returnType>;
+export type SetMyStravaTokensArgs = __Infer<typeof SetMyStravaTokensProcedure.params>;
+export type SetMyStravaTokensResult = __Infer<typeof SetMyStravaTokensProcedure.returnType>;
+export type SyncAllStravaActivitiesArgs = __Infer<typeof SyncAllStravaActivitiesProcedure.params>;
+export type SyncAllStravaActivitiesResult = __Infer<typeof SyncAllStravaActivitiesProcedure.returnType>;
+export type SyncMyStravaActivitiesArgs = __Infer<typeof SyncMyStravaActivitiesProcedure.params>;
+export type SyncMyStravaActivitiesResult = __Infer<typeof SyncMyStravaActivitiesProcedure.returnType>;
 

@@ -38,6 +38,11 @@ function isTransientVisibilityError(message: string): boolean {
   );
 }
 
+function describeToken(token?: string): string {
+  if (!token) return "missing";
+  return `present(len=${token.length})`;
+}
+
 export function useConnectionHandler(token?: string): ConnectionHandlerState {
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
   const [lastError, setLastError] = useState<string | null>(null);
@@ -49,6 +54,7 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
   const inactiveRef = useRef(false);
   const hasConnectedOnceRef = useRef(false);
   const tokenRef = useRef<string | undefined>(token);
+  const tokenStateRef = useRef<string>(describeToken(token));
   const phaseRef = useRef<ConnectionPhase>("idle");
   const sessionStartedRef = useRef(false);
   const connectSequenceRef = useRef(0);
@@ -73,8 +79,16 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
   }, []);
 
   useEffect(() => {
+    const nextTokenState = describeToken(token);
+    if (tokenStateRef.current !== nextTokenState) {
+      debugLog("token.state-change", {
+        from: tokenStateRef.current,
+        to: nextTokenState,
+      });
+      tokenStateRef.current = nextTokenState;
+    }
     tokenRef.current = token;
-  }, [token]);
+  }, [debugLog, token]);
 
   useEffect(() => {
     hasConnectedOnceRef.current = hasConnectedOnce;
@@ -237,6 +251,9 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
 
   useEffect(() => {
     if (!token) {
+      debugLog("session.reset", {
+        reason: "token-missing",
+      });
       sessionStartedRef.current = false;
       clearRetryTimer();
       clearInactivityTimer();
@@ -246,7 +263,6 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
       setHasConnectedOnce(false);
       setLastError(null);
       setPhaseSafe("idle");
-      debugLog("session.reset");
       disconnectConnection();
       return;
     }
@@ -257,6 +273,9 @@ export function useConnectionHandler(token?: string): ConnectionHandlerState {
     }
 
     sessionStartedRef.current = true;
+    debugLog("session.start", {
+      token: tokenStateRef.current,
+    });
     connect("initial", "session-start");
   }, [token, clearInactivityTimer, clearRetryTimer, connect, debugLog, setPhaseSafe]);
 

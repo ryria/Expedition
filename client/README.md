@@ -14,6 +14,7 @@ Create `client/.env.local` with:
 ```env
 VITE_STDB_URI=wss://maincloud.spacetimedb.com
 VITE_STDB_AUTH_CLIENT_ID=your_spacetime_auth_client_id
+VITE_STRAVA_CLIENT_ID=your_strava_client_id
 ```
 
 ## Scripts

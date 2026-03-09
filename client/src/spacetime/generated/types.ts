@@ -22,6 +22,13 @@ export const ActivityLog = __t.object("ActivityLog", {
 });
 export type ActivityLog = __Infer<typeof ActivityLog>;
 
+export const AuthBinding = __t.object("AuthBinding", {
+  senderIdentity: __t.string(),
+  ownerSub: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type AuthBinding = __Infer<typeof AuthBinding>;
+
 export const Comment = __t.object("Comment", {
   id: __t.u64(),
   logId: __t.u64(),
@@ -36,6 +43,13 @@ export const Config = __t.object("Config", {
   value: __t.string(),
 });
 export type Config = __Infer<typeof Config>;
+
+export const ImportedStravaActivity = __t.object("ImportedStravaActivity", {
+  stravaActivityId: __t.u64(),
+  ownerSub: __t.string(),
+  importedAt: __t.timestamp(),
+});
+export type ImportedStravaActivity = __Infer<typeof ImportedStravaActivity>;
 
 export const Member = __t.object("Member", {
   id: __t.u64(),
@@ -54,4 +68,29 @@ export const Reaction = __t.object("Reaction", {
   timestamp: __t.timestamp(),
 });
 export type Reaction = __Infer<typeof Reaction>;
+
+export const StravaConnection = __t.object("StravaConnection", {
+  ownerSub: __t.string(),
+  memberId: __t.u64(),
+  athleteId: __t.u64(),
+  accessToken: __t.string(),
+  refreshToken: __t.string(),
+  expiresAtEpoch: __t.i64(),
+  lastSyncedEpoch: __t.i64(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type StravaConnection = __Infer<typeof StravaConnection>;
+
+export const StravaRateLimitState = __t.object("StravaRateLimitState", {
+  key: __t.u8(),
+  window15MStartEpoch: __t.i64(),
+  overallCount15M: __t.u32(),
+  readCount15M: __t.u32(),
+  windowDayStartEpoch: __t.i64(),
+  overallCountDay: __t.u32(),
+  readCountDay: __t.u32(),
+  updatedAt: __t.timestamp(),
+});
+export type StravaRateLimitState = __Infer<typeof StravaRateLimitState>;
 

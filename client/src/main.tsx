@@ -20,6 +20,69 @@ const AUTH_CLIENT_ID = firstNonEmptyEnv(
 const APP_BASE = import.meta.env.BASE_URL ?? "/";
 const REDIRECT_URI = new URL("callback", window.location.origin + APP_BASE).toString();
 const POST_LOGOUT_REDIRECT_URI = new URL(APP_BASE, window.location.origin).toString();
+const STRICT_MODE_ENABLED =
+  (import.meta.env.VITE_REACT_STRICT_MODE as string | undefined)?.toLowerCase() !== "false";
+const STDB_TOKEN_STORAGE_KEY = "expedition.stdb.id_token";
+
+function readPersistedStdbToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const token = window.localStorage.getItem(STDB_TOKEN_STORAGE_KEY);
+    return token && token.trim() ? token : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function persistStdbToken(token: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STDB_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // no-op: storage can fail in privacy modes
+  }
+}
+
+function clearPersistedStdbToken() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STDB_TOKEN_STORAGE_KEY);
+  } catch {
+    // no-op: storage can fail in privacy modes
+  }
+}
+
+function isStravaCallbackPath(pathname: string): boolean {
+  return pathname.endsWith("/strava/callback") || pathname.endsWith("/strava/callback/");
+}
+
+function normalizeStravaCallbackParams() {
+  const current = new URL(window.location.href);
+  if (!isStravaCallbackPath(current.pathname)) return;
+
+  const hasRawStravaParams = current.searchParams.has("code") || current.searchParams.has("error");
+  if (!hasRawStravaParams) return;
+
+  const next = new URL(window.location.origin + APP_BASE);
+  if (current.searchParams.has("code")) {
+    next.searchParams.set("strava_code", current.searchParams.get("code") ?? "");
+  }
+  if (current.searchParams.has("state")) {
+    next.searchParams.set("strava_state", current.searchParams.get("state") ?? "");
+  }
+  if (current.searchParams.has("scope")) {
+    next.searchParams.set("strava_scope", current.searchParams.get("scope") ?? "");
+  }
+  if (current.searchParams.has("error")) {
+    next.searchParams.set("strava_error", current.searchParams.get("error") ?? "");
+  }
+
+  window.history.replaceState({}, document.title, next.toString());
+}
+
+normalizeStravaCallbackParams();
+
+const shouldSkipOidcSigninCallback = isStravaCallbackPath(window.location.pathname);
 
 const oidcConfig = {
   authority: "https://auth.spacetimedb.com/oidc",
@@ -29,6 +92,7 @@ const oidcConfig = {
   scope: "openid profile email",
   response_type: "code",
   automaticSilentRenew: true,
+  skipSigninCallback: shouldSkipOidcSigninCallback,
 };
 
 function onSigninCallback() {
@@ -55,15 +119,37 @@ function ConnectionIntermission({
   title,
   message,
   detail,
+  showActivity,
   actionLabel,
   onAction,
 }: {
   title: string;
   message: string;
   detail?: string;
+  showActivity?: boolean;
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
+  const [dotCount, setDotCount] = React.useState(1);
+
+  React.useEffect(() => {
+    setElapsedSeconds(0);
+    setDotCount(1);
+  }, [message, showActivity, title]);
+
+  React.useEffect(() => {
+    if (!showActivity) return;
+    const timer = window.setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+      setDotCount((prev) => (prev % 3) + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [showActivity]);
+
   return (
     <main
       style={{
@@ -100,6 +186,21 @@ function ConnectionIntermission({
         </div>
         <h2 style={{ fontSize: "1.2rem", lineHeight: 1.3 }}>{title}</h2>
         <p style={{ color: "var(--text-muted)", lineHeight: 1.45 }}>{message}</p>
+        {showActivity ? (
+          <div
+            aria-live="polite"
+            style={{
+              fontSize: "0.82rem",
+              color: "var(--text-dim)",
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+              padding: "0.55rem 0.7rem",
+              background: "color-mix(in srgb, var(--surface-raised) 82%, transparent)",
+            }}
+          >
+            Still working{".".repeat(dotCount)} {elapsedSeconds}s
+          </div>
+        ) : null}
         {detail ? (
           <pre
             style={{
@@ -139,8 +240,30 @@ function ConnectionIntermission({
 function AuthenticatedApp() {
   const auth = useAuth();
   useAutoSignin();
+  const [persistedToken, setPersistedToken] = React.useState<string | undefined>(() =>
+    readPersistedStdbToken(),
+  );
+
+  const liveToken = auth.user?.id_token;
+
+  React.useEffect(() => {
+    if (liveToken) {
+      persistStdbToken(liveToken);
+      setPersistedToken(liveToken);
+      return;
+    }
+
+    if (!auth.isAuthenticated && !auth.isLoading) {
+      clearPersistedStdbToken();
+      setPersistedToken(undefined);
+    }
+  }, [auth.isAuthenticated, auth.isLoading, liveToken]);
+
+  const isTransientAuthWindow = auth.isLoading || auth.activeNavigator === "signinSilent";
+  const connectionToken = liveToken ?? (isTransientAuthWindow ? persistedToken : undefined);
+
   const { phase, lastError, hasConnectedOnce, retryNow } = useConnectionHandler(
-    auth.isAuthenticated ? auth.user?.id_token : undefined,
+    connectionToken,
   );
 
   if (auth.isLoading) {
@@ -148,6 +271,7 @@ function AuthenticatedApp() {
       <ConnectionIntermission
         title="Preparing session"
         message="Loading authentication…"
+        showActivity
       />
     );
   }
@@ -228,6 +352,7 @@ function AuthenticatedApp() {
       <ConnectionIntermission
         title={current.title}
         message={current.message}
+        showActivity={phase === "idle" || phase === "connecting" || phase === "reconnecting"}
         detail={phase === "error" ? lastError ?? "Unknown connection error" : undefined}
         actionLabel={current.retry ? "Retry now" : undefined}
         onAction={current.retry ? retryNow : undefined}
@@ -238,14 +363,14 @@ function AuthenticatedApp() {
   return <App />;
 }
 
+const appRoot = AUTH_CLIENT_ID ? (
+  <AuthProvider {...oidcConfig} onSigninCallback={onSigninCallback}>
+    <AuthenticatedApp />
+  </AuthProvider>
+) : (
+  <MissingAuthConfig />
+);
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    {AUTH_CLIENT_ID ? (
-      <AuthProvider {...oidcConfig} onSigninCallback={onSigninCallback}>
-        <AuthenticatedApp />
-      </AuthProvider>
-    ) : (
-      <MissingAuthConfig />
-    )}
-  </React.StrictMode>
+  STRICT_MODE_ENABLED ? <React.StrictMode>{appRoot}</React.StrictMode> : appRoot,
 );

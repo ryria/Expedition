@@ -2,7 +2,10 @@ import { DbConnection } from "./generated";
 import type { SubscriptionHandle } from "./generated";
 
 export interface ExpeditionProcedures {
-  requestAiCoaching(args: { logId: bigint }): void;
+  requestAiCoaching(args: { logId: bigint }): Promise<unknown>;
+  linkStravaAccount?: (args: { code: string; redirectUri: string }) => Promise<unknown>;
+  syncMyStravaActivities?: (args?: Record<string, never>) => Promise<unknown>;
+  syncAllStravaActivities?: (args?: Record<string, never>) => Promise<unknown>;
 }
 
 // VITE_STDB_URI: WebSocket URI for SpacetimeDB Maincloud, e.g. "wss://maincloud.spacetimedb.com"
@@ -77,7 +80,7 @@ export function getConnection(): DbConnection {
 }
 
 export function getProcedures(): ExpeditionProcedures {
-  return getConnection().procedures as ExpeditionProcedures;
+  return getConnection().procedures as unknown as ExpeditionProcedures;
 }
 
 export function isConnectionActive(): boolean {

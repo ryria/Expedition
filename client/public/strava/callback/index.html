@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Linking Strava…</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var path = window.location.pathname;
+        var rootPath = path.replace(/\/strava\/callback\/?$/, "/");
+        var next = new URL(window.location.origin + rootPath);
+
+        if (params.has("code")) next.searchParams.set("strava_code", params.get("code"));
+        if (params.has("scope")) next.searchParams.set("strava_scope", params.get("scope"));
+        if (params.has("state")) next.searchParams.set("strava_state", params.get("state"));
+        if (params.has("error")) next.searchParams.set("strava_error", params.get("error"));
+
+        window.location.replace(next.toString());
+      })();
+    </script>
+  </body>
+</html>

@@ -8,6 +8,8 @@ export const DEFAULT_COLORS = [
 export const ACTIVITY_TYPES = ["run", "row", "walk", "cycle"] as const;
 export type ActivityType = typeof ACTIVITY_TYPES[number];
 
+export const STRAVA_CLIENT_ID = (import.meta.env.VITE_STRAVA_CLIENT_ID as string | undefined)?.trim() ?? "";
+
 export const ACTIVITY_ICONS: Record<ActivityType, string> = {
   run: "🏃",
   row: "🚣",

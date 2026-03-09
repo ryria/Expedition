@@ -75,7 +75,28 @@
   transition: background 0.15s;
 }
 
+.strava-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.strava-actions button {
+  padding: 0.4rem 0.9rem;
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
 .add-member button:hover {
+  background: var(--accent-bg-hover);
+}
+
+.strava-actions button:hover {
   background: var(--accent-bg-hover);
 }
 

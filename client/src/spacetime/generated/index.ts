@@ -37,12 +37,17 @@ import {
 import AddCommentReducer from "./add_comment_reducer";
 import AddMemberReducer from "./add_member_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
+import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
 import LogActivityReducer from "./log_activity_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import SetConfigReducer from "./set_config_reducer";
 
 // Import all procedure arg schemas
+import * as LinkStravaAccountProcedure from "./link_strava_account_procedure";
 import * as RequestAiCoachingProcedure from "./request_ai_coaching_procedure";
+import * as SetMyStravaTokensProcedure from "./set_my_strava_tokens_procedure";
+import * as SyncAllStravaActivitiesProcedure from "./sync_all_strava_activities_procedure";
+import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_procedure";
 
 // Import all table schema definitions
 import ActivityLogRow from "./activity_log_table";
@@ -113,6 +118,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_comment", AddCommentReducer),
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
+  __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
   __reducerSchema("log_activity", LogActivityReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("set_config", SetConfigReducer),
@@ -120,7 +126,11 @@ const reducersSchema = __reducers(
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
+  __procedureSchema("link_strava_account", LinkStravaAccountProcedure.params, LinkStravaAccountProcedure.returnType),
   __procedureSchema("request_ai_coaching", RequestAiCoachingProcedure.params, RequestAiCoachingProcedure.returnType),
+  __procedureSchema("set_my_strava_tokens", SetMyStravaTokensProcedure.params, SetMyStravaTokensProcedure.returnType),
+  __procedureSchema("sync_all_strava_activities", SyncAllStravaActivitiesProcedure.params, SyncAllStravaActivitiesProcedure.returnType),
+  __procedureSchema("sync_my_strava_activities", SyncMyStravaActivitiesProcedure.params, SyncMyStravaActivitiesProcedure.returnType),
 );
 
 /** The remote SpacetimeDB module schema, both runtime and type information. */
