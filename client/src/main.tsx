@@ -1,10 +1,19 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+import { initConnection } from "./spacetime/connection";
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+initConnection(
+  () => {
+    ReactDOM.createRoot(document.getElementById("root")!).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+  },
+  (err) => {
+    document.getElementById("root")!.innerHTML =
+      `<pre style="color:red;padding:2rem">SpacetimeDB connection failed:\n${err.message}</pre>`;
+  }
+);

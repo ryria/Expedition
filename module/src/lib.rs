@@ -14,7 +14,7 @@ pub fn identity_disconnected(_ctx: &ReducerContext) {}
 // ─── Config ───────────────────────────────────────────────────────────────────
 // Stores runtime configuration (e.g. Claude API key set via set_config reducer).
 
-#[spacetimedb::table(name = config)]
+#[spacetimedb::table(accessor = config)]
 pub struct Config {
     #[primary_key]
     pub key: String,
@@ -35,7 +35,7 @@ pub fn set_config(ctx: &ReducerContext, key: String, value: String) {
 
 // ─── Member ───────────────────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = member, public)]
+#[spacetimedb::table(accessor = member, public)]
 pub struct Member {
     #[primary_key]
     #[auto_inc]
@@ -72,7 +72,7 @@ pub fn remove_member(ctx: &ReducerContext, id: u64) {
 
 // ─── ActivityLog ──────────────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = activity_log, public)]
+#[spacetimedb::table(accessor = activity_log, public)]
 pub struct ActivityLog {
     #[primary_key]
     #[auto_inc]
@@ -120,7 +120,7 @@ pub fn log_activity(
 
 // ─── Reaction ─────────────────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = reaction, public)]
+#[spacetimedb::table(accessor = reaction, public)]
 pub struct Reaction {
     #[primary_key]
     #[auto_inc]
@@ -154,7 +154,7 @@ pub fn add_reaction(
 
 // ─── Comment ──────────────────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = comment, public)]
+#[spacetimedb::table(accessor = comment, public)]
 pub struct Comment {
     #[primary_key]
     #[auto_inc]
