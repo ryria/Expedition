@@ -164,3 +164,24 @@ export function getTrailSegments(
   }
   return segs;
 }
+
+// ─── SVG path helpers ─────────────────────────────────────────────────────────
+
+/** Build an SVG path `d` string for a segment from fromKm to toKm */
+export function buildSegmentPath(fromKm: number, toKm: number): string {
+  if (toKm <= fromKm) return "";
+
+  const from = interpolatePosition(fromKm);
+  const to = interpolatePosition(toKm);
+  const midWaypoints = WAYPOINTS.filter(([, , km]) => km > fromKm && km < toKm);
+
+  const pts: { x: number; y: number }[] = [
+    from,
+    ...midWaypoints.map(([x, y]) => ({ x, y })),
+    to,
+  ];
+
+  return pts
+    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(" ");
+}
