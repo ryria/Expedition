@@ -17,7 +17,7 @@ export function LogForm() {
   // Listen for new activity inserts; call AI coaching on the first match
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.activityLog;
+    const table = (conn as any).db.activity_log;
     const onInsert = (_ctx: unknown, row: { id: bigint; personName: string }) => {
       if (pendingPerson.current && row.personName === pendingPerson.current) {
         pendingPerson.current = null;
@@ -44,7 +44,7 @@ export function LogForm() {
     try {
       const conn = getConnection();
       pendingPerson.current = person;
-      conn.reducers.logActivity(person, actType, km, note.trim());
+      conn.reducers.logActivity({ personName: person, activityType: actType, distanceKm: km, note: note.trim() });
       setDist("");
       setNote("");
     } catch (err: unknown) {

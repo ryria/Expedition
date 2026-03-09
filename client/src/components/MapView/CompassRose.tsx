@@ -1,5 +1,5 @@
 export function CompassRose() {
-  const cx = 0, cy = 0, r = 45;
+  const r = 45;
   return (
     <g transform={`translate(75,640)`} opacity={0.7}>
       <circle r={r} fill="#e8d5a3" stroke="#2c1a0e" strokeWidth="1" />

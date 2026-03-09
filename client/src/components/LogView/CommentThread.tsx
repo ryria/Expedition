@@ -14,7 +14,7 @@ export function CommentThread({ logId }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!author.trim() || !body.trim()) return;
-    getConnection().reducers.addComment(logId, author.trim(), body.trim());
+    getConnection().reducers.addComment({ logId, author: author.trim(), body: body.trim() });
     setBody("");
   }
 

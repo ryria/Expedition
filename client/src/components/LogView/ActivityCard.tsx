@@ -15,7 +15,7 @@ export function ActivityCard({ entry }: Props) {
   function handleReact(emoji: string) {
     const name = window.prompt("Your name?");
     if (!name?.trim()) return;
-    getConnection().reducers.addReaction(entry.id, emoji, name.trim());
+    getConnection().reducers.addReaction({ logId: entry.id, emoji, reactedBy: name.trim() });
   }
 
   return (
