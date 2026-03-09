@@ -18,7 +18,7 @@ const AUTH_CLIENT_ID = firstNonEmptyEnv(
 );
 
 const APP_BASE = import.meta.env.BASE_URL ?? "/";
-const REDIRECT_URI = new URL("callback", window.location.origin + APP_BASE).toString();
+const REDIRECT_URI = new URL(APP_BASE, window.location.origin).toString();
 const POST_LOGOUT_REDIRECT_URI = new URL(APP_BASE, window.location.origin).toString();
 
 const oidcConfig = {
@@ -32,7 +32,7 @@ const oidcConfig = {
 };
 
 function onSigninCallback() {
-  window.history.replaceState({}, document.title, window.location.pathname);
+  window.history.replaceState({}, document.title, APP_BASE);
 }
 
 function MissingAuthConfig() {

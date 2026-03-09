@@ -69,7 +69,7 @@ export default function App() {
         {!isRegistered && (
           <p>Please complete onboarding in Settings (set your name and colour) to unlock Log and Stats.</p>
         )}
-        {tab === "expedition" && <MapJournalView />}
+        {tab === "expedition" && <MapJournalView theme={theme} />}
         {tab === "members" && <MembersPanel />}
         {tab === "settings" && <SettingsPanel theme={theme} onThemeChange={setTheme} />}
       </main>

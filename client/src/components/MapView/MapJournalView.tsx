@@ -12,8 +12,13 @@ import "../StatsView/StatsView.css";
 import "./MapJournalView.css";
 
 type DrawerTab = "today" | "journey" | "highlights";
+type Theme = "dark" | "light";
 
-export function MapJournalView() {
+interface MapJournalViewProps {
+  theme: Theme;
+}
+
+export function MapJournalView({ theme }: MapJournalViewProps) {
   const [tab, setTab] = useState<DrawerTab>("today");
   const [open, setOpen] = useState(true);
   const { entries } = useActivityLog();
@@ -23,7 +28,7 @@ export function MapJournalView() {
   return (
     <div className="map-journal-layout">
       <div className="map-hero">
-        <MapView />
+        <MapView theme={theme} />
       </div>
 
       <aside className={`journal-drawer ${open ? "open" : "collapsed"}`}>

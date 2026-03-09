@@ -9,8 +9,13 @@ import { useRoadRoute } from "../../hooks/useRoadRoute";
 import "./MapView.css";
 
 type ViewMode = "asRan" | "contribution";
+type Theme = "dark" | "light";
 
-export function MapView() {
+interface MapViewProps {
+  theme: Theme;
+}
+
+export function MapView({ theme }: MapViewProps) {
   const { entries } = useActivityLog();
   const { members } = useMembers();
   const { waypoints, routeTotalKm } = useRoadRoute();
@@ -29,7 +34,7 @@ export function MapView() {
         <span>{((totalKm / routeTotalKm) * 100).toFixed(1)}% complete</span>
         <span>{Math.max(routeTotalKm - totalKm, 0).toFixed(1)} km remaining</span>
       </div>
-      <MapLeaflet segments={segments} totalKm={totalKm} waypoints={waypoints} />
+      <MapLeaflet segments={segments} totalKm={totalKm} waypoints={waypoints} theme={theme} />
       <div className="map-controls">
         <ModeToggle mode={mode} onChange={setMode} />
         <PersonLegend />

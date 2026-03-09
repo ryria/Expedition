@@ -84,15 +84,6 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
     conn.reducers.addMember({ name: name.trim(), colorHex: color });
   }
 
-  function handleUnlinkAndRemove() {
-    if (!linkedMember) return;
-    setIsSaving(true);
-    getConnection().reducers.removeMember({ id: linkedMember.id });
-    setName(suggestedName);
-    setColor(DEFAULT_COLORS[0]);
-    setIsSaving(false);
-  }
-
   return (
     <div className="settings-panel">
       <h2>User Settings</h2>
@@ -136,11 +127,6 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
           <button onClick={handleSaveProfile} disabled={isSaving}>
             {isSaving ? "Saving…" : linkedMember ? "Save" : "Create"}
           </button>
-          {linkedMember && (
-            <button className="remove-btn" onClick={handleUnlinkAndRemove} disabled={isSaving}>
-              Remove profile
-            </button>
-          )}
         </div>
         <p>{linkedMember ? "This profile is linked to your sign-in." : "Create your linked member profile."}</p>
         {error && <p className="field-error">{error}</p>}
