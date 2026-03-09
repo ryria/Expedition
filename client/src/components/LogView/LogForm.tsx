@@ -1,0 +1,94 @@
+import { useEffect, useRef, useState } from "react";
+import { useMembers } from "../../hooks/useMembers";
+import { getConnection } from "../../spacetime/connection";
+import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
+
+export function LogForm() {
+  const { members } = useMembers();
+  const [person, setPerson] = useState("");
+  const [actType, setActType] = useState<string>("run");
+  const [dist, setDist] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  // Track the person who just submitted so we can call AI coaching on their new entry
+  const pendingPerson = useRef<string | null>(null);
+
+  // Listen for new activity inserts; call AI coaching on the first match
+  useEffect(() => {
+    const conn = getConnection();
+    const table = (conn as any).db.activityLog;
+    const onInsert = (_ctx: unknown, row: { id: bigint; personName: string }) => {
+      if (pendingPerson.current && row.personName === pendingPerson.current) {
+        pendingPerson.current = null;
+        try {
+          (conn as any).procedures.requestAiCoaching({ logId: row.id });
+        } catch {
+          // Procedure call is best-effort; silently ignore errors
+        }
+      }
+    };
+    table.onInsert(onInsert);
+    return () => table.removeOnInsert(onInsert);
+  }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const km = parseFloat(dist);
+    if (!person) { setError("Select a person"); return; }
+    if (!dist || isNaN(km) || km <= 0 || km > 500) {
+      setError("Distance must be 0–500 km"); return;
+    }
+    setSubmitting(true);
+    try {
+      const conn = getConnection();
+      pendingPerson.current = person;
+      conn.reducers.logActivity(person, actType, km, note.trim());
+      setDist("");
+      setNote("");
+    } catch (err: unknown) {
+      setError(String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="log-form">
+      <select value={person} onChange={(e) => setPerson(e.target.value)} required>
+        <option value="">Who are you?</option>
+        {members.map((m) => (
+          <option key={String(m.id)} value={m.name}>{m.name}</option>
+        ))}
+      </select>
+
+      <div className="act-type-row">
+        {ACTIVITY_TYPES.map((t) => (
+          <button
+            key={t} type="button"
+            className={`act-btn ${actType === t ? "active" : ""}`}
+            onClick={() => setActType(t)}
+          >
+            {ACTIVITY_ICONS[t]} {t}
+          </button>
+        ))}
+      </div>
+
+      <input
+        type="number" value={dist} onChange={(e) => setDist(e.target.value)}
+        placeholder="Distance (km)" min="0.1" max="500" step="0.1" required
+      />
+
+      <textarea
+        value={note} onChange={(e) => setNote(e.target.value)}
+        placeholder="Note (optional)" rows={2} maxLength={300}
+      />
+
+      {error && <p className="field-error">{error}</p>}
+      <button type="submit" disabled={submitting}>
+        {submitting ? "Logging…" : "Log it"}
+      </button>
+    </form>
+  );
+}

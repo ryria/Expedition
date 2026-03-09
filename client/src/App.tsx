@@ -1,5 +1,5 @@
-import { MembersPanel } from "./components/MembersPanel/MembersPanel";
+import { LogView } from "./components/LogView/LogView";
 
 export default function App() {
-  return <MembersPanel />;
+  return <LogView />;
 }
