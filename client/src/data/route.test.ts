@@ -4,7 +4,7 @@ import { interpolatePosition, getTrailSegments } from "./route";
 describe("interpolatePosition", () => {
   it("returns start point at km 0", () => {
     const pt = interpolatePosition(0);
-    expect(pt).toEqual({ x: expect.any(Number), y: expect.any(Number) });
+    expect(pt).toEqual({ lat: expect.any(Number), lng: expect.any(Number) });
   });
 
   it("returns end point at km 14500", () => {
@@ -13,12 +13,11 @@ describe("interpolatePosition", () => {
   });
 
   it("interpolates midpoint between two waypoints", () => {
-    // The route curves (not monotonic), so just check we get finite numbers in viewbox range
     const mid = interpolatePosition(670);
-    expect(mid.x).toBeGreaterThanOrEqual(0);
-    expect(mid.x).toBeLessThanOrEqual(1100);
-    expect(mid.y).toBeGreaterThanOrEqual(0);
-    expect(mid.y).toBeLessThanOrEqual(720);
+    expect(mid.lat).toBeGreaterThanOrEqual(-50);
+    expect(mid.lat).toBeLessThanOrEqual(0);
+    expect(mid.lng).toBeGreaterThanOrEqual(110);
+    expect(mid.lng).toBeLessThanOrEqual(160);
   });
 });
 

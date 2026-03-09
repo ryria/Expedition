@@ -17,12 +17,12 @@ export function MembersPanel() {
       setError("Name already taken"); return;
     }
     const conn = getConnection();
-    (conn as any).reducers.addMember(name.trim(), color);
+    (conn as any).reducers.addMember({ name: name.trim(), colorHex: color });
     setName("");
   }
 
   function handleRemove(id: bigint) {
-    (getConnection() as any).reducers.removeMember(id);
+    (getConnection() as any).reducers.removeMember({ id });
   }
 
   return (

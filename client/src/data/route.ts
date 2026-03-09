@@ -1,115 +1,114 @@
-// Clockwise from Sydney. ViewBox: 0 0 1100 720.
-// Format: [svgX, svgY, cumulativeKm]
+// Clockwise from Sydney.
+// Format: [lat, lng, cumulativeKm]
 export const WAYPOINTS: [number, number, number][] = [
-  [878, 578, 0],
-  [882, 555, 60],
-  [890, 520, 130],
-  [900, 490, 200],
-  [905, 455, 280],
-  [902, 428, 1340],
-  [898, 390, 1440],
-  [895, 360, 1540],
-  [888, 320, 1680],
-  [872, 270, 1850],
-  [868, 220, 2060],
-  [868, 200, 2120],
-  [870, 175, 2220],
-  [872, 150, 2330],
-  [875, 120, 2470],
-  [872, 88, 2620],
-  [856, 72, 2730],
-  [800, 65, 2880],
-  [740, 60, 3060],
-  [680, 58, 3170],
-  [614, 72, 3200],
-  [570, 80, 3340],
-  [520, 90, 3500],
-  [470, 88, 3660],
-  [420, 92, 3820],
-  [360, 115, 4020],
-  [310, 145, 4230],
-  [265, 178, 4450],
-  [228, 220, 4700],
-  [204, 260, 4880],
-  [188, 310, 5060],
-  [176, 360, 5240],
-  [164, 410, 5440],
-  [148, 458, 6060],
-  [138, 490, 6220],
-  [130, 520, 6380],
-  [130, 548, 6720],
-  [138, 575, 6870],
-  [150, 600, 7020],
-  [165, 624, 7200],
-  [195, 642, 8080],
-  [235, 652, 8250],
-  [280, 655, 8430],
-  [330, 654, 8640],
-  [380, 650, 8860],
-  [430, 648, 9060],
-  [478, 646, 9260],
-  [510, 644, 9460],
-  [555, 640, 9680],
-  [600, 636, 9900],
-  [648, 632, 10120],
-  [695, 620, 10380],
-  [730, 608, 10600],
-  [760, 600, 10810],
-  [780, 590, 11240],
-  [800, 596, 11410],
-  [815, 598, 11550],
-  [820, 625, 12100],
-  [825, 630, 12180],
-  [840, 625, 12280],
-  [845, 614, 12440],
-  [848, 598, 12690],
-  [852, 584, 12820],
-  [858, 578, 12940],
-  [864, 576, 13100],
-  [868, 574, 13280],
-  [872, 574, 13480],
-  [876, 576, 13700],
-  [878, 578, 14500],
+  [-33.87, 151.21, 0],       // Sydney
+  [-33.42, 151.34, 60],
+  [-32.93, 151.77, 130],     // Newcastle area
+  [-32.17, 152.53, 200],
+  [-31.43, 152.91, 280],     // Port Macquarie area
+  [-30.30, 153.11, 1340],    // Coffs Harbour → Brisbane gap
+  [-28.65, 153.62, 1440],    // Byron Bay
+  [-27.93, 153.44, 1540],
+  [-27.47, 153.02, 1680],    // Brisbane
+  [-26.65, 153.06, 1850],    // Sunshine Coast
+  [-25.28, 152.84, 2060],    // Hervey Bay
+  [-24.40, 151.90, 2120],
+  [-23.38, 150.51, 2220],    // Rockhampton area
+  [-22.57, 150.76, 2330],
+  [-21.14, 149.19, 2470],    // Mackay
+  [-19.98, 148.16, 2620],
+  [-19.26, 146.82, 2730],    // Townsville
+  [-18.29, 146.05, 2880],
+  [-17.73, 146.03, 3060],
+  [-16.92, 145.78, 3170],    // Cairns
+  [-15.77, 145.37, 3200],
+  [-14.68, 144.89, 3340],
+  [-13.82, 143.60, 3500],
+  [-12.65, 143.49, 3660],    // Cape York tip area
+  [-11.64, 141.85, 3820],
+  [-12.67, 141.87, 4020],    // Weipa area (rounding Gulf)
+  [-13.82, 136.42, 4230],    // Gulf country
+  [-13.00, 134.04, 4450],
+  [-12.46, 130.85, 4700],    // Darwin
+  [-14.05, 129.55, 4880],
+  [-15.77, 128.74, 5060],    // Kununurra area
+  [-17.32, 123.67, 5240],
+  [-17.96, 122.24, 5440],    // Broome
+  [-20.31, 118.58, 6060],    // Port Hedland
+  [-21.93, 114.12, 6220],    // Exmouth
+  [-24.88, 113.65, 6380],    // Carnarvon area
+  [-26.56, 113.75, 6720],    // Shark Bay
+  [-28.78, 114.61, 6870],    // Geraldton
+  [-29.69, 115.00, 7020],
+  [-31.95, 115.86, 7200],    // Perth
+  [-32.53, 115.74, 8080],    // Mandurah
+  [-33.33, 115.64, 8250],    // Bunbury
+  [-34.32, 115.16, 8430],    // Augusta / Cape Leeuwin
+  [-35.03, 117.88, 8640],    // Albany
+  [-33.86, 121.89, 8860],    // Esperance
+  [-32.48, 124.87, 9060],
+  [-31.68, 128.88, 9260],    // Eucla
+  [-31.47, 130.22, 9460],
+  [-31.70, 132.08, 9680],
+  [-32.13, 133.66, 9900],    // Ceduna
+  [-32.49, 136.88, 10120],   // Port Augusta area
+  [-34.72, 135.86, 10380],   // Yorke Peninsula
+  [-35.12, 137.58, 10600],
+  [-34.93, 138.60, 10810],   // Adelaide
+  [-35.56, 138.10, 11240],
+  [-37.16, 139.75, 11410],   // Robe
+  [-38.05, 140.70, 11550],
+  [-38.35, 141.60, 12100],   // Portland
+  [-38.38, 142.49, 12180],   // Warrnambool
+  [-38.48, 143.57, 12280],
+  [-37.81, 144.97, 12440],   // Melbourne
+  [-38.10, 147.07, 12690],   // Sale area
+  [-37.81, 148.74, 12820],
+  [-37.07, 149.91, 12940],   // Eden
+  [-36.55, 150.18, 13100],
+  [-35.36, 150.47, 13280],   // Ulladulla
+  [-34.42, 150.89, 13480],   // Wollongong
+  [-33.87, 151.21, 14500],   // Sydney (end)
 ];
 
 export interface Landmark {
   name: string;
   km: number;
   fact: string;
-  svgX: number;
-  svgY: number;
+  lat: number;
+  lng: number;
 }
 
 export const LANDMARKS: Landmark[] = [
-  { name: "Sydney", km: 0, fact: "Where the journey begins. The Harbour Bridge and Opera House mark the start line.", svgX: 878, svgY: 578 },
-  { name: "Brisbane", km: 1340, fact: "Queensland's capital. Gateway to the Great Barrier Reef and the tropical north.", svgX: 902, svgY: 428 },
-  { name: "Cairns", km: 2120, fact: "Tropical gateway to the Reef. Cassowaries roam the rainforest just behind the esplanade.", svgX: 868, svgY: 200 },
-  { name: "Darwin", km: 3200, fact: "NT capital. Crocodiles in every waterway. Monsoonal lightning storms roll in each afternoon during the Wet.", svgX: 614, svgY: 72 },
-  { name: "Broome", km: 4700, fact: "Famous for the Staircase to the Moon — full moon reflecting on tidal flats. Red pindan cliffs, turquoise sea.", svgX: 228, svgY: 220 },
-  { name: "Geraldton", km: 6060, fact: "The wreck of the Dutch vessel Batavia (1629) lies offshore — a story of mutiny and survival.", svgX: 148, svgY: 458 },
-  { name: "Perth", km: 6720, fact: "The most isolated major city on Earth. Closer to Singapore than to Sydney. Indian Ocean sunsets.", svgX: 130, svgY: 548 },
-  { name: "Albany", km: 8080, fact: "Australia's last whaling station closed here in 1978. Now a whale-watching mecca for Southern Rights and Humpbacks.", svgX: 195, svgY: 642 },
-  { name: "Eucla", km: 9460, fact: "Population 50. The Nullarbor Plain. The world's longest straight road — 146 km without a bend.", svgX: 510, svgY: 644 },
-  { name: "Adelaide", km: 11240, fact: "City of Churches. The Barossa and McLaren Vale begin at the city's edge.", svgX: 780, svgY: 590 },
-  { name: "Melbourne", km: 12100, fact: "Australia's cultural capital. Laneways, coffee, street art. Claims most liveable city regularly.", svgX: 820, svgY: 625 },
-  { name: "Eden", km: 12690, fact: "Orcas and Humpbacks interact in Twofold Bay. The final stretch home begins.", svgX: 848, svgY: 598 },
-  { name: "Sydney", km: 14500, fact: "Journey complete.", svgX: 878, svgY: 578 },
+  { name: "Sydney", km: 0, fact: "Where the journey begins. The Harbour Bridge and Opera House mark the start line.", lat: -33.87, lng: 151.21 },
+  { name: "Brisbane", km: 1680, fact: "Queensland's capital. Gateway to the Great Barrier Reef and the tropical north.", lat: -27.47, lng: 153.02 },
+  { name: "Cairns", km: 3170, fact: "Tropical gateway to the Reef. Cassowaries roam the rainforest just behind the esplanade.", lat: -16.92, lng: 145.78 },
+  { name: "Darwin", km: 4700, fact: "NT capital. Crocodiles in every waterway. Monsoonal lightning storms roll in each afternoon during the Wet.", lat: -12.46, lng: 130.85 },
+  { name: "Broome", km: 5440, fact: "Famous for the Staircase to the Moon — full moon reflecting on tidal flats. Red pindan cliffs, turquoise sea.", lat: -17.96, lng: 122.24 },
+  { name: "Geraldton", km: 6870, fact: "The wreck of the Dutch vessel Batavia (1629) lies offshore — a story of mutiny and survival.", lat: -28.78, lng: 114.61 },
+  { name: "Perth", km: 7200, fact: "The most isolated major city on Earth. Closer to Singapore than to Sydney. Indian Ocean sunsets.", lat: -31.95, lng: 115.86 },
+  { name: "Albany", km: 8640, fact: "Australia's last whaling station closed here in 1978. Now a whale-watching mecca for Southern Rights and Humpbacks.", lat: -35.03, lng: 117.88 },
+  { name: "Eucla", km: 9460, fact: "Population 50. The Nullarbor Plain. The world's longest straight road — 146 km without a bend.", lat: -31.68, lng: 128.88 },
+  { name: "Adelaide", km: 10810, fact: "City of Churches. The Barossa and McLaren Vale begin at the city's edge.", lat: -34.93, lng: 138.60 },
+  { name: "Melbourne", km: 12440, fact: "Australia's cultural capital. Laneways, coffee, street art. Claims most liveable city regularly.", lat: -37.81, lng: 144.97 },
+  { name: "Eden", km: 12940, fact: "Orcas and Humpbacks interact in Twofold Bay. The final stretch home begins.", lat: -37.07, lng: 149.91 },
+  { name: "Sydney", km: 14500, fact: "Journey complete.", lat: -33.87, lng: 151.21 },
 ];
 
 // ─── Interpolation ────────────────────────────────────────────────────────────
 
-export function interpolatePosition(km: number): { x: number; y: number } {
+export function interpolatePosition(km: number): { lat: number; lng: number } {
   const clamped = Math.max(0, Math.min(km, 14_500));
   for (let i = 1; i < WAYPOINTS.length; i++) {
-    const [x0, y0, km0] = WAYPOINTS[i - 1];
-    const [x1, y1, km1] = WAYPOINTS[i];
+    const [lat0, lng0, km0] = WAYPOINTS[i - 1];
+    const [lat1, lng1, km1] = WAYPOINTS[i];
     if (clamped <= km1) {
       const t = km1 === km0 ? 0 : (clamped - km0) / (km1 - km0);
-      return { x: x0 + t * (x1 - x0), y: y0 + t * (y1 - y0) };
+      return { lat: lat0 + t * (lat1 - lat0), lng: lng0 + t * (lng1 - lng0) };
     }
   }
   const last = WAYPOINTS[WAYPOINTS.length - 1];
-  return { x: last[0], y: last[1] };
+  return { lat: last[0], lng: last[1] };
 }
 
 // ─── Trail segments ───────────────────────────────────────────────────────────
@@ -119,9 +118,10 @@ export interface TrailSegment {
   fromKm: number;
   toKm: number;
   color: string;
+  date?: Date;
 }
 
-type EntryInput = { personName: string; distanceKm: number };
+type EntryInput = { personName: string; distanceKm: number; timestamp?: Date };
 type MemberInput = { name: string; colorHex: string };
 
 /**
@@ -141,13 +141,12 @@ export function getTrailSegments(
     for (const e of entries) {
       const from = cursor;
       const to = cursor + e.distanceKm;
-      segs.push({ person: e.personName, fromKm: from, toKm: to, color: colorMap.get(e.personName) ?? "#888" });
+      segs.push({ person: e.personName, fromKm: from, toKm: to, color: colorMap.get(e.personName) ?? "#888", date: e.timestamp });
       cursor = to;
     }
     return segs;
   }
 
-  // contribution mode: sum per-person, then stack in member order
   const totals = new Map<string, number>();
   for (const e of entries) {
     totals.set(e.personName, (totals.get(e.personName) ?? 0) + e.distanceKm);
@@ -165,23 +164,19 @@ export function getTrailSegments(
   return segs;
 }
 
-// ─── SVG path helpers ─────────────────────────────────────────────────────────
+// ─── LatLng path helpers ──────────────────────────────────────────────────────
 
-/** Build an SVG path `d` string for a segment from fromKm to toKm */
-export function buildSegmentPath(fromKm: number, toKm: number): string {
-  if (toKm <= fromKm) return "";
+/** Build an array of [lat, lng] pairs for a segment from fromKm to toKm */
+export function buildSegmentLatLngs(fromKm: number, toKm: number): [number, number][] {
+  if (toKm <= fromKm) return [];
 
   const from = interpolatePosition(fromKm);
   const to = interpolatePosition(toKm);
   const midWaypoints = WAYPOINTS.filter(([, , km]) => km > fromKm && km < toKm);
 
-  const pts: { x: number; y: number }[] = [
-    from,
-    ...midWaypoints.map(([x, y]) => ({ x, y })),
-    to,
+  return [
+    [from.lat, from.lng],
+    ...midWaypoints.map(([lat, lng]): [number, number] => [lat, lng]),
+    [to.lat, to.lng],
   ];
-
-  return pts
-    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-    .join(" ");
 }

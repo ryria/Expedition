@@ -1,49 +1,60 @@
-.map-view { display: flex; flex-direction: column; height: 100vh; background: #1a1008; }
+.map-view { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #0a0a0a; }
 
 /* Stats bar */
 .map-stats-bar {
-  display: flex; gap: 1.5rem; padding: 0.5rem 1rem;
-  background: rgba(0,0,0,0.6); color: #d4b96a;
-  font-family: 'IM Fell English', serif; font-size: 0.9rem;
-  border-bottom: 1px solid #3a2a10;
+  display: flex; gap: 1rem; padding: 0.4rem 0.75rem;
+  background: rgba(0,0,0,0.85); color: #e0e0e0;
+  font-family: 'Inter', sans-serif; font-size: 0.85rem;
+  border-bottom: 1px solid #222;
+  z-index: 1000; position: relative;
+  flex-wrap: wrap;
 }
 
-/* SVG map */
-.map-svg {
-  flex: 1; width: 100%; display: block;
-  user-select: none;
+/* Leaflet map */
+.map-leaflet {
+  flex: 1; width: 100%;
 }
 
 /* Controls row */
 .map-controls {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 1rem; background: rgba(0,0,0,0.5); border-top: 1px solid #3a2a10;
+  padding: 0.5rem 1rem; background: rgba(0,0,0,0.85); border-top: 1px solid #222;
   flex-wrap: wrap; gap: 0.5rem;
+  z-index: 1000; position: relative;
 }
 
 /* Mode toggle */
 .mode-toggle { display: flex; gap: 0.25rem; }
 .mode-toggle button {
-  padding: 0.3rem 0.8rem; border: 1px solid #8b6914; border-radius: 4px;
-  background: transparent; color: #d4b96a; cursor: pointer;
-  font-family: 'IM Fell English', serif; font-size: 0.85rem;
+  padding: 0.3rem 0.8rem; border: 1px solid #444; border-radius: 4px;
+  background: transparent; color: #ccc; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 0.85rem;
 }
-.mode-toggle button.active { background: #8b6914; color: #fff; }
-.mode-toggle button:hover:not(.active) { background: rgba(139,105,20,0.2); }
+.mode-toggle button.active { background: #333; color: #fff; border-color: #888; }
+.mode-toggle button:hover:not(.active) { background: rgba(255,255,255,0.08); }
 
 /* Person legend */
 .person-legend { display: flex; gap: 1rem; flex-wrap: wrap; }
 .legend-row { display: flex; align-items: center; gap: 0.4rem; }
 .legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; }
-.legend-name { color: #d4b96a; font-family: 'IM Fell English', serif; font-size: 0.85rem; }
-.legend-km { color: #a89060; font-size: 0.8rem; }
+.legend-name { color: #ddd; font-family: 'Inter', sans-serif; font-size: 0.85rem; }
+.legend-km { color: #888; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
 
-/* Landmark tooltip */
-.landmark-tooltip {
-  background: rgba(232,213,163,0.95); border: 1px solid #2c1a0e;
-  border-radius: 4px; padding: 0.4rem 0.6rem; font-size: 0.75rem;
-  color: #2c1a0e; box-shadow: 2px 2px 6px rgba(0,0,0,0.4);
-  font-family: 'IM Fell English', serif; pointer-events: none;
+/* Landmark popup */
+.landmark-popup .leaflet-popup-content-wrapper {
+  background: #111; border: 1px solid #333; border-radius: 4px;
+  color: #e0e0e0; box-shadow: 0 0 12px rgba(255,255,255,0.05);
 }
-.landmark-tooltip p { margin: 0.2rem 0 0; font-style: italic; }
-.landmark-tooltip span { display: block; margin-top: 0.2rem; font-size: 0.7rem; }
+.landmark-popup .leaflet-popup-tip { background: #111; }
+.landmark-popup strong { color: #fff; font-size: 0.9rem; }
+.landmark-popup p { margin: 0.3rem 0 0; font-style: italic; font-size: 0.8rem; color: #aaa; }
+.landmark-popup span { display: block; margin-top: 0.3rem; font-size: 0.75rem; color: #666; }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .map-controls { padding: 0.4rem 0.6rem; }
+  .mode-toggle button { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+  .legend-name { font-size: 0.8rem; }
+  .legend-km { font-size: 0.75rem; }
+  .map-stats-bar { font-size: 0.8rem; gap: 0.75rem; }
+}

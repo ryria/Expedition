@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapSVG } from "./MapSVG";
+import { MapLeaflet } from "./MapLeaflet";
 import { ModeToggle } from "./ModeToggle";
 import { PersonLegend } from "./PersonLegend";
 import { useActivityLog } from "../../hooks/useActivityLog";
@@ -24,7 +24,7 @@ export function MapView() {
         <span>{((totalKm / 14_500) * 100).toFixed(1)}% complete</span>
         <span>{(14_500 - totalKm).toFixed(1)} km remaining</span>
       </div>
-      <MapSVG segments={segments} totalKm={totalKm} />
+      <MapLeaflet segments={segments} totalKm={totalKm} />
       <div className="map-controls">
         <ModeToggle mode={mode} onChange={setMode} />
         <PersonLegend />
