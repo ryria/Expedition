@@ -30,7 +30,7 @@ export function useActivityLog() {
 
   useEffect(() => {
     const conn = getConnection();
-    const table = (conn as any).db.activityLog as ActivityLogTable;
+    const table = (conn as any).db.activity_log as ActivityLogTable;
 
     const existing = [...table].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
