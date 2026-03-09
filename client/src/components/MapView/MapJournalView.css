@@ -3,7 +3,7 @@
   grid-template-columns: 1fr 380px;
   height: 100%;
   min-height: 0;
-  background: #0a0a0a;
+  background: var(--bg);
 }
 
 .map-hero {
@@ -12,8 +12,8 @@
 }
 
 .journal-drawer {
-  border-left: 1px solid #222;
-  background: #0f0f0f;
+  border-left: 1px solid var(--border);
+  background: var(--panel-bg);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -24,21 +24,21 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 0.9rem;
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid var(--border);
 }
 
 .drawer-header h2 {
   font-size: 0.9rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #d4b96a;
+  color: var(--accent);
 }
 
 .drawer-toggle,
 .drawer-tabs button {
-  border: 1px solid #2a2a2a;
-  background: #141414;
-  color: #bbb;
+  border: 1px solid var(--input-border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -52,7 +52,7 @@
   display: flex;
   gap: 0.4rem;
   padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid var(--border);
 }
 
 .drawer-tabs button {
@@ -61,9 +61,9 @@
 }
 
 .drawer-tabs button.active {
-  border-color: #3d5138;
-  background: #18261b;
-  color: #84d3a0;
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent-text);
 }
 
 .drawer-content {
@@ -79,8 +79,8 @@
 }
 
 .today-latest {
-  border: 1px solid #1d1d1d;
-  background: #111;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
   border-radius: 8px;
   padding: 0.7rem;
 }
@@ -89,7 +89,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #777;
+  color: var(--text-dim);
   margin-bottom: 0.35rem;
 }
 
@@ -101,7 +101,7 @@
 
   .journal-drawer {
     border-left: none;
-    border-top: 1px solid #222;
+    border-top: 1px solid var(--border);
     max-height: 52dvh;
   }
 
