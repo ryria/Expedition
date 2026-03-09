@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signing in…</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var path = window.location.pathname;
+        var rootPath = path.replace(/\/callback\/?$/, "/");
+        var target = window.location.origin + rootPath + window.location.search + window.location.hash;
+        window.location.replace(target);
+      })();
+    </script>
+  </body>
+</html>
