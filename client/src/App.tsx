@@ -8,8 +8,10 @@ import "./App.css";
 
 type Tab = "expedition" | "members" | "settings";
 type Theme = "dark" | "light";
+type MapMode = "asRan" | "contribution";
 
 const THEME_STORAGE_KEY = "expedition-theme";
+const MAP_MODE_STORAGE_KEY = "expedition-map-mode";
 
 function loadInitialTheme(): Theme {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -20,9 +22,19 @@ function loadInitialTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
+function loadInitialMapMode(): MapMode {
+  const stored = localStorage.getItem(MAP_MODE_STORAGE_KEY);
+  if (stored === "asRan" || stored === "contribution") {
+    return stored;
+  }
+
+  return "asRan";
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("expedition");
   const [theme, setTheme] = useState<Theme>(loadInitialTheme);
+  const [mapMode, setMapMode] = useState<MapMode>(loadInitialMapMode);
   const auth = useAuth();
   const { members } = useMembers();
   const onboardingPrompted = useRef(false);
@@ -36,6 +48,10 @@ export default function App() {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
+  }, [mapMode]);
 
   useEffect(() => {
     if (!isRegistered && !onboardingPrompted.current) {
@@ -69,9 +85,22 @@ export default function App() {
         {!isRegistered && (
           <p>Please complete onboarding in Settings (set your name and colour) to unlock Log and Stats.</p>
         )}
-        {tab === "expedition" && <MapJournalView theme={theme} />}
+        {tab === "expedition" && (
+          <MapJournalView
+            theme={theme}
+            mapMode={mapMode}
+            onMapModeChange={setMapMode}
+          />
+        )}
         {tab === "members" && <MembersPanel />}
-        {tab === "settings" && <SettingsPanel theme={theme} onThemeChange={setTheme} />}
+        {tab === "settings" && (
+          <SettingsPanel
+            theme={theme}
+            onThemeChange={setTheme}
+            mapMode={mapMode}
+            onMapModeChange={setMapMode}
+          />
+        )}
       </main>
     </div>
   );

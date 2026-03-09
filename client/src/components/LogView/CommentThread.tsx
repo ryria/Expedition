@@ -12,6 +12,7 @@ export function CommentThread({ logId }: Props) {
   const { commentsFor } = useComments();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
+  const [error, setError] = useState("");
   const comments = commentsFor(logId);
   const sub = auth.user?.profile?.sub as string | undefined;
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
@@ -19,12 +20,17 @@ export function CommentThread({ logId }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!linkedMember || !body.trim()) return;
-    getConnection().reducers.addComment({
-      logId,
-      author: linkedMember.name,
-      body: body.trim(),
-    });
-    setBody("");
+    setError("");
+    try {
+      getConnection().reducers.addComment({
+        logId,
+        author: linkedMember.name,
+        body: body.trim(),
+      });
+      setBody("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   return (
@@ -48,6 +54,7 @@ export function CommentThread({ logId }: Props) {
             />
             <button type="submit" disabled={!linkedMember || !body.trim()}>Post</button>
           </form>
+          {error && <p className="field-error">{error}</p>}
         </>
       )}
     </div>

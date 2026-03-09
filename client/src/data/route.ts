@@ -134,10 +134,16 @@ export interface TrailSegment {
   fromKm: number;
   toKm: number;
   color: string;
+  activityType?: string;
   date?: Date;
 }
 
-type EntryInput = { personName: string; distanceKm: number; timestamp?: { toDate(): Date } };
+type EntryInput = {
+  personName: string;
+  distanceKm: number;
+  activityType?: string;
+  timestamp?: { toDate(): Date };
+};
 type MemberInput = { name: string; colorHex: string };
 
 /**
@@ -158,7 +164,14 @@ export function getTrailSegments(
       const from = cursor;
       const to = cursor + e.distanceKm;
       const date = e.timestamp == null ? undefined : "toDate" in e.timestamp ? e.timestamp.toDate() : e.timestamp;
-      segs.push({ person: e.personName, fromKm: from, toKm: to, color: colorMap.get(e.personName) ?? "#888", date });
+      segs.push({
+        person: e.personName,
+        fromKm: from,
+        toKm: to,
+        color: colorMap.get(e.personName) ?? "#888",
+        activityType: e.activityType,
+        date,
+      });
       cursor = to;
     }
     return segs;

@@ -6,13 +6,21 @@ import { DEFAULT_COLORS } from "../../config";
 import "./SettingsPanel.css";
 
 type Theme = "dark" | "light";
+type MapMode = "asRan" | "contribution";
 
 interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
+  mapMode: MapMode;
+  onMapModeChange: (mode: MapMode) => void;
 }
 
-export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
+export function SettingsPanel({
+  theme,
+  onThemeChange,
+  mapMode,
+  onMapModeChange,
+}: SettingsPanelProps) {
   const auth = useAuth();
   const { members } = useMembers();
   const [name, setName] = useState("");
@@ -77,11 +85,16 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
       return;
     }
 
-    const conn = getConnection();
     const changed = !linkedMember || linkedMember.name !== name.trim() || linkedMember.colorHex !== color;
     if (!changed) return;
     setIsSaving(true);
-    conn.reducers.addMember({ name: name.trim(), colorHex: color });
+    try {
+      const conn = getConnection();
+      conn.reducers.addMember({ name: name.trim(), colorHex: color });
+    } catch (err) {
+      setIsSaving(false);
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   return (
@@ -104,6 +117,26 @@ export function SettingsPanel({ theme, onThemeChange }: SettingsPanelProps) {
             type="button"
           >
             Light
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-group">
+        <h3>Map View Mode</h3>
+        <div className="theme-toggle" role="group" aria-label="Map View Mode">
+          <button
+            className={mapMode === "asRan" ? "active" : ""}
+            onClick={() => onMapModeChange("asRan")}
+            type="button"
+          >
+            As Ran
+          </button>
+          <button
+            className={mapMode === "contribution" ? "active" : ""}
+            onClick={() => onMapModeChange("contribution")}
+            type="button"
+          >
+            Contribution
           </button>
         </div>
       </section>

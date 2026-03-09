@@ -28,12 +28,9 @@ export function useMembers() {
   const [members, setMembers] = useState<MemberRow[]>([]);
 
   useEffect(() => {
-    const conn = getConnection();
-    const table = conn.db.member as MemberTable;
-
-    // Load rows already in local cache from subscription
-    const existing = [...table].sort((a, b) => Number(a.id - b.id));
-    setMembers(existing);
+    let disposed = false;
+    let table: MemberTable | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onInsert: InsertCb = (_ctx, row) =>
       setMembers((prev) => [...prev, row].sort((a, b) => Number(a.id - b.id)));
@@ -48,14 +45,37 @@ export function useMembers() {
     const onDelete: DeleteCb = (_ctx, row) =>
       setMembers((prev) => prev.filter((m) => m.id !== row.id));
 
-    table.onInsert(onInsert);
-    table.onUpdate(onUpdate);
-    table.onDelete(onDelete);
+    const attach = () => {
+      if (disposed) return;
+
+      let conn;
+      try {
+        conn = getConnection();
+      } catch {
+        retryTimer = setTimeout(attach, 250);
+        return;
+      }
+
+      table = conn.db.member as MemberTable;
+
+      const existing = [...table].sort((a, b) => Number(a.id - b.id));
+      setMembers(existing);
+
+      table.onInsert(onInsert);
+      table.onUpdate(onUpdate);
+      table.onDelete(onDelete);
+    };
+
+    attach();
 
     return () => {
-      table.removeOnInsert(onInsert);
-      table.removeOnUpdate(onUpdate);
-      table.removeOnDelete(onDelete);
+      disposed = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      table?.removeOnInsert(onInsert);
+      table?.removeOnUpdate(onUpdate);
+      table?.removeOnDelete(onDelete);
     };
   }, []);
 

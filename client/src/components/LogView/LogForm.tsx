@@ -35,8 +35,10 @@ export function LogForm() {
 
   // Listen for new activity inserts; call AI coaching on the first match
   useEffect(() => {
-    const conn = getConnection();
-    const table = (conn.db.activity_log as ActivityLogInsertTable);
+    let disposed = false;
+    let table: ActivityLogInsertTable | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
     const onInsert: ActivityInsertCb = (_ctx, row) => {
       if (pendingPerson.current && row.personName === pendingPerson.current) {
         pendingPerson.current = null;
@@ -47,8 +49,31 @@ export function LogForm() {
         }
       }
     };
-    table.onInsert(onInsert);
-    return () => table.removeOnInsert(onInsert);
+
+    const attach = () => {
+      if (disposed) return;
+
+      let conn;
+      try {
+        conn = getConnection();
+      } catch {
+        retryTimer = setTimeout(attach, 250);
+        return;
+      }
+
+      table = conn.db.activity_log as ActivityLogInsertTable;
+      table.onInsert(onInsert);
+    };
+
+    attach();
+
+    return () => {
+      disposed = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      table?.removeOnInsert(onInsert);
+    };
   }, []);
 
   function handleSubmit(e: React.FormEvent) {
@@ -75,7 +100,8 @@ export function LogForm() {
       setDist("");
       setNote("");
     } catch (err: unknown) {
-      setError(String(err));
+      pendingPerson.current = null;
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }

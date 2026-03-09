@@ -7,6 +7,32 @@ interface Props {
   waypoints: RouteWaypoint[];
 }
 
+function getActivityPathOptions(seg: TrailSegment) {
+  const activity = seg.activityType?.toLowerCase();
+
+  if (activity === "walk") {
+    return { color: seg.color, weight: 3, opacity: 0.95 };
+  }
+
+  if (activity === "run") {
+    return { color: seg.color, weight: 3.5, opacity: 0.98, dashArray: "6 4" };
+  }
+
+  if (activity === "ride" || activity === "cycle") {
+    return { color: seg.color, weight: 5, opacity: 0.95 };
+  }
+
+  if (activity === "row") {
+    return { color: seg.color, weight: 3.5, opacity: 0.95, dashArray: "14 8" };
+  }
+
+  if (activity === "swim") {
+    return { color: seg.color, weight: 3, opacity: 0.9, dashArray: "2 8" };
+  }
+
+  return { color: seg.color, weight: 3, opacity: 0.95 };
+}
+
 export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
   const fullRoute = waypoints.map(([lat, lng]): [number, number] => [lat, lng]);
 
@@ -31,12 +57,13 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
       {segments.map((seg, i) => {
         const positions = buildSegmentLatLngs(seg.fromKm, seg.toKm, waypoints);
         if (positions.length < 2) return null;
+        const pathOptions = getActivityPathOptions(seg);
         const distKm = (seg.toKm - seg.fromKm).toFixed(1);
         const dateStr = seg.date
           ? seg.date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
           : null;
         return (
-          <Polyline key={`core-${i}`} positions={positions} pathOptions={{ color: seg.color, weight: 3, opacity: 0.95 }}>
+          <Polyline key={`core-${i}`} positions={positions} pathOptions={pathOptions}>
             <Tooltip sticky>
               <strong>{seg.person}</strong>
               <br />

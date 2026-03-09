@@ -1,4 +1,5 @@
-import { MapContainer, TileLayer } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { TrailsPolyline } from "./TrailsPolyline";
 import { LandmarksMarkers } from "./LandmarksMarkers";
@@ -9,6 +10,7 @@ interface Props {
   totalKm: number;
   waypoints: RouteWaypoint[];
   theme: "dark" | "light";
+  hubOpen: boolean;
 }
 
 // Australia bounds
@@ -17,7 +19,7 @@ const BOUNDS: [[number, number], [number, number]] = [
   [-10, 154],
 ];
 
-export function MapLeaflet({ segments, totalKm, waypoints, theme }: Props) {
+export function MapLeaflet({ segments, totalKm, waypoints, theme, hubOpen }: Props) {
   const tileUrl =
     theme === "light"
       ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -36,8 +38,22 @@ export function MapLeaflet({ segments, totalKm, waypoints, theme }: Props) {
         subdomains="abcd"
         maxZoom={19}
       />
+      <MapResizeSync hubOpen={hubOpen} />
       <TrailsPolyline segments={segments} totalKm={totalKm} waypoints={waypoints} />
       <LandmarksMarkers totalKm={totalKm} />
     </MapContainer>
   );
+}
+
+function MapResizeSync({ hubOpen }: { hubOpen: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const resize = () => map.invalidateSize(false);
+    resize();
+    const timer = setTimeout(resize, 220);
+    return () => clearTimeout(timer);
+  }, [map, hubOpen]);
+
+  return null;
 }

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { MapLeaflet } from "./MapLeaflet";
 import { ModeToggle } from "./ModeToggle";
 import { PersonLegend } from "./PersonLegend";
@@ -13,13 +12,15 @@ type Theme = "dark" | "light";
 
 interface MapViewProps {
   theme: Theme;
+  mode: ViewMode;
+  onModeChange: (mode: ViewMode) => void;
+  hubOpen: boolean;
 }
 
-export function MapView({ theme }: MapViewProps) {
+export function MapView({ theme, mode, onModeChange, hubOpen }: MapViewProps) {
   const { entries } = useActivityLog();
   const { members } = useMembers();
   const { waypoints, routeTotalKm } = useRoadRoute();
-  const [mode, setMode] = useState<ViewMode>("asRan");
 
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   const orderedForTrail = [...entries].sort(
@@ -34,9 +35,15 @@ export function MapView({ theme }: MapViewProps) {
         <span>{((totalKm / routeTotalKm) * 100).toFixed(1)}% complete</span>
         <span>{Math.max(routeTotalKm - totalKm, 0).toFixed(1)} km remaining</span>
       </div>
-      <MapLeaflet segments={segments} totalKm={totalKm} waypoints={waypoints} theme={theme} />
+      <MapLeaflet
+        segments={segments}
+        totalKm={totalKm}
+        waypoints={waypoints}
+        theme={theme}
+        hubOpen={hubOpen}
+      />
       <div className="map-controls">
-        <ModeToggle mode={mode} onChange={setMode} />
+        <ModeToggle mode={mode} onChange={onModeChange} />
         <PersonLegend />
       </div>
     </div>

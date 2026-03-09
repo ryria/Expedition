@@ -5,7 +5,7 @@ export function LandmarksPassed() {
   const { entries } = useActivityLog();
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   const passed = LANDMARKS.filter((l) => l.km <= totalKm && l.km > 0);
-  if (!passed.length) return <p>No landmarks reached yet.</p>;
+  if (!passed.length) return null;
   return (
     <div className="landmarks-passed">
       <h3>Landmarks Reached</h3>

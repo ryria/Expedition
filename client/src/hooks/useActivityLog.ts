@@ -30,13 +30,9 @@ export function useActivityLog() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
 
   useEffect(() => {
-    const conn = getConnection();
-    const table = conn.db.activity_log as ActivityLogTable;
-
-    const existing = [...table].sort(
-      (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
-    );
-    setEntries(existing);
+    let disposed = false;
+    let table: ActivityLogTable | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onInsert: InsertCb = (_ctx, row) =>
       setEntries((prev) =>
@@ -51,14 +47,39 @@ export function useActivityLog() {
     const onDelete: DeleteCb = (_ctx, row) =>
       setEntries((prev) => prev.filter((e) => e.id !== row.id));
 
-    table.onInsert(onInsert);
-    table.onUpdate(onUpdate);
-    table.onDelete(onDelete);
+    const attach = () => {
+      if (disposed) return;
+
+      let conn;
+      try {
+        conn = getConnection();
+      } catch {
+        retryTimer = setTimeout(attach, 250);
+        return;
+      }
+
+      table = conn.db.activity_log as ActivityLogTable;
+
+      const existing = [...table].sort(
+        (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()
+      );
+      setEntries(existing);
+
+      table.onInsert(onInsert);
+      table.onUpdate(onUpdate);
+      table.onDelete(onDelete);
+    };
+
+    attach();
 
     return () => {
-      table.removeOnInsert(onInsert);
-      table.removeOnUpdate(onUpdate);
-      table.removeOnDelete(onDelete);
+      disposed = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      table?.removeOnInsert(onInsert);
+      table?.removeOnUpdate(onUpdate);
+      table?.removeOnDelete(onDelete);
     };
   }, []);
 

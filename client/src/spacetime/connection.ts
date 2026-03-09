@@ -37,13 +37,32 @@ function validateStdbUri(uri: string): string {
   return trimmed;
 }
 
-function normalizeConnectError(err: Error): Error {
-  if (err.message.includes("Failed to fetch")) {
+function normalizeConnectError(err: unknown): Error {
+  const normalized = err instanceof Error ? err : new Error(String(err ?? "Unknown connection error"));
+
+  if (normalized.message === "[object Event]") {
+    return new Error("WebSocket connection interrupted by browser lifecycle event.");
+  }
+
+  if (normalized.message.includes("Failed to fetch")) {
     return new Error(
       "WebSocket connection failed (Failed to fetch). Check VITE_STDB_URI, network/firewall access to maincloud.spacetimedb.com, and that your browser allows secure WebSocket (wss)."
     );
   }
-  return err;
+
+  return normalized;
+}
+
+function isDocumentHidden(): boolean {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
+function isTransientBackgroundError(err: Error): boolean {
+  return (
+    err.message === "WebSocket connection interrupted by browser lifecycle event." ||
+    err.message === "[object Event]" ||
+    err.message.includes("WebSocket is closed before the connection is established")
+  );
 }
 
 export function getConnection(): DbConnection {
@@ -147,6 +166,9 @@ export function initConnection(
 
       if (err) {
         const normalized = normalizeConnectError(err);
+        if (isDocumentHidden() && isTransientBackgroundError(normalized)) {
+          return;
+        }
         console.error("[SpacetimeDB] disconnected with error:", normalized);
         onError(normalized);
       }
@@ -154,6 +176,9 @@ export function initConnection(
     .onConnectError((_ctx, err) => {
       if (attempt !== _connectAttempt) return;
       const normalized = normalizeConnectError(err);
+      if (isDocumentHidden() && isTransientBackgroundError(normalized)) {
+        return;
+      }
       console.error("[SpacetimeDB] connection failed:", normalized);
       fail(normalized);
     })

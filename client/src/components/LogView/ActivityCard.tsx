@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ActivityEntry } from "../../hooks/useActivityLog";
 import { useReactions } from "../../hooks/useReactions";
 import { useMembers } from "../../hooks/useMembers";
@@ -14,17 +15,23 @@ export function ActivityCard({ entry }: Props) {
   const auth = useAuth();
   const { members } = useMembers();
   const { reactionsFor } = useReactions();
+  const [actionError, setActionError] = useState("");
   const reactionList = reactionsFor(entry.id);
   const sub = auth.user?.profile?.sub as string | undefined;
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
   function handleReact(emoji: string) {
     if (!linkedMember) return;
-    getConnection().reducers.addReaction({
-      logId: entry.id,
-      emoji,
-      reactedBy: linkedMember.name,
-    });
+    setActionError("");
+    try {
+      getConnection().reducers.addReaction({
+        logId: entry.id,
+        emoji,
+        reactedBy: linkedMember.name,
+      });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   return (
@@ -55,6 +62,7 @@ export function ActivityCard({ entry }: Props) {
           );
         })}
       </div>
+      {actionError && <p className="field-error">{actionError}</p>}
       <CommentThread logId={entry.id} />
     </li>
   );

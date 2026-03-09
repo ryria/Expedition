@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { AuthProvider, useAuth, useAutoSignin } from "react-oidc-context";
 import App from "./App.tsx";
 import "./index.css";
-import { disconnectConnection, initConnection } from "./spacetime/connection";
+import { useConnectionHandler } from "./spacetime/useConnectionHandler";
 
 function firstNonEmptyEnv(...values: Array<string | undefined>): string | undefined {
   for (const value of values) {
@@ -51,36 +51,63 @@ function MissingAuthConfig() {
   );
 }
 
+function ConnectionIntermission({
+  title,
+  message,
+  detail,
+  onRetry,
+}: {
+  title: string;
+  message: string;
+  detail?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        padding: "1.5rem",
+      }}
+    >
+      <section
+        style={{
+          width: "100%",
+          maxWidth: "560px",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "12px",
+          padding: "1.25rem",
+          display: "grid",
+          gap: "0.75rem",
+        }}
+      >
+        <h2 style={{ fontSize: "1.1rem" }}>{title}</h2>
+        <p style={{ color: "var(--text-muted)" }}>{message}</p>
+        {detail ? (
+          <pre style={{ color: "var(--danger-text)", whiteSpace: "pre-wrap", margin: 0 }}>
+            {detail}
+          </pre>
+        ) : null}
+        {onRetry ? (
+          <div>
+            <button type="button" onClick={onRetry}>
+              Retry now
+            </button>
+          </div>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
 function AuthenticatedApp() {
   const auth = useAuth();
   useAutoSignin();
-  const [ready, setReady] = React.useState(false);
-  const [connError, setConnError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!auth.isAuthenticated || !auth.user?.id_token) {
-      setReady(false);
-      disconnectConnection();
-      return;
-    }
-
-    setConnError(null);
-    setReady(false);
-
-    try {
-      initConnection(
-        () => setReady(true),
-        (err) => setConnError(err.message),
-        auth.user.id_token,
-      );
-    } catch (err) {
-      setConnError(err instanceof Error ? err.message : String(err));
-    }
-
-    return () => {
-      disconnectConnection();
-    };
-  }, [auth.isAuthenticated, auth.user?.id_token]);
+  const { phase, lastError, hasConnectedOnce, retryNow } = useConnectionHandler(
+    auth.isAuthenticated ? auth.user?.id_token : undefined,
+  );
 
   if (auth.isLoading) {
     return <div style={{ padding: "2rem" }}>Loading authentication…</div>;
@@ -94,12 +121,56 @@ function AuthenticatedApp() {
     return <div style={{ padding: "2rem" }}>Redirecting to login…</div>;
   }
 
-  if (connError) {
-    return <pre style={{ color: "red", padding: "2rem" }}>SpacetimeDB connection failed:\n{connError}</pre>;
-  }
+  if (phase !== "connected") {
+    const phaseContent: Record<string, { title: string; message: string; retry?: boolean }> = {
+      idle: {
+        title: "Preparing connection",
+        message: "Starting your secure session…",
+      },
+      connecting: {
+        title: "Connecting",
+        message: "Connecting to SpacetimeDB…",
+      },
+      reconnecting: {
+        title: "Reconnecting",
+        message: "Trying to restore your live session…",
+      },
+      offline: {
+        title: "Offline",
+        message: "No network detected. Reconnect to continue.",
+        retry: true,
+      },
+      inactive: {
+        title: "Session paused",
+        message: "Disconnected after inactivity. Retry to resume.",
+        retry: true,
+      },
+      background: {
+        title: "Session paused",
+        message: "Connection paused while app is in the background.",
+        retry: true,
+      },
+      error: {
+        title: hasConnectedOnce ? "Connection issue" : "Connection failed",
+        message: "Unable to establish a stable connection right now.",
+        retry: true,
+      },
+    };
 
-  if (!ready) {
-    return <div style={{ padding: "2rem" }}>Connecting to SpacetimeDB…</div>;
+    const current = phaseContent[phase] ?? {
+      title: "Connection update",
+      message: "Connection state changed.",
+      retry: true,
+    };
+
+    return (
+      <ConnectionIntermission
+        title={current.title}
+        message={current.message}
+        detail={phase === "error" ? lastError ?? "Unknown connection error" : undefined}
+        onRetry={current.retry ? retryNow : undefined}
+      />
+    );
   }
 
   return <App />;

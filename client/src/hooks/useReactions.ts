@@ -25,10 +25,9 @@ export function useReactions() {
   const [reactions, setReactions] = useState<ReactionRow[]>([]);
 
   useEffect(() => {
-    const conn = getConnection();
-    const table = conn.db.reaction as ReactionTable;
-
-    setReactions([...table]);
+    let disposed = false;
+    let table: ReactionTable | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onInsert: InsertCb = (_ctx, row) =>
       setReactions((prev) => [...prev, row]);
@@ -36,12 +35,32 @@ export function useReactions() {
     const onDelete: DeleteCb = (_ctx, row) =>
       setReactions((prev) => prev.filter((r) => r.id !== row.id));
 
-    table.onInsert(onInsert);
-    table.onDelete(onDelete);
+    const attach = () => {
+      if (disposed) return;
+
+      let conn;
+      try {
+        conn = getConnection();
+      } catch {
+        retryTimer = setTimeout(attach, 250);
+        return;
+      }
+
+      table = conn.db.reaction as ReactionTable;
+      setReactions([...table]);
+      table.onInsert(onInsert);
+      table.onDelete(onDelete);
+    };
+
+    attach();
 
     return () => {
-      table.removeOnInsert(onInsert);
-      table.removeOnDelete(onDelete);
+      disposed = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      table?.removeOnInsert(onInsert);
+      table?.removeOnDelete(onDelete);
     };
   }, []);
 

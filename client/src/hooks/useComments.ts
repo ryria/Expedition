@@ -25,10 +25,9 @@ export function useComments() {
   const [comments, setComments] = useState<CommentRow[]>([]);
 
   useEffect(() => {
-    const conn = getConnection();
-    const table = conn.db.comment as CommentTable;
-
-    setComments([...table]);
+    let disposed = false;
+    let table: CommentTable | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onInsert: InsertCb = (_ctx, row) =>
       setComments((prev) => [...prev, row]);
@@ -36,12 +35,32 @@ export function useComments() {
     const onDelete: DeleteCb = (_ctx, row) =>
       setComments((prev) => prev.filter((c) => c.id !== row.id));
 
-    table.onInsert(onInsert);
-    table.onDelete(onDelete);
+    const attach = () => {
+      if (disposed) return;
+
+      let conn;
+      try {
+        conn = getConnection();
+      } catch {
+        retryTimer = setTimeout(attach, 250);
+        return;
+      }
+
+      table = conn.db.comment as CommentTable;
+      setComments([...table]);
+      table.onInsert(onInsert);
+      table.onDelete(onDelete);
+    };
+
+    attach();
 
     return () => {
-      table.removeOnInsert(onInsert);
-      table.removeOnDelete(onDelete);
+      disposed = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      table?.removeOnInsert(onInsert);
+      table?.removeOnDelete(onDelete);
     };
   }, []);
 
