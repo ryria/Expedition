@@ -29,13 +29,41 @@ jobs:
         run: npm ci
         working-directory: client
 
+      - name: Resolve build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pick_non_empty() {
+            for value in "$@"; do
+              if [ -n "${value// }" ]; then
+                printf '%s' "$value"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          STDB_URI="$(pick_non_empty "${{ secrets.VITE_STDB_URI }}" "${{ vars.VITE_STDB_URI }}" "wss://maincloud.spacetimedb.com")"
+          AUTH_CLIENT_ID="$(pick_non_empty \
+            "${{ secrets.VITE_STDB_AUTH_CLIENT_ID }}" \
+            "${{ secrets.VITE_STDB_CLIENT_ID }}" \
+            "${{ vars.VITE_STDB_AUTH_CLIENT_ID }}" \
+            "${{ vars.VITE_STDB_CLIENT_ID }}" \
+          || true)"
+
+          if [ -z "${AUTH_CLIENT_ID}" ]; then
+            echo "::error::Missing SpacetimeAuth client ID. Set one of: secrets/vars VITE_STDB_AUTH_CLIENT_ID or VITE_STDB_CLIENT_ID."
+            exit 1
+          fi
+
+          echo "VITE_STDB_URI=${STDB_URI}" >> "$GITHUB_ENV"
+          echo "VITE_STDB_AUTH_CLIENT_ID=${AUTH_CLIENT_ID}" >> "$GITHUB_ENV"
+          echo "VITE_STDB_CLIENT_ID=${AUTH_CLIENT_ID}" >> "$GITHUB_ENV"
+
       - name: Build
         run: npm run build
         working-directory: client
-        env:
-          VITE_STDB_URI: ${{ secrets.VITE_STDB_URI }}
-          VITE_STDB_AUTH_CLIENT_ID: ${{ secrets.VITE_STDB_AUTH_CLIENT_ID }}
-          VITE_STDB_CLIENT_ID: ${{ secrets.VITE_STDB_CLIENT_ID }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
