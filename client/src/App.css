@@ -1,42 +1,37 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { background: #111; color: #eee; font-family: system-ui, sans-serif; }
+
+.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* Nav bar */
+.app-nav {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.5rem 1rem; background: #1a1008;
+  border-bottom: 1px solid #3a2a10; flex-shrink: 0;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.app-title {
+  font-family: 'IM Fell English', serif; font-size: 1.2rem;
+  color: #d4b96a; font-style: italic; white-space: nowrap;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+.nav-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.nav-tab {
+  padding: 0.35rem 0.9rem; border: 1px solid #3a2a10; border-radius: 4px;
+  background: transparent; color: #a89060; cursor: pointer; font-size: 0.9rem;
+  transition: background 0.15s;
 }
+.nav-tab:hover { background: rgba(139,105,20,0.15); }
+.nav-tab.active { background: #3a2a10; color: #d4b96a; border-color: #8b6914; }
 
-.card {
-  padding: 2em;
-}
+/* Main content area */
+.app-main { flex: 1; overflow: auto; }
 
-.read-the-docs {
-  color: #888;
+/* Log, stats, members views get white background */
+.app-main .log-view,
+.app-main .stats-view,
+.app-main .members-panel {
+  background: #fff; color: #222; min-height: 100%;
 }
