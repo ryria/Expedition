@@ -12,6 +12,7 @@ export interface ExpeditionProcedures {
 const STDB_URI = import.meta.env.VITE_STDB_URI as string;
 const STDB_DB = "expedition";
 const CONNECT_TIMEOUT_MS = 15_000;
+const SUBSCRIPTION_TIMEOUT_MS = 45_000;
 
 let _conn: DbConnection | null = null;
 let _pendingConn: DbConnection | null = null;
@@ -91,11 +92,24 @@ export function isConnectionReady(): boolean {
   return _isReady;
 }
 
+export function adoptExternalConnection(conn: DbConnection | null, ready = false) {
+  clearConnectTimeout();
+  _connectAttempt += 1;
+  _pendingConn = conn;
+  _conn = conn;
+  _isReady = conn != null && ready;
+}
+
 function clearConnectTimeout() {
   if (_connectTimeout) {
     clearTimeout(_connectTimeout);
     _connectTimeout = null;
   }
+}
+
+function startTimeout(durationMs: number, onTimeout: () => void) {
+  clearConnectTimeout();
+  _connectTimeout = setTimeout(onTimeout, durationMs);
 }
 
 export function disconnectConnection() {
@@ -137,9 +151,9 @@ export function initConnection(
     onError(err);
   };
 
-  _connectTimeout = setTimeout(() => {
+  startTimeout(CONNECT_TIMEOUT_MS, () => {
     fail(new Error(`SpacetimeDB connection timed out after ${CONNECT_TIMEOUT_MS}ms`));
-  }, CONNECT_TIMEOUT_MS);
+  });
 
   const conn = DbConnection.builder()
     .withUri(stdbUri)
@@ -150,6 +164,10 @@ export function initConnection(
         ctx.disconnect();
         return;
       }
+
+      startTimeout(SUBSCRIPTION_TIMEOUT_MS, () => {
+        fail(new Error(`SpacetimeDB subscription timed out after ${SUBSCRIPTION_TIMEOUT_MS}ms`));
+      });
 
       _conn = ctx;
       _pendingConn = ctx;

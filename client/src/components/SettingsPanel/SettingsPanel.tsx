@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useSpacetimeDB } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
-import { getConnection, getProcedures } from "../../spacetime/connection";
+import { DbConnection } from "../../spacetime/generated";
 import { DEFAULT_COLORS, STRAVA_CLIENT_ID } from "../../config";
 import "./SettingsPanel.css";
 
@@ -22,6 +23,7 @@ export function SettingsPanel({
   onMapModeChange,
 }: SettingsPanelProps) {
   const auth = useAuth();
+  const connectionState = useSpacetimeDB();
   const { members } = useMembers();
   const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_COLORS[0]);
@@ -32,6 +34,7 @@ export function SettingsPanel({
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
+  const conn = connectionState.getConnection() as DbConnection | null;
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const suggestedName = useMemo(() => {
@@ -120,13 +123,15 @@ export function SettingsPanel({
 
     void (async () => {
       try {
-        const conn = getConnection();
+        if (!conn) throw new Error("SpacetimeDB not connected");
         const reducers = conn.reducers as { bindAuthIdentity?: (args?: Record<string, never>) => void };
         if (linkedMember) {
           reducers.bindAuthIdentity?.({});
         }
 
-        const procedures = getProcedures();
+        const procedures = conn.procedures as {
+          linkStravaAccount?: (args: { code: string; redirectUri: string }) => Promise<unknown>;
+        };
         if (!procedures.linkStravaAccount) {
           setStravaStatus("Strava link unavailable until client bindings are regenerated.");
           return;
@@ -141,7 +146,7 @@ export function SettingsPanel({
         cleanup();
       }
     })();
-  }, [sub]);
+  }, [conn, linkedMember, sub]);
 
   function handleSaveProfile() {
     setError("");
@@ -165,7 +170,7 @@ export function SettingsPanel({
     if (!changed) return;
     setIsSaving(true);
     try {
-      const conn = getConnection();
+      if (!conn) throw new Error("SpacetimeDB not connected");
       conn.reducers.addMember({ name: name.trim(), colorHex: color });
     } catch (err) {
       setIsSaving(false);
@@ -206,12 +211,14 @@ export function SettingsPanel({
     setIsSyncingStrava(true);
     void (async () => {
       try {
-        const conn = getConnection();
+        if (!conn) throw new Error("SpacetimeDB not connected");
         const reducers = conn.reducers as { bindAuthIdentity?: (args?: Record<string, never>) => void };
         if (linkedMember) {
           reducers.bindAuthIdentity?.({});
         }
-        const procedures = getProcedures();
+        const procedures = conn.procedures as {
+          syncMyStravaActivities?: (args?: Record<string, never>) => Promise<unknown>;
+        };
         if (!procedures.syncMyStravaActivities) {
           setStravaStatus("Strava sync unavailable until client bindings are regenerated.");
           return;

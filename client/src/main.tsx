@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { AuthProvider, useAuth, useAutoSignin } from "react-oidc-context";
+import { SpacetimeDBProvider, useSpacetimeDB } from "spacetimedb/react";
 import App from "./App.tsx";
 import "./index.css";
-import { useConnectionHandler } from "./spacetime/useConnectionHandler";
+import { DbConnection } from "./spacetime/generated";
 
 function firstNonEmptyEnv(...values: Array<string | undefined>): string | undefined {
   for (const value of values) {
@@ -23,6 +24,8 @@ const POST_LOGOUT_REDIRECT_URI = new URL(APP_BASE, window.location.origin).toStr
 const STRICT_MODE_ENABLED =
   (import.meta.env.VITE_REACT_STRICT_MODE as string | undefined)?.toLowerCase() !== "false";
 const STDB_TOKEN_STORAGE_KEY = "expedition.stdb.id_token";
+const STDB_URI = import.meta.env.VITE_STDB_URI as string;
+const STDB_DB = "expedition";
 
 function readPersistedStdbToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
@@ -97,6 +100,20 @@ const oidcConfig = {
 
 function onSigninCallback() {
   window.history.replaceState({}, document.title, APP_BASE);
+}
+
+function validateProviderUri(uri: string): string {
+  const trimmed = uri.trim();
+  if (!trimmed) {
+    throw new Error("Missing VITE_STDB_URI for SpacetimeDB connection");
+  }
+
+  const parsed = new URL(trimmed);
+  if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+    throw new Error(`VITE_STDB_URI must use ws:// or wss:// (received ${parsed.protocol})`);
+  }
+
+  return trimmed;
 }
 
 function MissingAuthConfig() {
@@ -237,6 +254,94 @@ function ConnectionIntermission({
   );
 }
 
+function ProviderGate({
+  hasConnectedOnce,
+  retryNow,
+}: {
+  hasConnectedOnce: boolean;
+  retryNow: () => void;
+}) {
+  const state = useSpacetimeDB();
+
+  if (state.isActive) {
+    return <App />;
+  }
+
+  const hasError = Boolean(state.connectionError);
+  const title = hasError ? (hasConnectedOnce ? "Connection issue" : "Connection failed") : "Connecting";
+  const message = hasError
+    ? "Unable to establish a stable connection right now."
+    : "Connecting to server…";
+
+  return (
+    <ConnectionIntermission
+      title={title}
+      message={message}
+      showActivity={!hasError}
+      detail={hasError ? state.connectionError?.message ?? "Unknown connection error" : undefined}
+      actionLabel="Retry now"
+      onAction={retryNow}
+    />
+  );
+}
+
+function ProviderConnectionApp({ connectionToken }: { connectionToken?: string }) {
+  const [hasConnectedOnce, setHasConnectedOnce] = React.useState(false);
+  const [retryNonce, setRetryNonce] = React.useState(0);
+
+  const retryNow = React.useCallback(() => {
+    setRetryNonce((prev) => prev + 1);
+  }, []);
+
+  React.useEffect(() => {
+    setRetryNonce((prev) => prev + 1);
+  }, [connectionToken]);
+
+  const builder = React.useMemo(() => {
+    let stdbUri = "";
+    try {
+      stdbUri = validateProviderUri(STDB_URI);
+    } catch {
+      return null;
+    }
+
+    return DbConnection.builder()
+      .withUri(stdbUri)
+      .withDatabaseName(STDB_DB)
+      .withToken(connectionToken)
+      .onConnect((ctx) => {
+        void ctx;
+        setHasConnectedOnce(true);
+      })
+      .onDisconnect((_ctx, err) => {
+        if (err) {
+          console.error("[SpacetimeDB][Provider] disconnected with error:", err);
+        }
+      })
+      .onConnectError((_ctx, err) => {
+        console.error("[SpacetimeDB][Provider] connection failed:", err);
+      });
+  }, [connectionToken, retryNonce]);
+
+  if (!builder) {
+    return (
+      <ConnectionIntermission
+        title="Connection failed"
+        message="Unable to initialize provider connection."
+        detail="Invalid or missing VITE_STDB_URI"
+        actionLabel="Retry now"
+        onAction={retryNow}
+      />
+    );
+  }
+
+  return (
+    <SpacetimeDBProvider key={retryNonce} connectionBuilder={builder}>
+      <ProviderGate hasConnectedOnce={hasConnectedOnce} retryNow={retryNow} />
+    </SpacetimeDBProvider>
+  );
+}
+
 function AuthenticatedApp() {
   const auth = useAuth();
   useAutoSignin();
@@ -261,10 +366,6 @@ function AuthenticatedApp() {
 
   const isTransientAuthWindow = auth.isLoading || auth.activeNavigator === "signinSilent";
   const connectionToken = liveToken ?? (isTransientAuthWindow ? persistedToken : undefined);
-
-  const { phase, lastError, hasConnectedOnce, retryNow } = useConnectionHandler(
-    connectionToken,
-  );
 
   if (auth.isLoading) {
     return (
@@ -306,61 +407,7 @@ function AuthenticatedApp() {
     );
   }
 
-  if (phase !== "connected") {
-    const phaseContent: Record<string, { title: string; message: string; retry?: boolean }> = {
-      idle: {
-        title: "Preparing connection",
-        message: "Starting your secure session…",
-      },
-      connecting: {
-        title: "Connecting",
-        message: "Connecting to server…",
-      },
-      reconnecting: {
-        title: "Reconnecting",
-        message: "Trying to restore your live session…",
-      },
-      offline: {
-        title: "Offline",
-        message: "No network detected. Reconnect to continue.",
-        retry: true,
-      },
-      inactive: {
-        title: "Session paused",
-        message: "Disconnected after inactivity. Retry to resume.",
-        retry: true,
-      },
-      background: {
-        title: "Session paused",
-        message: "Connection paused while app is in the background.",
-        retry: true,
-      },
-      error: {
-        title: hasConnectedOnce ? "Connection issue" : "Connection failed",
-        message: "Unable to establish a stable connection right now.",
-        retry: true,
-      },
-    };
-
-    const current = phaseContent[phase] ?? {
-      title: "Connection update",
-      message: "Connection state changed.",
-      retry: true,
-    };
-
-    return (
-      <ConnectionIntermission
-        title={current.title}
-        message={current.message}
-        showActivity={phase === "idle" || phase === "connecting" || phase === "reconnecting"}
-        detail={phase === "error" ? lastError ?? "Unknown connection error" : undefined}
-        actionLabel={current.retry ? "Retry now" : undefined}
-        onAction={current.retry ? retryNow : undefined}
-      />
-    );
-  }
-
-  return <App />;
+  return <ProviderConnectionApp connectionToken={connectionToken} />;
 }
 
 const appRoot = AUTH_CLIENT_ID ? (

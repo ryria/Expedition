@@ -4,8 +4,9 @@ import { useReactions } from "../../hooks/useReactions";
 import { useMembers } from "../../hooks/useMembers";
 import { CommentThread } from "./CommentThread";
 import { ACTIVITY_ICONS } from "../../config";
-import { getConnection } from "../../spacetime/connection";
 import { useAuth } from "react-oidc-context";
+import { useSpacetimeDB } from "spacetimedb/react";
+import { DbConnection } from "../../spacetime/generated";
 
 const EMOJIS = ["🔥", "💪", "🌊", "🎉", "😮", "❤️"];
 
@@ -13,6 +14,7 @@ interface Props { entry: ActivityEntry; }
 
 export function ActivityCard({ entry }: Props) {
   const auth = useAuth();
+  const connectionState = useSpacetimeDB();
   const { members } = useMembers();
   const { reactionsFor } = useReactions();
   const [actionError, setActionError] = useState("");
@@ -25,7 +27,9 @@ export function ActivityCard({ entry }: Props) {
     if (!linkedMember) return;
     setActionError("");
     try {
-      getConnection().reducers.addReaction({
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
+      conn.reducers.addReaction({
         logId: entry.id,
         emoji,
         reactedBy: linkedMember.name,

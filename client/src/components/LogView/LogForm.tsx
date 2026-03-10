@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
-import { getConnection, getProcedures } from "../../spacetime/connection";
+import { DbConnection, tables } from "../../spacetime/generated";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
 
 type ActivityLogInsertRow = { id: bigint; memberId: bigint };
-type ActivityInsertCb = (ctx: unknown, row: ActivityLogInsertRow) => void;
-
-interface ActivityLogInsertTable {
-  onInsert(cb: ActivityInsertCb): void;
-  removeOnInsert(cb: ActivityInsertCb): void;
-}
+type ExpeditionProcedures = {
+  requestAiCoaching(args: { logId: bigint }): Promise<unknown>;
+};
 
 export function LogForm() {
   const auth = useAuth();
+  const connectionState = useSpacetimeDB();
   const { members } = useMembers();
   const [personMemberId, setPersonMemberId] = useState("");
   const [actType, setActType] = useState<string>("run");
@@ -33,48 +32,19 @@ export function LogForm() {
     }
   }, [linkedMember]);
 
-  // Listen for new activity inserts; call AI coaching on the first match
-  useEffect(() => {
-    let disposed = false;
-    let table: ActivityLogInsertTable | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const onInsert: ActivityInsertCb = (_ctx, row) => {
-      if (pendingMemberId.current != null && row.memberId === pendingMemberId.current) {
+  useTable(tables.activity_log, {
+    onInsert: (row) => {
+      const inserted = row as ActivityLogInsertRow;
+      if (pendingMemberId.current != null && inserted.memberId === pendingMemberId.current) {
         pendingMemberId.current = null;
-        try {
-          getProcedures().requestAiCoaching({ logId: row.id });
-        } catch (err) {
+        const conn = connectionState.getConnection() as DbConnection | null;
+        const procedures = conn?.procedures as ExpeditionProcedures | undefined;
+        void procedures?.requestAiCoaching({ logId: inserted.id }).catch((err) => {
           console.warn("requestAiCoaching failed", err);
-        }
+        });
       }
-    };
-
-    const attach = () => {
-      if (disposed) return;
-
-      let conn;
-      try {
-        conn = getConnection();
-      } catch {
-        retryTimer = setTimeout(attach, 250);
-        return;
-      }
-
-      table = conn.db.activity_log as ActivityLogInsertTable;
-      table.onInsert(onInsert);
-    };
-
-    attach();
-
-    return () => {
-      disposed = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      table?.removeOnInsert(onInsert);
-    };
-  }, []);
+    },
+  });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,7 +69,8 @@ export function LogForm() {
     }
     setSubmitting(true);
     try {
-      const conn = getConnection();
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
       pendingMemberId.current = selectedMember.id;
       conn.reducers.logActivity({ memberId: selectedMember.id, activityType: actType, distanceKm: km, note: note.trim() });
       setDist("");

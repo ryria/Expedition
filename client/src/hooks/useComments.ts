@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useMemo } from "react";
 import { Timestamp } from "spacetimedb";
-import { useLiveTable } from "./useLiveTable";
+import { useTable } from "spacetimedb/react";
+import { tables } from "../spacetime/generated";
 
 export interface CommentRow {
   id: bigint;
@@ -10,42 +11,9 @@ export interface CommentRow {
   timestamp: Timestamp;
 }
 
-type InsertCb = (ctx: unknown, row: CommentRow) => void;
-type DeleteCb = (ctx: unknown, row: CommentRow) => void;
-
-interface CommentTable {
-  [Symbol.iterator](): Iterator<CommentRow>;
-  onInsert(cb: InsertCb): void;
-  onDelete(cb: DeleteCb): void;
-  removeOnInsert(cb: InsertCb): void;
-  removeOnDelete(cb: DeleteCb): void;
-}
-
 export function useComments() {
-  const [comments, setComments] = useState<CommentRow[]>([]);
-
-  const getTable = useCallback((conn: ReturnType<typeof import("../spacetime/connection").getConnection>) => conn.db.comment as CommentTable, []);
-
-  const onInitialRows = useCallback((rows: CommentRow[]) => {
-    setComments(rows);
-  }, []);
-
-  const onInsert: InsertCb = useCallback(
-    (_ctx, row) => setComments((prev) => [...prev, row]),
-    [],
-  );
-
-  const onDelete: DeleteCb = useCallback(
-    (_ctx, row) => setComments((prev) => prev.filter((c) => c.id !== row.id)),
-    [],
-  );
-
-  useLiveTable<CommentRow, CommentTable>({
-    getTable,
-    onInitialRows,
-    onInsert,
-    onDelete,
-  });
+  const [rows] = useTable(tables.comment);
+  const comments = useMemo(() => rows as readonly CommentRow[], [rows]);
 
   function commentsFor(logId: bigint) {
     return comments

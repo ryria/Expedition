@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useSpacetimeDB } from "spacetimedb/react";
 import { useComments } from "../../hooks/useComments";
 import { useMembers } from "../../hooks/useMembers";
-import { getConnection } from "../../spacetime/connection";
+import { DbConnection } from "../../spacetime/generated";
 
 interface Props { logId: bigint; }
 
 export function CommentThread({ logId }: Props) {
   const auth = useAuth();
+  const connectionState = useSpacetimeDB();
   const { members } = useMembers();
   const { commentsFor } = useComments();
   const [open, setOpen] = useState(false);
@@ -22,7 +24,9 @@ export function CommentThread({ logId }: Props) {
     if (!linkedMember || !body.trim()) return;
     setError("");
     try {
-      getConnection().reducers.addComment({
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
+      conn.reducers.addComment({
         logId,
         author: linkedMember.name,
         body: body.trim(),
