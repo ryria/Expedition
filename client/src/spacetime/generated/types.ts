@@ -44,6 +44,17 @@ export const Config = __t.object("Config", {
 });
 export type Config = __Infer<typeof Config>;
 
+export const Expedition = __t.object("Expedition", {
+  id: __t.u64(),
+  name: __t.string(),
+  slug: __t.string(),
+  createdByMemberId: __t.u64(),
+  isArchived: __t.bool(),
+  createdAt: __t.timestamp(),
+  archivedAt: __t.option(__t.timestamp()),
+});
+export type Expedition = __Infer<typeof Expedition>;
+
 export const ImportedStravaActivity = __t.object("ImportedStravaActivity", {
   stravaActivityId: __t.u64(),
   ownerSub: __t.string(),
@@ -59,6 +70,18 @@ export const Member = __t.object("Member", {
   createdAt: __t.timestamp(),
 });
 export type Member = __Infer<typeof Member>;
+
+export const Membership = __t.object("Membership", {
+  id: __t.u64(),
+  expeditionId: __t.u64(),
+  memberId: __t.u64(),
+  role: __t.string(),
+  status: __t.string(),
+  joinedAt: __t.timestamp(),
+  leftAt: __t.option(__t.timestamp()),
+  expeditionMemberKey: __t.string(),
+});
+export type Membership = __Infer<typeof Membership>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),

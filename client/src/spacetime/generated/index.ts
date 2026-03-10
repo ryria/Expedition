@@ -38,6 +38,7 @@ import AddCommentReducer from "./add_comment_reducer";
 import AddMemberReducer from "./add_member_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
+import CreateExpeditionReducer from "./create_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import SetConfigReducer from "./set_config_reducer";
@@ -52,7 +53,9 @@ import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_pr
 // Import all table schema definitions
 import ActivityLogRow from "./activity_log_table";
 import CommentRow from "./comment_table";
+import ExpeditionRow from "./expedition_table";
 import MemberRow from "./member_table";
+import MembershipRow from "./membership_table";
 import ReactionRow from "./reaction_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -81,6 +84,21 @@ const tablesSchema = __schema({
       { name: 'comment_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CommentRow),
+  expedition: __table({
+    name: 'expedition',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'slug', algorithm: 'btree', columns: [
+        'slug',
+      ] },
+    ],
+    constraints: [
+      { name: 'expedition_id_key', constraint: 'unique', columns: ['id'] },
+      { name: 'expedition_slug_key', constraint: 'unique', columns: ['slug'] },
+    ],
+  }, ExpeditionRow),
   member: __table({
     name: 'member',
     indexes: [
@@ -100,6 +118,21 @@ const tablesSchema = __schema({
       { name: 'member_owner_sub_key', constraint: 'unique', columns: ['ownerSub'] },
     ],
   }, MemberRow),
+  membership: __table({
+    name: 'membership',
+    indexes: [
+      { name: 'expedition_member_key', algorithm: 'btree', columns: [
+        'expeditionMemberKey',
+      ] },
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'membership_expedition_member_key_key', constraint: 'unique', columns: ['expeditionMemberKey'] },
+      { name: 'membership_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MembershipRow),
   reaction: __table({
     name: 'reaction',
     indexes: [
@@ -119,6 +152,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
+  __reducerSchema("create_expedition", CreateExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("set_config", SetConfigReducer),

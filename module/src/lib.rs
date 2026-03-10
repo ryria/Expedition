@@ -379,6 +379,15 @@ fn authenticated_subject(ctx: &ReducerContext) -> Result<String, String> {
     Ok(jwt.subject().to_string())
 }
 
+fn is_valid_slug(slug: &str) -> bool {
+    if slug.is_empty() {
+        return false;
+    }
+
+    slug.chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+}
+
 fn upsert_auth_binding(ctx: &ReducerContext, owner_sub: &str) {
     let sender_identity = ctx.sender().to_string();
     if let Some(mut existing) = ctx
@@ -508,6 +517,108 @@ pub struct StravaRateLimitState {
 }
 
 // ─── Member ───────────────────────────────────────────────────────────────────
+
+#[spacetimedb::table(accessor = expedition, public)]
+pub struct Expedition {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub name: String,
+    #[unique]
+    pub slug: String,
+    pub created_by_member_id: u64,
+    pub is_archived: bool,
+    pub created_at: Timestamp,
+    pub archived_at: Option<Timestamp>,
+}
+
+#[spacetimedb::table(accessor = membership, public)]
+pub struct Membership {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub expedition_id: u64,
+    pub member_id: u64,
+    pub role: String,
+    pub status: String,
+    pub joined_at: Timestamp,
+    pub left_at: Option<Timestamp>,
+    #[unique]
+    pub expedition_member_key: String,
+}
+
+#[spacetimedb::reducer]
+pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
+    let owner_sub = match authenticated_subject(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("create_expedition: {}", err);
+            return;
+        }
+    };
+
+    let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
+        log::error!("create_expedition: profile not found for authenticated user");
+        return;
+    };
+
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        log::error!("create_expedition: name cannot be empty");
+        return;
+    }
+
+    let slug = slug.trim().to_string();
+    if !is_valid_slug(&slug) {
+        log::error!(
+            "create_expedition: slug must contain only lowercase letters, digits, and hyphens"
+        );
+        return;
+    }
+
+    if ctx.db.expedition().slug().find(slug.clone()).is_some() {
+        log::error!("create_expedition: duplicate slug");
+        return;
+    }
+
+    ctx.db.expedition().insert(Expedition {
+        id: 0,
+        name,
+        slug: slug.clone(),
+        created_by_member_id: me.id,
+        is_archived: false,
+        created_at: ctx.timestamp,
+        archived_at: None,
+    });
+
+    let Some(expedition) = ctx.db.expedition().slug().find(slug) else {
+        log::error!("create_expedition: failed to resolve inserted expedition");
+        return;
+    };
+
+    let expedition_member_key = format!("{}:{}", expedition.id, me.id);
+    if ctx
+        .db
+        .membership()
+        .expedition_member_key()
+        .find(expedition_member_key.clone())
+        .is_some()
+    {
+        log::error!("create_expedition: duplicate active membership");
+        return;
+    }
+
+    ctx.db.membership().insert(Membership {
+        id: 0,
+        expedition_id: expedition.id,
+        member_id: me.id,
+        role: "owner".to_string(),
+        status: "active".to_string(),
+        joined_at: ctx.timestamp,
+        left_at: None,
+        expedition_member_key,
+    });
+}
 
 #[spacetimedb::table(accessor = member, public)]
 pub struct Member {
