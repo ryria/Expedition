@@ -993,25 +993,28 @@ This section consolidates second-wave agent outputs into issue-ready execution i
 
 - [ ] Rollback point after Phase A
 - [ ] Rollback point after Phase B
-- [ ] Rollback point after Phase C
+- [x] Rollback point after Phase C
 - [ ] Temporary compatibility mode plan documented for emergency rollback
 
 ### Cutover runbook checklist
 
 - [ ] Staging dry-run completed from snapshot
-- [ ] Staging rollback drill completed and documented
+- [x] Staging rollback drill completed and documented
 - [ ] Production maintenance window + comms prepared
 - [ ] 24-hour post-cutover monitoring checklist prepared
 
 ### Blockers / Notes
 
-- [!] Staging snapshot dry-run + rollback drill evidence not yet executed in this workspace session; cannot mark `EXP-012` complete until rollback artifacts are attached.
+- [x] Rollback drill evidence captured on active STDB server `hostinger-tls` (2026-03-11, SQL-level reversible drill).
 - [!] Live SQL evidence capture remains flaky after deploy: `maincloud` intermittently returns connect timeout (os error 10060) and 502 during aggregate verification queries, preventing stable post-migration backfill counts in this session.
 - [x] Operational backfill verification attached: seeded legacy expedition/memberships and validated `expedition_id = 0` counts are `0` for `activity_log`/`comment`/`reaction`.
 - [x] One-time migration replay guard verified through logs + post-attempt counts (no mutation on second invocation).
 - [x] Unblock action 1: deploy updated module schema (with `expedition_id` fields) to staging/target environment.
 - [x] Unblock action 2: rerun SQL evidence checks for zero unscoped rows and parent-child consistency.
-- [ ] Unblock action 3: execute rollback drill and attach artifacts to Sprint 2 review.
+- [x] Unblock action 3: execute rollback drill and attach artifacts to Sprint 2 review.
+- [x] Drill baseline counts before + after rollback matched exactly on `hostinger-tls`: `expedition=2`, `membership=2`, `activity_log=2`, `comment=0`, `reaction=0`.
+- [x] Controlled temporary drill mutations were applied then reverted: `expedition.name` (`id=1`), `membership.role` (`id=1`), `activity_log.note` (`id=1`).
+- [!] Caveat: direct SQL `INSERT` for timestamped rows on `hostinger-tls` requires strict timestamp typed literals; reducer-based `add_comment` probe via CLI did not mutate under current auth context. Drill was completed safely using reversible SQL `UPDATE` mutations + rollback verification.
 
 ## 19.4 EXP-013 Frontend/Client Spec Integration
 
@@ -1047,13 +1050,14 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [x] `EXP014-UT-001` active expedition filter for members
 - [x] `EXP014-UT-002` activity feed scoped filtering
 - [x] `EXP014-UT-003` switch context invalidates stale state
-- [~] `EXP014-INT-001..005` scoped mutation auth/behavior checks (added `LogForm` guard-path integration tests for active-expedition and linked-member enforcement)
-- [~] `EXP014-SEC-001..003` auth mismatch and forged context rejection (hook-level cross-expedition deny checks + `LogForm` auth-mismatch guard tests added; reducer-level forged-context rejection automation still pending)
+- [~] `EXP014-INT-001..005` scoped mutation auth/behavior checks (added `LogForm` guard-path integration tests for active-expedition + linked-member enforcement, plus reducer rejection-path handling for unauthenticated/auth-mismatch mutation attempts)
+- [~] `EXP014-SEC-001..003` auth mismatch and forged context rejection (hook-level cross-expedition deny checks + `LogForm` reducer-rejection integration tests for `Authentication required` and auth-mismatch paths; reducer-native forged-context automation still pending)
 - [x] `EXP014-REG-001..004` migration and cross-tenant regression checks
 
 ### Sprint 2 quality gate
 
 - [ ] All `SEC` and cross-expedition `INT` tests green in CI
+- [~] Local preflight green on 2026-03-11 (`isolation-gate` command: 17/17 tests pass, plus `npm run build` pass); awaiting GitHub Actions run for CI checkbox above
 - [ ] Zero P0/P1 leakage or authorization defects
 - [ ] Migration verification artifacts attached to sprint review
 - [ ] Manual multi-session leakage check completed

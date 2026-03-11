@@ -113,4 +113,51 @@ describe("LogForm integration guards", () => {
       note: "tempo",
     });
   });
+
+  it("surfaces reducer authentication-required rejection for forged unauthenticated context", () => {
+    mocks.logActivity.mockImplementation(() => {
+      throw new Error("log_activity: Authentication required");
+    });
+    mocks.useAuthMock.mockReturnValue({ user: undefined });
+    mocks.useMembersMock.mockReturnValue({
+      members: [
+        { id: 1n, name: "A", ownerSub: "sub-a", colorHex: "#111111", createdAt: { toDate: () => new Date() } },
+      ],
+    });
+
+    render(<LogForm activeExpeditionId={10n} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log it" }));
+
+    expect(screen.getByText("log_activity: Authentication required")).toBeTruthy();
+    expect(mocks.logActivity).toHaveBeenCalledTimes(1);
+    expect(mocks.requestAiCoaching).not.toHaveBeenCalled();
+  });
+
+  it("surfaces reducer auth-mismatch rejection for forged mutation attempts", () => {
+    mocks.logActivity.mockImplementation(() => {
+      throw new Error("log_activity: you can only log activity for your own profile");
+    });
+    mocks.useAuthMock.mockReturnValue({
+      user: {
+        profile: {
+          sub: "sub-a",
+        },
+      },
+    });
+    mocks.useMembersMock.mockReturnValue({
+      members: [
+        { id: 1n, name: "A", ownerSub: "sub-a", colorHex: "#111111", createdAt: { toDate: () => new Date() } },
+      ],
+    });
+
+    render(<LogForm activeExpeditionId={10n} />);
+    fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log it" }));
+
+    expect(screen.getByText("log_activity: you can only log activity for your own profile")).toBeTruthy();
+    expect(mocks.logActivity).toHaveBeenCalledTimes(1);
+    expect(mocks.requestAiCoaching).not.toHaveBeenCalled();
+  });
 });
