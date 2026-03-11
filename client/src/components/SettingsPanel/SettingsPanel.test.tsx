@@ -58,11 +58,11 @@ describe("SettingsPanel invite/role security", () => {
           revokeInvite: mocks.revokeInvite,
           setMembershipRole: mocks.setMembershipRole,
           transferExpeditionOwnership: mocks.transferExpeditionOwnership,
-          createCheckoutSession: mocks.createCheckoutSession,
         },
         procedures: {
           syncMyStravaActivities: mocks.syncMyStravaActivities,
           linkStravaAccount: mocks.linkStravaAccount,
+          createCheckoutSession: mocks.createCheckoutSession,
         },
       }),
     });
@@ -174,7 +174,7 @@ describe("SettingsPanel invite/role security", () => {
   });
 
   it("starts checkout for owner expedition", async () => {
-    const assignSpy = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+    mocks.createCheckoutSession.mockResolvedValueOnce("");
 
     renderPanel([
       { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
@@ -185,9 +185,7 @@ describe("SettingsPanel invite/role security", () => {
 
     await waitFor(() => {
       expect(mocks.createCheckoutSession).toHaveBeenCalledWith({ expeditionId: 10n });
-      expect(assignSpy).toHaveBeenCalledWith("https://checkout.stripe.com/test");
+      expect(screen.getByText("Checkout session could not be created. Verify Stripe config keys.")).toBeTruthy();
     });
-
-    assignSpy.mockRestore();
   });
 });

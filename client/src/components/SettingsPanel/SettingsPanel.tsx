@@ -99,7 +99,7 @@ export function SettingsPanel({
   const conn = connectionState.getConnection() as DbConnection | null;
   const [inviteRows] = useTable(tables.invite);
   const [membershipRows] = useTable(tables.membership);
-  const [planSubscriptionRows] = useTable(tables.planSubscription);
+  const [planSubscriptionRows] = useTable(tables.plan_subscription);
   const [entitlementRows] = useTable(tables.entitlement);
 
   const sub = auth.user?.profile?.sub as string | undefined;
