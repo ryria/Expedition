@@ -20,6 +20,7 @@ type InviteRow = {
   revokedAt: unknown;
 };
 type MembershipRow = {
+  id: bigint;
   expeditionId: bigint;
   memberId: bigint;
   role: string;
@@ -67,9 +68,12 @@ export function SettingsPanel({
   const [inviteTtlMinutes, setInviteTtlMinutes] = useState("1440");
   const [inviteMaxUses, setInviteMaxUses] = useState("1");
   const [inviteStatus, setInviteStatus] = useState("");
+  const [roleStatus, setRoleStatus] = useState("");
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [isJoiningInvite, setIsJoiningInvite] = useState(false);
   const [revokingToken, setRevokingToken] = useState<string | null>(null);
+  const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<bigint | null>(null);
+  const [transferringToMemberId, setTransferringToMemberId] = useState<bigint | null>(null);
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
@@ -103,7 +107,36 @@ export function SettingsPanel({
 
   const canManageInvites =
     activeMembership != null &&
-    (activeMembership.role === "owner" || activeMembership.role === "admin");
+    (activeMembership.role.toLowerCase() === "owner" || activeMembership.role.toLowerCase() === "admin");
+
+  const isOwner = activeMembership?.role.toLowerCase() === "owner";
+
+  const expeditionMemberships = useMemo(() => {
+    if (!activeExpedition) return [] as Array<{ memberId: bigint; memberName: string; role: string }>;
+
+    const membersById = new Map(members.map((member) => [member.id.toString(), member]));
+    return (membershipRows as readonly MembershipRow[])
+      .filter(
+        (row) =>
+          row.expeditionId === activeExpedition.id &&
+          row.leftAt == null &&
+          row.status.toLowerCase() !== "left" &&
+          membersById.has(row.memberId.toString()),
+      )
+      .map((row) => {
+        const member = membersById.get(row.memberId.toString());
+        return {
+          memberId: row.memberId,
+          memberName: member?.name ?? `Member ${row.memberId.toString()}`,
+          role: row.role.toLowerCase(),
+        };
+      })
+      .sort((a, b) => {
+        if (a.role === "owner" && b.role !== "owner") return -1;
+        if (a.role !== "owner" && b.role === "owner") return 1;
+        return a.memberName.localeCompare(b.memberName);
+      });
+  }, [activeExpedition, members, membershipRows]);
 
   const activeInvites = useMemo(() => {
     if (!activeExpedition) return [] as InviteRow[];
@@ -393,6 +426,65 @@ export function SettingsPanel({
     }
   }
 
+  function handleSetRole(targetMemberId: bigint, newRole: "admin" | "member") {
+    setRoleStatus("");
+    if (!conn) {
+      setRoleStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setRoleStatus("Select an active expedition first.");
+      return;
+    }
+    if (!isOwner) {
+      setRoleStatus("Only the owner can change member roles.");
+      return;
+    }
+
+    try {
+      setUpdatingRoleMemberId(targetMemberId);
+      conn.reducers.setMembershipRole({
+        expeditionId: activeExpedition.id,
+        targetMemberId,
+        newRole,
+      });
+      setRoleStatus(`Updated role to ${newRole}.`);
+    } catch (err) {
+      setRoleStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUpdatingRoleMemberId(null);
+    }
+  }
+
+  function handleTransferOwnership(newOwnerMemberId: bigint) {
+    setRoleStatus("");
+    if (!conn) {
+      setRoleStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setRoleStatus("Select an active expedition first.");
+      return;
+    }
+    if (!isOwner) {
+      setRoleStatus("Only the owner can transfer ownership.");
+      return;
+    }
+
+    try {
+      setTransferringToMemberId(newOwnerMemberId);
+      conn.reducers.transferExpeditionOwnership({
+        expeditionId: activeExpedition.id,
+        newOwnerMemberId,
+      });
+      setRoleStatus("Ownership transfer requested.");
+    } catch (err) {
+      setRoleStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTransferringToMemberId(null);
+    }
+  }
+
   return (
     <div className="settings-panel">
       <h2>User Settings</h2>
@@ -549,6 +641,64 @@ export function SettingsPanel({
         </div>
 
         {inviteStatus && <p className="field-error">{inviteStatus}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Roles</h3>
+        {!activeExpedition ? (
+          <p>Select an active expedition to manage roles.</p>
+        ) : expeditionMemberships.length === 0 ? (
+          <p>No active members in this expedition.</p>
+        ) : (
+          <div className="role-list">
+            {expeditionMemberships.map((membership) => {
+              const isSelf = linkedMember != null && membership.memberId === linkedMember.id;
+              const isMemberOwner = membership.role === "owner";
+              const isUpdating = updatingRoleMemberId === membership.memberId;
+              const isTransferring = transferringToMemberId === membership.memberId;
+              const canPromote = isOwner && !isMemberOwner && membership.role !== "admin";
+              const canDemote = isOwner && !isMemberOwner && membership.role !== "member";
+              const canTransfer = isOwner && !isMemberOwner;
+
+              return (
+                <div key={membership.memberId.toString()} className="role-row">
+                  <div className="role-member">
+                    <span>{membership.memberName}</span>
+                    <span className="role-badge">{membership.role}</span>
+                    {isSelf && <span className="role-self">you</span>}
+                  </div>
+                  <div className="role-actions">
+                    <button
+                      type="button"
+                      onClick={() => handleSetRole(membership.memberId, "admin")}
+                      disabled={!canPromote || isUpdating || isTransferring}
+                    >
+                      {isUpdating && canPromote ? "Updating…" : "Make admin"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetRole(membership.memberId, "member")}
+                      disabled={!canDemote || isUpdating || isTransferring}
+                    >
+                      {isUpdating && canDemote ? "Updating…" : "Make member"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTransferOwnership(membership.memberId)}
+                      disabled={!canTransfer || isUpdating || isTransferring}
+                    >
+                      {isTransferring ? "Transferring…" : "Make owner"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {!isOwner && activeExpedition && (
+          <p>Only the current owner can change roles or transfer ownership.</p>
+        )}
+        {roleStatus && <p className="field-error">{roleStatus}</p>}
       </section>
 
       <section className="settings-group">

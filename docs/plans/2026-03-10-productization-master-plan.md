@@ -611,17 +611,19 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** FE · **Effort:** M · **Depends on:** EXP-020  
   **Done when:** owners/admins can issue invites; users can join via link.
 
-- [ ] `EXP-023` Role management UI + owner transfer  
+- [x] `EXP-023` Role management UI + owner transfer  
   **Priority:** P1 · **Owner:** FE/BE · **Effort:** M · **Depends on:** EXP-021  
   **Done when:** owner can promote/demote and transfer ownership safely.
 
-- [ ] `EXP-024` Invite/role security tests  
+- [x] `EXP-024` Invite/role security tests  
   **Priority:** P0 · **Owner:** QA · **Effort:** S · **Depends on:** EXP-021, EXP-022  
   **Done when:** role escalation and invite abuse edge cases are covered.
 
 - 2026-03-12: Completed `EXP-020` in `module/src/lib.rs` by adding `invite` table and reducers `create_invite`, `accept_invite`, and `revoke_invite` with TTL, max-use, revocation, and joinability checks; validated with `cargo check`, `npx vitest run` (22/22), and `npm run build`.
 - 2026-03-12: Completed `EXP-021` in `module/src/lib.rs` by centralizing role guards and adding `set_membership_role` + `transfer_expedition_ownership` reducers; invite management reducers now enforce owner/admin roles through shared scoped guard helpers; validated with `cargo check`, `npx vitest run` (22/22), and `npm run build`.
 - 2026-03-12: Completed `EXP-022` in `client/src/components/SettingsPanel/SettingsPanel.tsx` by replacing the placeholder with live invite management (create/revoke/list active invites) and join-by-token flow scoped to the active expedition; regenerated Spacetime bindings and validated with `npx vitest run` (22/22) and `npm run build`.
+- 2026-03-12: Completed `EXP-023` in `client/src/components/SettingsPanel/SettingsPanel.tsx` by adding owner-only role controls (promote/demote member) and ownership transfer actions for active expedition memberships; validated with `npx vitest run` (26/26) and `npm run build`.
+- 2026-03-12: Completed `EXP-024` in `client/src/components/SettingsPanel/SettingsPanel.test.tsx` with invite/role security coverage for non-owner guard enforcement, reducer rejection surfacing for invite abuse, and forged role escalation rejection; validated with `npx vitest run` (26/26) and `npm run build`.
 
 ### Sprint Exit Criteria
 

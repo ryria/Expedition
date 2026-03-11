@@ -15,6 +15,12 @@ type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
 type HubSectionId = "progressInsights" | "addActivity" | "social";
 
+const SECTION_LABELS: Record<HubSectionId, string> = {
+  progressInsights: "Progress & Insights",
+  addActivity: "Add Activity",
+  social: "Social Feed",
+};
+
 interface MapJournalViewProps {
   theme: Theme;
   mapMode: MapMode;
@@ -60,6 +66,12 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
     }
     if (id === "addActivity") return "Add Activity";
     return "Social";
+  }
+
+  function sectionDescription(id: HubSectionId): string {
+    if (id === "progressInsights") return "Track milestones, splits, and trends.";
+    if (id === "addActivity") return "Log distance with notes in one quick action.";
+    return "Follow team activity, reactions, and comments.";
   }
 
   function renderSectionBody(id: HubSectionId) {
@@ -115,8 +127,12 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
       </div>
 
       <aside className={`journal-drawer ${open ? "open" : "collapsed"}`}>
+        <div className="drawer-handle" aria-hidden="true" />
         <div className="drawer-header">
-          <h2>Team Hub</h2>
+          <div className="drawer-header-title">
+            <h2>Team Hub</h2>
+            {open && <p>Your expedition control center</p>}
+          </div>
           <div className="drawer-header-actions">
             {open && (
               <button
@@ -135,7 +151,8 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
         {open && (
           <div className="drawer-content">
             {sectionOrder.map((sectionId, idx) => (
-              <section key={sectionId} className="drawer-section accordion-section">
+              <section key={sectionId} className={`drawer-section accordion-section section-${sectionId}`}>
+                <p className="section-kicker">{SECTION_LABELS[sectionId]}</p>
                 <div className="section-heading section-heading-row">
                   <button
                     className="section-toggle"
@@ -162,6 +179,7 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
                     </div>
                   )}
                 </div>
+                {openSections[sectionId] && <p className="section-description">{sectionDescription(sectionId)}</p>}
                 {openSections[sectionId] && (
                   <div className="accordion-body">{renderSectionBody(sectionId)}</div>
                 )}

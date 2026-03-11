@@ -2,12 +2,13 @@
 
 /* Stats bar */
 .map-stats-bar {
-  display: flex; gap: 1rem; padding: 0.4rem 0.75rem;
-  background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--text);
+  display: flex; gap: 0.85rem; padding: 0.55rem 0.85rem;
+  background: color-mix(in srgb, var(--panel-bg) 94%, transparent); color: var(--text);
   font-family: 'Inter', sans-serif; font-size: 0.85rem;
   border-bottom: 1px solid var(--border);
   z-index: 1000; position: relative;
   flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Leaflet map */
@@ -18,7 +19,7 @@
 /* Controls row */
 .map-controls {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 1rem; background: color-mix(in srgb, var(--surface) 90%, transparent); border-top: 1px solid var(--border);
+  padding: 0.65rem 0.95rem; background: color-mix(in srgb, var(--panel-bg) 94%, transparent); border-top: 1px solid var(--border);
   flex-wrap: wrap; gap: 0.5rem;
   z-index: 1000; position: relative;
 }
@@ -26,9 +27,9 @@
 /* Mode toggle */
 .mode-toggle { display: flex; gap: 0.25rem; }
 .mode-toggle button {
-  padding: 0.3rem 0.8rem; border: 1px solid var(--input-border); border-radius: 4px;
+  padding: 0.38rem 0.86rem; border: 1px solid var(--input-border); border-radius: var(--radius-sm);
   background: transparent; color: var(--text-muted); cursor: pointer;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem;
+  font-family: 'Inter', sans-serif; font-size: 0.83rem;
 }
 .mode-toggle button.active { background: var(--surface-muted); color: var(--text); border-color: var(--border); }
 .mode-toggle button:hover:not(.active) { background: color-mix(in srgb, var(--accent) 8%, transparent); }
@@ -36,7 +37,7 @@
 /* Person legend */
 .person-legend { display: flex; gap: 1rem; flex-wrap: wrap; }
 .legend-row { display: flex; align-items: center; gap: 0.4rem; }
-.legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; }
+.legend-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
 .legend-name { color: var(--text); font-family: 'Inter', sans-serif; font-size: 0.85rem; }
 .legend-km { color: var(--text-muted); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
 
@@ -52,9 +53,10 @@
 
 /* Responsive */
 @media (max-width: 600px) {
-  .map-controls { padding: 0.4rem 0.6rem; }
+  .map-controls { padding: 0.45rem 0.6rem; justify-content: center; }
   .mode-toggle button { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
   .legend-name { font-size: 0.8rem; }
   .legend-km { font-size: 0.75rem; }
-  .map-stats-bar { font-size: 0.8rem; gap: 0.75rem; }
+  .map-stats-bar { font-size: 0.8rem; gap: 0.65rem; }
+  .person-legend { justify-content: center; }
 }
