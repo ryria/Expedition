@@ -56,6 +56,7 @@ import UpsertPlanSubscriptionReducer from "./upsert_plan_subscription_reducer";
 
 // Import all procedure arg schemas
 import * as CreateCheckoutSessionProcedure from "./create_checkout_session_procedure";
+import * as IngestStripeWebhookProcedure from "./ingest_stripe_webhook_procedure";
 import * as LinkStravaAccountProcedure from "./link_strava_account_procedure";
 import * as RequestAiCoachingProcedure from "./request_ai_coaching_procedure";
 import * as SetMyStravaTokensProcedure from "./set_my_strava_tokens_procedure";
@@ -232,6 +233,7 @@ const reducersSchema = __reducers(
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
   __procedureSchema("create_checkout_session", CreateCheckoutSessionProcedure.params, CreateCheckoutSessionProcedure.returnType),
+  __procedureSchema("ingest_stripe_webhook", IngestStripeWebhookProcedure.params, IngestStripeWebhookProcedure.returnType),
   __procedureSchema("link_strava_account", LinkStravaAccountProcedure.params, LinkStravaAccountProcedure.returnType),
   __procedureSchema("request_ai_coaching", RequestAiCoachingProcedure.params, RequestAiCoachingProcedure.returnType),
   __procedureSchema("set_my_strava_tokens", SetMyStravaTokensProcedure.params, SetMyStravaTokensProcedure.returnType),

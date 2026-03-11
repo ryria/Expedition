@@ -1,4 +1,6 @@
+use hmac::{Hmac, Mac};
 use serde::Deserialize;
+use sha2::Sha256;
 use spacetimedb::{ProcedureContext, ReducerContext, Table, Timestamp};
 
 const STDB_AUTH_ISSUER: &str = "https://auth.spacetimedb.com/oidc";
@@ -9,6 +11,7 @@ const STRIPE_SECRET_KEY: &str = "stripe_secret_key";
 const STRIPE_PRICE_ID_KEY: &str = "stripe_price_id";
 const STRIPE_SUCCESS_URL_KEY: &str = "stripe_success_url";
 const STRIPE_CANCEL_URL_KEY: &str = "stripe_cancel_url";
+const STRIPE_WEBHOOK_SECRET_KEY: &str = "stripe_webhook_secret";
 const STRAVA_OAUTH_TOKEN: &str = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_ENDPOINT: &str = "https://www.strava.com/api/v3/athlete/activities";
 const STRIPE_CHECKOUT_SESSIONS_ENDPOINT: &str = "https://api.stripe.com/v1/checkout/sessions";
@@ -166,6 +169,82 @@ fn url_encode(value: &str) -> String {
         }
     }
     out
+}
+
+fn parse_stripe_signature_header(signature_header: &str) -> Option<(String, String)> {
+    let mut timestamp: Option<String> = None;
+    let mut signature: Option<String> = None;
+
+    for part in signature_header.split(',') {
+        let mut split = part.trim().splitn(2, '=');
+        let key = split.next()?.trim();
+        let value = split.next()?.trim();
+        if key == "t" {
+            timestamp = Some(value.to_string());
+        } else if key == "v1" {
+            signature = Some(value.to_string());
+        }
+    }
+
+    Some((timestamp?, signature?))
+}
+
+fn verify_stripe_webhook_signature(
+    payload: &str,
+    signature_header: &str,
+    webhook_secret: &str,
+) -> bool {
+    type HmacSha256 = Hmac<Sha256>;
+
+    let Some((timestamp, received_sig_hex)) = parse_stripe_signature_header(signature_header) else {
+        return false;
+    };
+
+    let signed_payload = format!("{}.{}", timestamp, payload);
+
+    let mut mac = match HmacSha256::new_from_slice(webhook_secret.as_bytes()) {
+        Ok(mac) => mac,
+        Err(_) => return false,
+    };
+    mac.update(signed_payload.as_bytes());
+
+    let received_sig = match hex::decode(received_sig_hex) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+
+    mac.verify_slice(&received_sig).is_ok()
+}
+
+fn json_u64(value: Option<&serde_json::Value>) -> Option<u64> {
+    let value = value?;
+    if let Some(as_u64) = value.as_u64() {
+        return Some(as_u64);
+    }
+    value
+        .as_str()
+        .and_then(|text| text.trim().parse::<u64>().ok())
+}
+
+fn json_i64(value: Option<&serde_json::Value>) -> Option<i64> {
+    let value = value?;
+    if let Some(as_i64) = value.as_i64() {
+        return Some(as_i64);
+    }
+    value
+        .as_str()
+        .and_then(|text| text.trim().parse::<i64>().ok())
+}
+
+fn json_bool(value: Option<&serde_json::Value>) -> Option<bool> {
+    value?.as_bool()
+}
+
+fn json_string(value: Option<&serde_json::Value>) -> Option<String> {
+    value
+        .and_then(|raw| raw.as_str())
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty())
 }
 
 fn map_strava_activity_type(strava_type: &str) -> Option<&'static str> {
@@ -611,6 +690,14 @@ pub struct Entitlement {
     #[unique]
     pub expedition_feature_key: String,
     pub updated_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = billing_webhook_event)]
+pub struct BillingWebhookEvent {
+    #[primary_key]
+    pub provider_event_id: String,
+    pub event_type: String,
+    pub processed_at: Timestamp,
 }
 
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
@@ -2231,6 +2318,149 @@ pub fn create_checkout_session(ctx: &mut ProcedureContext, expedition_id: u64) -
 }
 
 #[spacetimedb::procedure]
+pub fn ingest_stripe_webhook(
+    ctx: &mut ProcedureContext,
+    payload: String,
+    signature_header: String,
+) {
+    let Some(webhook_secret) = config_value(ctx, STRIPE_WEBHOOK_SECRET_KEY) else {
+        log::error!("ingest_stripe_webhook: stripe_webhook_secret missing");
+        return;
+    };
+
+    if !verify_stripe_webhook_signature(&payload, &signature_header, &webhook_secret) {
+        log::error!("ingest_stripe_webhook: signature verification failed");
+        return;
+    }
+
+    let event = match serde_json::from_str::<StripeWebhookEvent>(&payload) {
+        Ok(event) => event,
+        Err(err) => {
+            log::error!("ingest_stripe_webhook: invalid event JSON: {}", err);
+            return;
+        }
+    };
+
+    let event_id = event.id.trim().to_string();
+    if event_id.is_empty() {
+        log::error!("ingest_stripe_webhook: provider event id missing");
+        return;
+    }
+
+    let now_ts = ctx.timestamp;
+
+    ctx.with_tx(|tx| {
+        if tx
+            .db
+            .billing_webhook_event()
+            .provider_event_id()
+            .find(event_id.clone())
+            .is_some()
+        {
+            return;
+        }
+
+        tx.db.billing_webhook_event().insert(BillingWebhookEvent {
+            provider_event_id: event_id.clone(),
+            event_type: event.kind.clone(),
+            processed_at: now_ts,
+        });
+
+        let object = &event.data.object;
+        let metadata = object.get("metadata");
+        let expedition_id = json_u64(metadata.and_then(|meta| meta.get("expedition_id")))
+            .or_else(|| json_u64(object.get("client_reference_id")));
+        let owner_member_id = json_u64(metadata.and_then(|meta| meta.get("owner_member_id")));
+
+        let (Some(expedition_id), Some(owner_member_id)) = (expedition_id, owner_member_id) else {
+            return;
+        };
+
+        let expedition_owner_key = format!("{}:{}", expedition_id, owner_member_id);
+        let mut subscription = tx
+            .db
+            .plan_subscription()
+            .expedition_owner_key()
+            .find(expedition_owner_key.clone())
+            .unwrap_or(PlanSubscription {
+                id: 0,
+                expedition_id,
+                owner_member_id,
+                plan_code: "unknown".to_string(),
+                status: SUBSCRIPTION_STATUS_INCOMPLETE.to_string(),
+                seat_limit: 1,
+                cancel_at_period_end: false,
+                period_start_epoch: 0,
+                period_end_epoch: 0,
+                expedition_owner_key: expedition_owner_key.clone(),
+                updated_at: now_ts,
+            });
+
+        if let Some(plan_code) = json_string(
+            object
+                .get("items")
+                .and_then(|items| items.get("data"))
+                .and_then(|data| data.as_array())
+                .and_then(|rows| rows.first())
+                .and_then(|row| row.get("price"))
+                .and_then(|price| price.get("id")),
+        ) {
+            subscription.plan_code = plan_code;
+        }
+
+        if let Some(quantity) = json_u64(
+            object
+                .get("items")
+                .and_then(|items| items.get("data"))
+                .and_then(|data| data.as_array())
+                .and_then(|rows| rows.first())
+                .and_then(|row| row.get("quantity")),
+        ) {
+            subscription.seat_limit = quantity as u32;
+        }
+
+        if let Some(cancel_at_period_end) = json_bool(object.get("cancel_at_period_end")) {
+            subscription.cancel_at_period_end = cancel_at_period_end;
+        }
+
+        if let Some(period_start_epoch) = json_i64(object.get("current_period_start")) {
+            subscription.period_start_epoch = period_start_epoch;
+        }
+
+        if let Some(period_end_epoch) = json_i64(object.get("current_period_end")) {
+            subscription.period_end_epoch = period_end_epoch;
+        }
+
+        match event.kind.as_str() {
+            "checkout.session.completed" => {
+                subscription.status = SUBSCRIPTION_STATUS_ACTIVE.to_string();
+            }
+            "customer.subscription.created" | "customer.subscription.updated" => {
+                let status = json_string(object.get("status"))
+                    .unwrap_or_else(|| SUBSCRIPTION_STATUS_ACTIVE.to_string())
+                    .to_lowercase();
+                if is_valid_subscription_status(&status) {
+                    subscription.status = status;
+                }
+            }
+            "customer.subscription.deleted" => {
+                subscription.status = SUBSCRIPTION_STATUS_CANCELED.to_string();
+                subscription.cancel_at_period_end = false;
+            }
+            _ => return,
+        }
+
+        subscription.updated_at = now_ts;
+
+        if subscription.id == 0 {
+            tx.db.plan_subscription().insert(subscription);
+        } else {
+            tx.db.plan_subscription().id().update(subscription);
+        }
+    });
+}
+
+#[spacetimedb::procedure]
 pub fn link_strava_account(ctx: &mut ProcedureContext, code: String, redirect_uri: String) {
     let owner_sub = match authenticated_subject_from_procedure(ctx) {
         Ok(sub) => sub,
@@ -2481,4 +2711,17 @@ struct StravaActivity {
 #[derive(Deserialize)]
 struct StripeCheckoutSessionResponse {
     url: String,
+}
+
+#[derive(Deserialize)]
+struct StripeWebhookEvent {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    data: StripeWebhookEventData,
+}
+
+#[derive(Deserialize)]
+struct StripeWebhookEventData {
+    object: serde_json::Value,
 }

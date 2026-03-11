@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
 import * as CreateCheckoutSessionProcedure from "../create_checkout_session_procedure";
+import * as IngestStripeWebhookProcedure from "../ingest_stripe_webhook_procedure";
 import * as LinkStravaAccountProcedure from "../link_strava_account_procedure";
 import * as RequestAiCoachingProcedure from "../request_ai_coaching_procedure";
 import * as SetMyStravaTokensProcedure from "../set_my_strava_tokens_procedure";
@@ -15,6 +16,8 @@ import * as SyncMyStravaActivitiesProcedure from "../sync_my_strava_activities_p
 
 export type CreateCheckoutSessionArgs = __Infer<typeof CreateCheckoutSessionProcedure.params>;
 export type CreateCheckoutSessionResult = __Infer<typeof CreateCheckoutSessionProcedure.returnType>;
+export type IngestStripeWebhookArgs = __Infer<typeof IngestStripeWebhookProcedure.params>;
+export type IngestStripeWebhookResult = __Infer<typeof IngestStripeWebhookProcedure.returnType>;
 export type LinkStravaAccountArgs = __Infer<typeof LinkStravaAccountProcedure.params>;
 export type LinkStravaAccountResult = __Infer<typeof LinkStravaAccountProcedure.returnType>;
 export type RequestAiCoachingArgs = __Infer<typeof RequestAiCoachingProcedure.params>;

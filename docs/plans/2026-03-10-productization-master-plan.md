@@ -644,7 +644,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-004  
   **Done when:** active plan state and limits can be queried per expedition/owner.
 
-- [ ] `EXP-031` Integrate checkout session creation  
+- [x] `EXP-031` Integrate checkout session creation  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-030  
   **Done when:** user can initiate checkout from app and return to success state.
 
@@ -672,6 +672,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 ### Progress Notes
 
 - 2026-03-12: Completed `EXP-030` in `module/src/lib.rs` by adding public `plan_subscription` and `entitlement` tables plus owner-scoped reducers `upsert_plan_subscription` and `upsert_entitlement`; regenerated client bindings (`client/src/spacetime/generated/*`) and validated with `cargo check`, `npx vitest run` (26/26), and `npm run build`.
+- 2026-03-12: Completed `EXP-031` by adding `create_checkout_session` Stripe procedure in `module/src/lib.rs` (owner-scoped expedition validation + config-driven checkout session creation) and wiring `Start checkout` action in `client/src/components/SettingsPanel/SettingsPanel.tsx`; regenerated bindings and validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
 
 ---
 

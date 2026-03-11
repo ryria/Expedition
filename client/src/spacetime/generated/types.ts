@@ -30,6 +30,13 @@ export const AuthBinding = __t.object("AuthBinding", {
 });
 export type AuthBinding = __Infer<typeof AuthBinding>;
 
+export const BillingWebhookEvent = __t.object("BillingWebhookEvent", {
+  providerEventId: __t.string(),
+  eventType: __t.string(),
+  processedAt: __t.timestamp(),
+});
+export type BillingWebhookEvent = __Infer<typeof BillingWebhookEvent>;
+
 export const Comment = __t.object("Comment", {
   id: __t.u64(),
   logId: __t.u64(),

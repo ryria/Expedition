@@ -566,50 +566,11 @@ export function SettingsPanel({
 
   return (
     <div className="settings-panel">
-      <h2>User Settings</h2>
+      <h2>Settings</h2>
 
       <section className="settings-group">
-        <h3>Appearance</h3>
-        <div className="theme-toggle" role="group" aria-label="Theme">
-          <button
-            className={theme === "dark" ? "active" : ""}
-            onClick={() => onThemeChange("dark")}
-            type="button"
-          >
-            Dark
-          </button>
-          <button
-            className={theme === "light" ? "active" : ""}
-            onClick={() => onThemeChange("light")}
-            type="button"
-          >
-            Light
-          </button>
-        </div>
-      </section>
-
-      <section className="settings-group">
-        <h3>Map View Mode</h3>
-        <div className="theme-toggle" role="group" aria-label="Map View Mode">
-          <button
-            className={mapMode === "asRan" ? "active" : ""}
-            onClick={() => onMapModeChange("asRan")}
-            type="button"
-          >
-            As Ran
-          </button>
-          <button
-            className={mapMode === "contribution" ? "active" : ""}
-            onClick={() => onMapModeChange("contribution")}
-            type="button"
-          >
-            Contribution
-          </button>
-        </div>
-      </section>
-
-      <section className="settings-group">
-        <h3>Profile</h3>
+        <h3>Profile & Identity</h3>
+        <p>Set the display name and color used across your expedition activity.</p>
         <div className="add-member">
           <input
             value={name}
@@ -633,7 +594,7 @@ export function SettingsPanel({
       </section>
 
       <section className="settings-group">
-        <h3>Expedition</h3>
+        <h3>Expedition Space</h3>
         <p>
           {activeExpedition
             ? `Active expedition: ${activeExpedition.name} (${activeExpedition.slug})`
@@ -655,7 +616,8 @@ export function SettingsPanel({
       </section>
 
       <section className="settings-group">
-        <h3>Invites</h3>
+        <h3>Team Invites</h3>
+        <p>Create, revoke, and redeem invitation tokens for this expedition.</p>
         <div className="strava-actions">
           <input
             type="number"
@@ -723,7 +685,8 @@ export function SettingsPanel({
       </section>
 
       <section className="settings-group">
-        <h3>Roles</h3>
+        <h3>Team Roles</h3>
+        <p>Manage ownership and role permissions for expedition members.</p>
         {!activeExpedition ? (
           <p>Select an active expedition to manage roles.</p>
         ) : expeditionMemberships.length === 0 ? (
@@ -820,7 +783,8 @@ export function SettingsPanel({
       </section>
 
       <section className="settings-group">
-        <h3>Strava</h3>
+        <h3>Integrations</h3>
+        <p>Connect services that can automatically sync activity into your expedition.</p>
         <div className="strava-actions">
           <button type="button" onClick={handleConnectStrava} disabled={isLinkingStrava}>
             {isLinkingStrava ? "Linking…" : "Connect Strava"}
@@ -831,6 +795,51 @@ export function SettingsPanel({
         </div>
         <p>Imports Run, Walk, Ride, and Rowing activities from linked Strava accounts.</p>
         {stravaStatus && <p className="field-error">{stravaStatus}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Display Preferences</h3>
+        <p>Adjust how the app looks and how route progress is represented.</p>
+
+        <div className="settings-subgroup">
+          <h4>Theme</h4>
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            <button
+              className={theme === "dark" ? "active" : ""}
+              onClick={() => onThemeChange("dark")}
+              type="button"
+            >
+              Dark
+            </button>
+            <button
+              className={theme === "light" ? "active" : ""}
+              onClick={() => onThemeChange("light")}
+              type="button"
+            >
+              Light
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Map View Mode</h4>
+          <div className="theme-toggle" role="group" aria-label="Map View Mode">
+            <button
+              className={mapMode === "asRan" ? "active" : ""}
+              onClick={() => onMapModeChange("asRan")}
+              type="button"
+            >
+              As Ran
+            </button>
+            <button
+              className={mapMode === "contribution" ? "active" : ""}
+              onClick={() => onMapModeChange("contribution")}
+              type="button"
+            >
+              Contribution
+            </button>
+          </div>
+        </div>
       </section>
     </div>
   );

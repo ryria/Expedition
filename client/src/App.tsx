@@ -323,19 +323,6 @@ export default function App() {
                     ))}
                   </Select>
                 </FormControl>
-
-                <Box component="form" className="expedition-create-inline" onSubmit={handleHeaderCreate}>
-                  <TextField
-                    size="small"
-                    value={newExpeditionName}
-                    onChange={(e) => setNewExpeditionName(e.target.value)}
-                    placeholder="New expedition"
-                    inputProps={{ maxLength: 64 }}
-                  />
-                  <Button type="submit" variant="outlined" disabled={isCreatingExpedition}>
-                    {isCreatingExpedition ? "Creating…" : "Create"}
-                  </Button>
-                </Box>
               </Stack>
             )}
           </Stack>

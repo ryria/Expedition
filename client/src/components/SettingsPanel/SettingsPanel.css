@@ -36,6 +36,19 @@
   letter-spacing: 0.08em;
 }
 
+.settings-subgroup {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-subgroup h4 {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
 .theme-toggle {
   display: flex;
   gap: 0.5rem;

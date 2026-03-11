@@ -14,6 +14,9 @@ export function MembersPanel({ activeExpeditionId }: MembersPanelProps) {
       <Typography variant="h6" gutterBottom>
         Current Expedition Members
       </Typography>
+      <Typography className="members-empty" sx={{ mt: -0.5, mb: 1 }}>
+        See who is currently active in this expedition.
+      </Typography>
 
       {!members.length && (
         <Typography className="members-empty">No members yet. Add yourself in Settings.</Typography>
