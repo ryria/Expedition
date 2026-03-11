@@ -9,6 +9,7 @@ import { type Infer as __Infer } from "spacetimedb";
 import * as CreateCheckoutSessionProcedure from "../create_checkout_session_procedure";
 import * as IngestStripeWebhookProcedure from "../ingest_stripe_webhook_procedure";
 import * as LinkStravaAccountProcedure from "../link_strava_account_procedure";
+import * as ReconcileBillingStateProcedure from "../reconcile_billing_state_procedure";
 import * as RequestAiCoachingProcedure from "../request_ai_coaching_procedure";
 import * as SetMyStravaTokensProcedure from "../set_my_strava_tokens_procedure";
 import * as SyncAllStravaActivitiesProcedure from "../sync_all_strava_activities_procedure";
@@ -20,6 +21,8 @@ export type IngestStripeWebhookArgs = __Infer<typeof IngestStripeWebhookProcedur
 export type IngestStripeWebhookResult = __Infer<typeof IngestStripeWebhookProcedure.returnType>;
 export type LinkStravaAccountArgs = __Infer<typeof LinkStravaAccountProcedure.params>;
 export type LinkStravaAccountResult = __Infer<typeof LinkStravaAccountProcedure.returnType>;
+export type ReconcileBillingStateArgs = __Infer<typeof ReconcileBillingStateProcedure.params>;
+export type ReconcileBillingStateResult = __Infer<typeof ReconcileBillingStateProcedure.returnType>;
 export type RequestAiCoachingArgs = __Infer<typeof RequestAiCoachingProcedure.params>;
 export type RequestAiCoachingResult = __Infer<typeof RequestAiCoachingProcedure.returnType>;
 export type SetMyStravaTokensArgs = __Infer<typeof SetMyStravaTokensProcedure.params>;

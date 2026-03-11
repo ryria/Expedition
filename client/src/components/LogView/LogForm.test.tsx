@@ -107,6 +107,7 @@ describe("LogForm integration guards", () => {
 
     expect(mocks.logActivity).toHaveBeenCalledTimes(1);
     expect(mocks.logActivity).toHaveBeenCalledWith({
+      expeditionId: 10n,
       memberId: 1n,
       activityType: "run",
       distanceKm: 6.5,

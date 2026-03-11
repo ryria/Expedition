@@ -10,10 +10,6 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  expeditionId: __t.u64(),
-  memberId: __t.u64(),
-  activityType: __t.string(),
-  distanceKm: __t.f64(),
-  note: __t.string(),
+export const params = {
 };
+export const returnType = __t.string()

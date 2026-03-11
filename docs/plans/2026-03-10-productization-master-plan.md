@@ -660,7 +660,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P1 · **Owner:** FE · **Effort:** S · **Depends on:** EXP-031  
   **Done when:** blocked actions show upgrade CTA with clear plan comparison.
 
-- [ ] `EXP-035` Billing tests + reconciliation command  
+- [x] `EXP-035` Billing tests + reconciliation command  
   **Priority:** P1 · **Owner:** QA/BE · **Effort:** S · **Depends on:** EXP-032  
   **Done when:** test fixtures cover past_due, canceled, and replay scenarios.
 
@@ -676,6 +676,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-12: Completed `EXP-032` by adding Stripe webhook signature verification (`HMAC-SHA256`) and idempotent ingestion (`billing_webhook_event` table keyed by provider event id) in `module/src/lib.rs` via `ingest_stripe_webhook`; subscription state updates now handle `checkout.session.completed`, `customer.subscription.created|updated`, and `customer.subscription.deleted` without duplicate mutation; regenerated bindings and validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
 - 2026-03-12: Completed `EXP-033` by adding server-side entitlement gate helpers in `module/src/lib.rs` and enforcing free-tier/entitled member-capacity checks (`max_members`) on `join_expedition` and `accept_invite`; validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
 - 2026-03-12: Completed `EXP-034` in `client/src/components/SettingsPanel/SettingsPanel.tsx` and `SettingsPanel.css` by adding plan comparison rows and a dedicated upgrade CTA (`Upgrade now`), plus blocked-action upgrade guidance when plan limits are hit; validated with `npx vitest run` (28/28) and `npm run build`.
+- 2026-03-12: Completed `EXP-035` by adding `reconcile_billing_state` procedure in `module/src/lib.rs` and fixture-style webhook status unit tests (`past_due`, `canceled`, replay-deterministic mapping); regenerated bindings and validated with `cargo check`, `npx vitest run` (28/28), and `npm run build` (Rust `cargo test` execution is environment-limited here due non-runnable wasm artifact and missing native target toolchain).
 
 ---
 

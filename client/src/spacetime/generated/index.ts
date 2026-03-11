@@ -58,6 +58,7 @@ import UpsertPlanSubscriptionReducer from "./upsert_plan_subscription_reducer";
 import * as CreateCheckoutSessionProcedure from "./create_checkout_session_procedure";
 import * as IngestStripeWebhookProcedure from "./ingest_stripe_webhook_procedure";
 import * as LinkStravaAccountProcedure from "./link_strava_account_procedure";
+import * as ReconcileBillingStateProcedure from "./reconcile_billing_state_procedure";
 import * as RequestAiCoachingProcedure from "./request_ai_coaching_procedure";
 import * as SetMyStravaTokensProcedure from "./set_my_strava_tokens_procedure";
 import * as SyncAllStravaActivitiesProcedure from "./sync_all_strava_activities_procedure";
@@ -235,6 +236,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("create_checkout_session", CreateCheckoutSessionProcedure.params, CreateCheckoutSessionProcedure.returnType),
   __procedureSchema("ingest_stripe_webhook", IngestStripeWebhookProcedure.params, IngestStripeWebhookProcedure.returnType),
   __procedureSchema("link_strava_account", LinkStravaAccountProcedure.params, LinkStravaAccountProcedure.returnType),
+  __procedureSchema("reconcile_billing_state", ReconcileBillingStateProcedure.params, ReconcileBillingStateProcedure.returnType),
   __procedureSchema("request_ai_coaching", RequestAiCoachingProcedure.params, RequestAiCoachingProcedure.returnType),
   __procedureSchema("set_my_strava_tokens", SetMyStravaTokensProcedure.params, SetMyStravaTokensProcedure.returnType),
   __procedureSchema("sync_all_strava_activities", SyncAllStravaActivitiesProcedure.params, SyncAllStravaActivitiesProcedure.returnType),

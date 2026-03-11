@@ -81,6 +81,7 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
       if (!conn) throw new Error("SpacetimeDB not connected");
       pendingMemberId.current = selectedMember.id;
       conn.reducers.logActivity({
+        expeditionId: activeExpeditionId,
         memberId: selectedMember.id,
         activityType: actType,
         distanceKm: km,

@@ -249,6 +249,25 @@ fn json_string(value: Option<&serde_json::Value>) -> Option<String> {
         .filter(|text| !text.is_empty())
 }
 
+fn resolve_subscription_status_for_event(
+    event_kind: &str,
+    object: &serde_json::Value,
+) -> Option<String> {
+    match event_kind {
+        "checkout.session.completed" => Some(SUBSCRIPTION_STATUS_ACTIVE.to_string()),
+        "customer.subscription.created" | "customer.subscription.updated" => {
+            let status = json_string(object.get("status"))?.to_lowercase();
+            if is_valid_subscription_status(&status) {
+                Some(status)
+            } else {
+                None
+            }
+        }
+        "customer.subscription.deleted" => Some(SUBSCRIPTION_STATUS_CANCELED.to_string()),
+        _ => None,
+    }
+}
+
 fn map_strava_activity_type(strava_type: &str) -> Option<&'static str> {
     match strava_type {
         "Run" | "TrailRun" | "VirtualRun" => Some("run"),
@@ -880,100 +899,6 @@ fn create_unique_invite_token(ctx: &ReducerContext, expedition_id: u64, member_i
         }
         counter += 1;
     }
-}
-
-fn select_deterministic_active_expedition_id_for_member(
-    ctx: &ReducerContext,
-    member_id: u64,
-) -> Option<u64> {
-    ctx.db
-        .membership()
-        .iter()
-        .filter(|membership| membership.member_id == member_id && membership.status == "active")
-        .filter_map(|membership| {
-            ctx.db
-                .expedition()
-                .id()
-                .find(membership.expedition_id)
-                .filter(|expedition| !expedition.is_archived)
-                .map(|expedition| expedition.id)
-        })
-        .min()
-}
-
-fn resolve_or_create_expedition_for_member(
-    ctx: &ReducerContext,
-    member: &Member,
-) -> Result<u64, String> {
-    if let Some(expedition_id) =
-        select_deterministic_active_expedition_id_for_member(ctx, member.id)
-    {
-        return Ok(expedition_id);
-    }
-
-    let mut expedition = if let Some(existing) = ctx
-        .db
-        .expedition()
-        .slug()
-        .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
-    {
-        existing
-    } else {
-        ctx.db.expedition().insert(Expedition {
-            id: 0,
-            name: LEGACY_DEFAULT_EXPEDITION_NAME.to_string(),
-            slug: LEGACY_DEFAULT_EXPEDITION_SLUG.to_string(),
-            created_by_member_id: member.id,
-            is_archived: false,
-            created_at: ctx.timestamp,
-            archived_at: None,
-        });
-        ctx.db
-            .expedition()
-            .slug()
-            .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
-            .ok_or("failed to resolve legacy default expedition".to_string())?
-    };
-
-    if expedition.is_archived {
-        expedition.is_archived = false;
-        expedition.archived_at = None;
-        ctx.db.expedition().id().update(expedition);
-        expedition = ctx
-            .db
-            .expedition()
-            .slug()
-            .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
-            .ok_or("failed to reload legacy default expedition".to_string())?;
-    }
-
-    let expedition_member_key = format!("{}:{}", expedition.id, member.id);
-    if let Some(mut membership) = ctx
-        .db
-        .membership()
-        .expedition_member_key()
-        .find(expedition_member_key.clone())
-    {
-        if membership.status != "active" {
-            membership.status = "active".to_string();
-            membership.joined_at = ctx.timestamp;
-            membership.left_at = None;
-            ctx.db.membership().id().update(membership);
-        }
-    } else {
-        ctx.db.membership().insert(Membership {
-            id: 0,
-            expedition_id: expedition.id,
-            member_id: member.id,
-            role: MEMBERSHIP_ROLE_MEMBER.to_string(),
-            status: "active".to_string(),
-            joined_at: ctx.timestamp,
-            left_at: None,
-            expedition_member_key,
-        });
-    }
-
-    Ok(expedition.id)
 }
 
 fn resolve_or_create_expedition_for_member_procedure(
@@ -1974,6 +1899,7 @@ pub struct ActivityLog {
 #[spacetimedb::reducer]
 pub fn log_activity(
     ctx: &ReducerContext,
+    expedition_id: u64,
     member_id: u64,
     activity_type: String,
     distance_km: f64,
@@ -2007,13 +1933,10 @@ pub fn log_activity(
         return;
     }
 
-    let expedition_id = match resolve_or_create_expedition_for_member(ctx, &me) {
-        Ok(id) => id,
-        Err(err) => {
-            log::error!("log_activity: {}", err);
-            return;
-        }
-    };
+    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
+        log::error!("log_activity: {}", err);
+        return;
+    }
 
     if let Err(err) = require_active_membership(ctx, expedition_id, me.id) {
         log::error!("log_activity: {}", err);
@@ -2501,23 +2424,13 @@ pub fn ingest_stripe_webhook(
             subscription.period_end_epoch = period_end_epoch;
         }
 
-        match event.kind.as_str() {
-            "checkout.session.completed" => {
-                subscription.status = SUBSCRIPTION_STATUS_ACTIVE.to_string();
-            }
-            "customer.subscription.created" | "customer.subscription.updated" => {
-                let status = json_string(object.get("status"))
-                    .unwrap_or_else(|| SUBSCRIPTION_STATUS_ACTIVE.to_string())
-                    .to_lowercase();
-                if is_valid_subscription_status(&status) {
-                    subscription.status = status;
-                }
-            }
-            "customer.subscription.deleted" => {
-                subscription.status = SUBSCRIPTION_STATUS_CANCELED.to_string();
-                subscription.cancel_at_period_end = false;
-            }
-            _ => return,
+        let Some(status) = resolve_subscription_status_for_event(&event.kind, object) else {
+            return;
+        };
+
+        subscription.status = status;
+        if event.kind == "customer.subscription.deleted" {
+            subscription.cancel_at_period_end = false;
         }
 
         subscription.updated_at = now_ts;
@@ -2528,6 +2441,79 @@ pub fn ingest_stripe_webhook(
             tx.db.plan_subscription().id().update(subscription);
         }
     });
+}
+
+#[spacetimedb::procedure]
+pub fn reconcile_billing_state(ctx: &mut ProcedureContext) -> String {
+    let caller_sub = match authenticated_subject_from_procedure(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("reconcile_billing_state: {}", err);
+            return "{}".to_string();
+        }
+    };
+
+    let owner_sub = match config_value(ctx, CONFIG_OWNER_SUB_KEY) {
+        Some(value) => value,
+        None => {
+            log::error!("reconcile_billing_state: config owner not set");
+            return "{}".to_string();
+        }
+    };
+
+    if caller_sub != owner_sub {
+        log::error!("reconcile_billing_state: only config owner can run reconciliation");
+        return "{}".to_string();
+    }
+
+    let summary = ctx.with_tx(|tx| {
+        let rows: Vec<PlanSubscription> = tx.db.plan_subscription().iter().collect();
+
+        let total = rows.len() as u64;
+        let active = rows
+            .iter()
+            .filter(|row| row.status == SUBSCRIPTION_STATUS_ACTIVE)
+            .count() as u64;
+        let trialing = rows
+            .iter()
+            .filter(|row| row.status == SUBSCRIPTION_STATUS_TRIALING)
+            .count() as u64;
+        let past_due = rows
+            .iter()
+            .filter(|row| row.status == SUBSCRIPTION_STATUS_PAST_DUE)
+            .count() as u64;
+        let canceled = rows
+            .iter()
+            .filter(|row| row.status == SUBSCRIPTION_STATUS_CANCELED)
+            .count() as u64;
+        let incomplete = rows
+            .iter()
+            .filter(|row| row.status == SUBSCRIPTION_STATUS_INCOMPLETE)
+            .count() as u64;
+
+        let missing_entitlements = rows
+            .iter()
+            .filter(|row| {
+                !tx.db
+                    .entitlement()
+                    .iter()
+                    .any(|entitlement| entitlement.expedition_id == row.expedition_id)
+            })
+            .count() as u64;
+
+        serde_json::json!({
+            "total": total,
+            "active": active,
+            "trialing": trialing,
+            "past_due": past_due,
+            "canceled": canceled,
+            "incomplete": incomplete,
+            "missing_entitlements": missing_entitlements
+        })
+        .to_string()
+    });
+
+    summary
 }
 
 #[spacetimedb::procedure]
@@ -2794,4 +2780,33 @@ struct StripeWebhookEvent {
 #[derive(Deserialize)]
 struct StripeWebhookEventData {
     object: serde_json::Value,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn fixture_subscription_updated_past_due_maps_status() {
+        let object = json!({ "status": "past_due" });
+        let status = resolve_subscription_status_for_event("customer.subscription.updated", &object);
+        assert_eq!(status.as_deref(), Some(SUBSCRIPTION_STATUS_PAST_DUE));
+    }
+
+    #[test]
+    fn fixture_subscription_deleted_maps_canceled_status() {
+        let object = json!({ "status": "active" });
+        let status = resolve_subscription_status_for_event("customer.subscription.deleted", &object);
+        assert_eq!(status.as_deref(), Some(SUBSCRIPTION_STATUS_CANCELED));
+    }
+
+    #[test]
+    fn fixture_replay_event_maps_deterministically() {
+        let object = json!({ "status": "active" });
+        let first = resolve_subscription_status_for_event("customer.subscription.updated", &object);
+        let replay = resolve_subscription_status_for_event("customer.subscription.updated", &object);
+        assert_eq!(first, replay);
+        assert_eq!(first.as_deref(), Some(SUBSCRIPTION_STATUS_ACTIVE));
+    }
 }
