@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     revokeInvite: vi.fn(),
     setMembershipRole: vi.fn(),
     transferExpeditionOwnership: vi.fn(),
+    markNotificationRead: vi.fn(),
     createCheckoutSession: vi.fn(async () => "https://checkout.stripe.com/test"),
     addMember: vi.fn(),
     bindAuthIdentity: vi.fn(),
@@ -58,6 +59,7 @@ describe("SettingsPanel invite/role security", () => {
           revokeInvite: mocks.revokeInvite,
           setMembershipRole: mocks.setMembershipRole,
           transferExpeditionOwnership: mocks.transferExpeditionOwnership,
+          markNotificationRead: mocks.markNotificationRead,
         },
         procedures: {
           syncMyStravaActivities: mocks.syncMyStravaActivities,
@@ -75,10 +77,27 @@ describe("SettingsPanel invite/role security", () => {
     });
   });
 
-  function renderPanel(memberships: Array<{ id: bigint; expeditionId: bigint; memberId: bigint; role: string; status: string; leftAt: unknown }>) {
+  function renderPanel(
+    memberships: Array<{ id: bigint; expeditionId: bigint; memberId: bigint; role: string; status: string; leftAt: unknown }>,
+    notifications: Array<{
+      id: bigint;
+      recipientMemberId: bigint;
+      actorMemberId: bigint;
+      expeditionId: bigint;
+      eventKind: string;
+      title: string;
+      body: string;
+      entityType: string;
+      entityId: bigint;
+      isRead: boolean;
+      createdAt: { toDate: () => Date };
+      readAt: unknown;
+    }> = [],
+  ) {
     mocks.useTableMock.mockImplementation((table) => {
       if (table === tables.invite) return [[], true];
       if (table === tables.membership) return [memberships, true];
+      if (table === tables.notification) return [notifications, true];
       return [[], true];
     });
 
@@ -205,5 +224,42 @@ describe("SettingsPanel invite/role security", () => {
       expect(screen.getByText("Action blocked by current plan limit. Upgrade to Pro or Club for higher limits.")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Upgrade now" })).toBeTruthy();
     });
+  });
+
+  it("renders notifications and marks one as read", () => {
+    renderPanel(
+      [{ id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null }],
+      [
+        {
+          id: 99n,
+          recipientMemberId: 1n,
+          actorMemberId: 2n,
+          expeditionId: 10n,
+          eventKind: "comment_added",
+          title: "New comment on your activity",
+          body: "Member commented on your activity.",
+          entityType: "activity_log",
+          entityId: 8n,
+          isRead: false,
+          createdAt: { toDate: () => new Date("2026-03-12T01:00:00.000Z") },
+          readAt: null,
+        },
+      ],
+    );
+
+    expect(screen.getByText("New comment on your activity")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+    expect(mocks.markNotificationRead).toHaveBeenCalledWith({ notificationId: 99n });
+  });
+
+  it("updates reminder cadence preference", () => {
+    renderPanel([{ id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null }]);
+
+    const reminderCadenceSelect = screen.getByLabelText("Reminder cadence") as HTMLSelectElement;
+    expect(reminderCadenceSelect.value).toBe("weekly");
+
+    fireEvent.change(reminderCadenceSelect, { target: { value: "daily" } });
+    expect(reminderCadenceSelect.value).toBe("daily");
   });
 });

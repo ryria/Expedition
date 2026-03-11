@@ -44,6 +44,13 @@ const NOTIFICATION_EVENT_OWNERSHIP_TRANSFERRED: &str = "ownership_transferred";
 const NOTIFICATION_EVENT_COMMENT_ADDED: &str = "comment_added";
 const NOTIFICATION_EVENT_REACTION_ADDED: &str = "reaction_added";
 const NOTIFICATION_EVENT_ACTIVITY_MILESTONE: &str = "activity_milestone";
+const ABUSE_TARGET_ACTIVITY_LOG: &str = "activity_log";
+const ABUSE_TARGET_COMMENT: &str = "comment";
+const ABUSE_STATUS_OPEN: &str = "open";
+const ABUSE_STATUS_REVIEWED: &str = "reviewed";
+const MODERATION_ACTION_DISMISS: &str = "dismiss";
+const MODERATION_ACTION_HIDE: &str = "hide";
+const MODERATION_ACTION_REMOVE: &str = "remove";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -747,6 +754,39 @@ pub struct Notification {
     pub read_at: Option<Timestamp>,
 }
 
+#[spacetimedb::table(accessor = abuse_report, public)]
+pub struct AbuseReport {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub expedition_id: u64,
+    pub reported_by_member_id: u64,
+    pub target_type: String,
+    pub target_id: u64,
+    pub reason: String,
+    pub details: String,
+    pub status: String,
+    pub created_at: Timestamp,
+    pub reviewed_at: Option<Timestamp>,
+    pub reviewed_by_member_id: Option<u64>,
+    pub resolution_note: String,
+}
+
+#[spacetimedb::table(accessor = moderation_audit, public)]
+pub struct ModerationAudit {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub expedition_id: u64,
+    pub report_id: u64,
+    pub moderator_member_id: u64,
+    pub action: String,
+    pub target_type: String,
+    pub target_id: u64,
+    pub note: String,
+    pub created_at: Timestamp,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -833,6 +873,16 @@ fn is_valid_membership_role(role: &str) -> bool {
 
 fn is_invite_manager_role(role: &str) -> bool {
     role == MEMBERSHIP_ROLE_OWNER || role == MEMBERSHIP_ROLE_ADMIN
+}
+
+fn is_valid_abuse_target(target_type: &str) -> bool {
+    target_type == ABUSE_TARGET_ACTIVITY_LOG || target_type == ABUSE_TARGET_COMMENT
+}
+
+fn is_valid_moderation_action(action: &str) -> bool {
+    action == MODERATION_ACTION_DISMISS
+        || action == MODERATION_ACTION_HIDE
+        || action == MODERATION_ACTION_REMOVE
 }
 
 fn is_valid_subscription_status(status: &str) -> bool {
@@ -2332,6 +2382,202 @@ pub fn add_comment(
             activity.id,
         );
     }
+}
+
+#[spacetimedb::reducer]
+pub fn report_activity_abuse(
+    ctx: &ReducerContext,
+    log_id: u64,
+    reason: String,
+    details: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("report_activity_abuse: {}", err);
+            return;
+        }
+    };
+
+    let Some(activity) = ctx.db.activity_log().id().find(log_id) else {
+        log::error!("report_activity_abuse: activity log not found");
+        return;
+    };
+
+    if let Err(err) = require_active_membership(ctx, activity.expedition_id, me.id) {
+        log::error!("report_activity_abuse: {}", err);
+        return;
+    }
+
+    let reason = reason.trim().to_string();
+    if reason.is_empty() {
+        log::error!("report_activity_abuse: reason cannot be empty");
+        return;
+    }
+
+    let details = details.trim().to_string();
+
+    ctx.db.abuse_report().insert(AbuseReport {
+        id: 0,
+        expedition_id: activity.expedition_id,
+        reported_by_member_id: me.id,
+        target_type: ABUSE_TARGET_ACTIVITY_LOG.to_string(),
+        target_id: activity.id,
+        reason,
+        details,
+        status: ABUSE_STATUS_OPEN.to_string(),
+        created_at: ctx.timestamp,
+        reviewed_at: None,
+        reviewed_by_member_id: None,
+        resolution_note: String::new(),
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn report_comment_abuse(
+    ctx: &ReducerContext,
+    comment_id: u64,
+    reason: String,
+    details: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("report_comment_abuse: {}", err);
+            return;
+        }
+    };
+
+    let Some(comment) = ctx.db.comment().id().find(comment_id) else {
+        log::error!("report_comment_abuse: comment not found");
+        return;
+    };
+
+    if let Err(err) = require_active_membership(ctx, comment.expedition_id, me.id) {
+        log::error!("report_comment_abuse: {}", err);
+        return;
+    }
+
+    let reason = reason.trim().to_string();
+    if reason.is_empty() {
+        log::error!("report_comment_abuse: reason cannot be empty");
+        return;
+    }
+
+    let details = details.trim().to_string();
+
+    ctx.db.abuse_report().insert(AbuseReport {
+        id: 0,
+        expedition_id: comment.expedition_id,
+        reported_by_member_id: me.id,
+        target_type: ABUSE_TARGET_COMMENT.to_string(),
+        target_id: comment.id,
+        reason,
+        details,
+        status: ABUSE_STATUS_OPEN.to_string(),
+        created_at: ctx.timestamp,
+        reviewed_at: None,
+        reviewed_by_member_id: None,
+        resolution_note: String::new(),
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn review_abuse_report(
+    ctx: &ReducerContext,
+    report_id: u64,
+    action: String,
+    note: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("review_abuse_report: {}", err);
+            return;
+        }
+    };
+
+    let mut report = match ctx.db.abuse_report().id().find(report_id) {
+        Some(report) => report,
+        None => {
+            log::error!("review_abuse_report: report not found");
+            return;
+        }
+    };
+
+    if let Err(err) = require_membership_with_allowed_roles(
+        ctx,
+        report.expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER, MEMBERSHIP_ROLE_ADMIN],
+    ) {
+        log::error!("review_abuse_report: {}", err);
+        return;
+    }
+
+    let action = action.trim().to_lowercase();
+    if !is_valid_moderation_action(&action) {
+        log::error!("review_abuse_report: invalid moderation action");
+        return;
+    }
+
+    if !is_valid_abuse_target(&report.target_type) {
+        log::error!("review_abuse_report: invalid report target type");
+        return;
+    }
+
+    if action == MODERATION_ACTION_HIDE {
+        if report.target_type == ABUSE_TARGET_ACTIVITY_LOG {
+            let Some(mut activity) = ctx.db.activity_log().id().find(report.target_id) else {
+                log::error!("review_abuse_report: target activity missing");
+                return;
+            };
+
+            activity.note = "[hidden by moderator]".to_string();
+            activity.ai_response = String::new();
+            ctx.db.activity_log().id().update(activity);
+        } else if report.target_type == ABUSE_TARGET_COMMENT {
+            let Some(mut comment) = ctx.db.comment().id().find(report.target_id) else {
+                log::error!("review_abuse_report: target comment missing");
+                return;
+            };
+
+            comment.body = "[hidden by moderator]".to_string();
+            ctx.db.comment().id().update(comment);
+        }
+    }
+
+    if action == MODERATION_ACTION_REMOVE {
+        if report.target_type == ABUSE_TARGET_ACTIVITY_LOG {
+            ctx.db.activity_log().id().delete(report.target_id);
+        } else if report.target_type == ABUSE_TARGET_COMMENT {
+            ctx.db.comment().id().delete(report.target_id);
+        }
+    }
+
+    let resolution_note = note.trim().to_string();
+    let report_expedition_id = report.expedition_id;
+    let report_target_type = report.target_type.clone();
+    let report_target_id = report.target_id;
+    let report_id_value = report.id;
+
+    report.status = ABUSE_STATUS_REVIEWED.to_string();
+    report.reviewed_at = Some(ctx.timestamp);
+    report.reviewed_by_member_id = Some(me.id);
+    report.resolution_note = resolution_note.clone();
+    ctx.db.abuse_report().id().update(report);
+
+    ctx.db.moderation_audit().insert(ModerationAudit {
+        id: 0,
+        expedition_id: report_expedition_id,
+        report_id: report_id_value,
+        moderator_member_id: me.id,
+        action,
+        target_type: report_target_type,
+        target_id: report_target_id,
+        note: resolution_note,
+        created_at: ctx.timestamp,
+    });
 }
 
 // ─── AI Coaching Procedure ────────────────────────────────────────────────────

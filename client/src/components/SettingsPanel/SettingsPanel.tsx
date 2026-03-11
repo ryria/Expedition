@@ -45,6 +45,44 @@ type EntitlementRow = {
   enabled: boolean;
   limitValue: number;
 };
+type NotificationRow = {
+  id: bigint;
+  recipientMemberId: bigint;
+  actorMemberId: bigint;
+  expeditionId: bigint;
+  eventKind: string;
+  title: string;
+  body: string;
+  entityType: string;
+  entityId: bigint;
+  isRead: boolean;
+  createdAt: { toDate: () => Date };
+  readAt: unknown;
+};
+
+type ReminderCadence = "off" | "daily" | "weekly";
+
+interface NotificationPreferences {
+  inviteEvents: boolean;
+  engagementEvents: boolean;
+  milestoneEvents: boolean;
+  reminderCadence: ReminderCadence;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  timezone: string;
+}
+
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  inviteEvents: true,
+  engagementEvents: true,
+  milestoneEvents: true,
+  reminderCadence: "weekly",
+  quietHoursStart: "22:00",
+  quietHoursEnd: "07:00",
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+};
+
+const NOTIFICATION_PREFERENCES_STORAGE_KEY = "expedition-notification-preferences";
 
 const PRICING_TIERS = [
   { name: "Free", summary: "1 expedition · up to 5 members · base stats" },
@@ -100,6 +138,11 @@ export function SettingsPanel({
   const [transferringToMemberId, setTransferringToMemberId] = useState<bigint | null>(null);
   const [billingStatus, setBillingStatus] = useState("");
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [markingNotificationId, setMarkingNotificationId] = useState<bigint | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState("");
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFERENCES,
+  );
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
@@ -107,6 +150,7 @@ export function SettingsPanel({
   const [membershipRows] = useTable(tables.membership);
   const [planSubscriptionRows] = useTable(tables.plan_subscription);
   const [entitlementRows] = useTable(tables.entitlement);
+  const [notificationRows] = useTable(tables.notification);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const suggestedName = useMemo(() => {
@@ -193,6 +237,24 @@ export function SettingsPanel({
       .sort((a, b) => a.featureKey.localeCompare(b.featureKey));
   }, [activeExpedition, entitlementRows]);
 
+  const visibleNotifications = useMemo(() => {
+    if (!activeExpedition || !linkedMember) return [] as NotificationRow[];
+
+    return [...(notificationRows as readonly NotificationRow[])]
+      .filter(
+        (row) =>
+          row.expeditionId === activeExpedition.id &&
+          row.recipientMemberId === linkedMember.id,
+      )
+      .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime())
+      .slice(0, 20);
+  }, [activeExpedition, linkedMember, notificationRows]);
+
+  const unreadNotificationCount = useMemo(
+    () => visibleNotifications.filter((notification) => !notification.isRead).length,
+    [visibleNotifications],
+  );
+
   useEffect(() => {
     if (!isSaving) return;
     const timer = setTimeout(() => {
@@ -216,6 +278,49 @@ export function SettingsPanel({
     }
     if (suggestedName) setName((prev) => (prev ? prev : suggestedName));
   }, [linkedMember, suggestedName]);
+
+  useEffect(() => {
+    if (!linkedMember) {
+      setNotificationPrefs(DEFAULT_NOTIFICATION_PREFERENCES);
+      return;
+    }
+
+    const raw = localStorage.getItem(
+      `${NOTIFICATION_PREFERENCES_STORAGE_KEY}:${linkedMember.id.toString()}`,
+    );
+    if (!raw) {
+      setNotificationPrefs(DEFAULT_NOTIFICATION_PREFERENCES);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<NotificationPreferences>;
+      const reminderCadence =
+        parsed.reminderCadence === "daily" || parsed.reminderCadence === "weekly" || parsed.reminderCadence === "off"
+          ? parsed.reminderCadence
+          : DEFAULT_NOTIFICATION_PREFERENCES.reminderCadence;
+
+      setNotificationPrefs({
+        inviteEvents: parsed.inviteEvents ?? DEFAULT_NOTIFICATION_PREFERENCES.inviteEvents,
+        engagementEvents: parsed.engagementEvents ?? DEFAULT_NOTIFICATION_PREFERENCES.engagementEvents,
+        milestoneEvents: parsed.milestoneEvents ?? DEFAULT_NOTIFICATION_PREFERENCES.milestoneEvents,
+        reminderCadence,
+        quietHoursStart: parsed.quietHoursStart ?? DEFAULT_NOTIFICATION_PREFERENCES.quietHoursStart,
+        quietHoursEnd: parsed.quietHoursEnd ?? DEFAULT_NOTIFICATION_PREFERENCES.quietHoursEnd,
+        timezone: parsed.timezone ?? DEFAULT_NOTIFICATION_PREFERENCES.timezone,
+      });
+    } catch {
+      setNotificationPrefs(DEFAULT_NOTIFICATION_PREFERENCES);
+    }
+  }, [linkedMember]);
+
+  useEffect(() => {
+    if (!linkedMember) return;
+    localStorage.setItem(
+      `${NOTIFICATION_PREFERENCES_STORAGE_KEY}:${linkedMember.id.toString()}`,
+      JSON.stringify(notificationPrefs),
+    );
+  }, [linkedMember, notificationPrefs]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -578,6 +683,29 @@ export function SettingsPanel({
     })();
   }
 
+  function handleMarkNotificationRead(notificationId: bigint) {
+    setNotificationStatus("");
+    if (!conn) {
+      setNotificationStatus("SpacetimeDB not connected");
+      return;
+    }
+
+    try {
+      setMarkingNotificationId(notificationId);
+      conn.reducers.markNotificationRead({ notificationId });
+    } catch (err) {
+      setNotificationStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMarkingNotificationId(null);
+    }
+  }
+
+  function updateNotificationPrefs(
+    patch: Partial<NotificationPreferences>,
+  ) {
+    setNotificationPrefs((current) => ({ ...current, ...patch }));
+  }
+
   return (
     <div className="settings-panel">
       <h2>Settings</h2>
@@ -805,6 +933,118 @@ export function SettingsPanel({
           </>
         )}
         {billingStatus && <p className="field-error">{billingStatus}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Notifications</h3>
+        <p>Review expedition activity alerts and configure reminder/engagement preferences.</p>
+
+        <div className="settings-subgroup">
+          <h4>Event Preferences</h4>
+          <div className="notification-preferences">
+            <label>
+              <input
+                type="checkbox"
+                checked={notificationPrefs.inviteEvents}
+                onChange={(e) => updateNotificationPrefs({ inviteEvents: e.target.checked })}
+              />
+              Invite updates
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={notificationPrefs.engagementEvents}
+                onChange={(e) => updateNotificationPrefs({ engagementEvents: e.target.checked })}
+              />
+              Comments and reactions
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={notificationPrefs.milestoneEvents}
+                onChange={(e) => updateNotificationPrefs({ milestoneEvents: e.target.checked })}
+              />
+              Activity milestones
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Reminders</h4>
+          <div className="strava-actions">
+            <select
+              className="invite-input"
+              aria-label="Reminder cadence"
+              value={notificationPrefs.reminderCadence}
+              onChange={(e) =>
+                updateNotificationPrefs({ reminderCadence: e.target.value as ReminderCadence })
+              }
+            >
+              <option value="off">Off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <input
+              type="time"
+              className="invite-input"
+              aria-label="Quiet hours start"
+              value={notificationPrefs.quietHoursStart}
+              onChange={(e) => updateNotificationPrefs({ quietHoursStart: e.target.value })}
+            />
+            <input
+              type="time"
+              className="invite-input"
+              aria-label="Quiet hours end"
+              value={notificationPrefs.quietHoursEnd}
+              onChange={(e) => updateNotificationPrefs({ quietHoursEnd: e.target.value })}
+            />
+          </div>
+          <div className="strava-actions">
+            <input
+              type="text"
+              className="invite-input"
+              aria-label="Timezone"
+              value={notificationPrefs.timezone}
+              onChange={(e) => updateNotificationPrefs({ timezone: e.target.value.trim() || "UTC" })}
+              placeholder="Timezone (e.g. Australia/Sydney)"
+            />
+          </div>
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Notification Center {unreadNotificationCount > 0 ? `(Unread: ${unreadNotificationCount})` : ""}</h4>
+          {!activeExpedition || !linkedMember ? (
+            <p>Select an active expedition to view notifications.</p>
+          ) : visibleNotifications.length === 0 ? (
+            <p>No notifications yet for this expedition.</p>
+          ) : (
+            <div className="notification-list">
+              {visibleNotifications.map((notification) => (
+                <div key={notification.id.toString()} className={`notification-row ${notification.isRead ? "" : "unread"}`}>
+                  <div className="notification-copy">
+                    <span className="notification-title">{notification.title}</span>
+                    <span className="notification-meta">
+                      {notification.body} · {notification.createdAt.toDate().toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleMarkNotificationRead(notification.id)}
+                    disabled={notification.isRead || markingNotificationId === notification.id}
+                  >
+                    {notification.isRead
+                      ? "Read"
+                      : markingNotificationId === notification.id
+                        ? "Marking…"
+                        : "Mark read"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {notificationStatus && <p className="field-error">{notificationStatus}</p>}
       </section>
 
       <section className="settings-group">

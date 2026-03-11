@@ -10,6 +10,22 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const AbuseReport = __t.object("AbuseReport", {
+  id: __t.u64(),
+  expeditionId: __t.u64(),
+  reportedByMemberId: __t.u64(),
+  targetType: __t.string(),
+  targetId: __t.u64(),
+  reason: __t.string(),
+  details: __t.string(),
+  status: __t.string(),
+  createdAt: __t.timestamp(),
+  reviewedAt: __t.option(__t.timestamp()),
+  reviewedByMemberId: __t.option(__t.u64()),
+  resolutionNote: __t.string(),
+});
+export type AbuseReport = __Infer<typeof AbuseReport>;
+
 export const ActivityLog = __t.object("ActivityLog", {
   id: __t.u64(),
   personName: __t.string(),
@@ -116,6 +132,19 @@ export const Membership = __t.object("Membership", {
   expeditionMemberKey: __t.string(),
 });
 export type Membership = __Infer<typeof Membership>;
+
+export const ModerationAudit = __t.object("ModerationAudit", {
+  id: __t.u64(),
+  expeditionId: __t.u64(),
+  reportId: __t.u64(),
+  moderatorMemberId: __t.u64(),
+  action: __t.string(),
+  targetType: __t.string(),
+  targetId: __t.u64(),
+  note: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type ModerationAudit = __Infer<typeof ModerationAudit>;
 
 export const Notification = __t.object("Notification", {
   id: __t.u64(),

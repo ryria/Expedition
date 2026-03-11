@@ -48,6 +48,9 @@ import LogActivityReducer from "./log_activity_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import OpsBackfillLegacyExpeditionReducer from "./ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
+import ReportActivityAbuseReducer from "./report_activity_abuse_reducer";
+import ReportCommentAbuseReducer from "./report_comment_abuse_reducer";
+import ReviewAbuseReportReducer from "./review_abuse_report_reducer";
 import RevokeInviteReducer from "./revoke_invite_reducer";
 import SetConfigReducer from "./set_config_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
@@ -66,6 +69,7 @@ import * as SyncAllStravaActivitiesProcedure from "./sync_all_strava_activities_
 import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_procedure";
 
 // Import all table schema definitions
+import AbuseReportRow from "./abuse_report_table";
 import ActivityLogRow from "./activity_log_table";
 import CommentRow from "./comment_table";
 import EntitlementRow from "./entitlement_table";
@@ -73,6 +77,7 @@ import ExpeditionRow from "./expedition_table";
 import InviteRow from "./invite_table";
 import MemberRow from "./member_table";
 import MembershipRow from "./membership_table";
+import ModerationAuditRow from "./moderation_audit_table";
 import NotificationRow from "./notification_table";
 import PlanSubscriptionRow from "./plan_subscription_table";
 import ReactionRow from "./reaction_table";
@@ -81,6 +86,17 @@ import ReactionRow from "./reaction_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  abuse_report: __table({
+    name: 'abuse_report',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'abuse_report_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AbuseReportRow),
   activity_log: __table({
     name: 'activity_log',
     indexes: [
@@ -182,6 +198,17 @@ const tablesSchema = __schema({
       { name: 'membership_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MembershipRow),
+  moderation_audit: __table({
+    name: 'moderation_audit',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'moderation_audit_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ModerationAuditRow),
   notification: __table({
     name: 'notification',
     indexes: [
@@ -237,6 +264,9 @@ const reducersSchema = __reducers(
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
   __reducerSchema("ops_backfill_legacy_expedition", OpsBackfillLegacyExpeditionReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
+  __reducerSchema("report_activity_abuse", ReportActivityAbuseReducer),
+  __reducerSchema("report_comment_abuse", ReportCommentAbuseReducer),
+  __reducerSchema("review_abuse_report", ReviewAbuseReportReducer),
   __reducerSchema("revoke_invite", RevokeInviteReducer),
   __reducerSchema("set_config", SetConfigReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),

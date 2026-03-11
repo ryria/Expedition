@@ -678,6 +678,8 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-12: Completed `EXP-034` in `client/src/components/SettingsPanel/SettingsPanel.tsx` and `SettingsPanel.css` by adding plan comparison rows and a dedicated upgrade CTA (`Upgrade now`), plus blocked-action upgrade guidance when plan limits are hit; validated with `npx vitest run` (28/28) and `npm run build`.
 - 2026-03-12: Completed `EXP-035` by adding `reconcile_billing_state` procedure in `module/src/lib.rs` and fixture-style webhook status unit tests (`past_due`, `canceled`, replay-deterministic mapping); regenerated bindings and validated with `cargo check`, `npx vitest run` (28/28), and `npm run build` (Rust `cargo test` execution is environment-limited here due non-runnable wasm artifact and missing native target toolchain).
 - 2026-03-12: Completed `EXP-040` by adding public `notification` records + read-state transition reducer (`mark_notification_read`) and event producers in `module/src/lib.rs` for invite lifecycle, membership role/ownership changes, comment/reaction engagement, and activity milestone events; regenerated bindings, validated with `cargo check`, `npx vitest run` (28/28), and `npm run build`, then published to `hostinger-tls`.
+- 2026-03-12: Completed `EXP-041` in `client/src/components/SettingsPanel/SettingsPanel.tsx` + `SettingsPanel.css` by adding a notification center backed by `tables.notification`, mark-as-read reducer wiring (`mark_notification_read`), and persisted reminder/engagement preference controls (cadence, quiet hours, timezone) per member in local storage; validated with `npx vitest run src/components/SettingsPanel/SettingsPanel.test.tsx` (8/8), `npx vitest run` (30/30), and `npm run build`.
+- 2026-03-12: Completed `EXP-042` by adding `abuse_report` + `moderation_audit` public tables and reducers in `module/src/lib.rs` (`report_activity_abuse`, `report_comment_abuse`, `review_abuse_report`) with owner/admin moderation gates, hide/remove/dismiss actions, and auditable moderation records; regenerated bindings, validated with `cargo check`, `npx vitest run` (30/30), and `npm run build`, then published to `hostinger-tls`.
 
 ---
 
@@ -693,11 +695,11 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-022  
   **Done when:** key events generate notification records.
 
-- [ ] `EXP-041` Notification center + preference controls UI  
+- [x] `EXP-041` Notification center + preference controls UI  
   **Priority:** P1 · **Owner:** FE · **Effort:** M · **Depends on:** EXP-040  
   **Done when:** users can view and configure reminder/engagement notifications.
 
-- [ ] `EXP-042` Add `abuse_report` + moderation actions  
+- [x] `EXP-042` Add `abuse_report` + moderation actions  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-021  
   **Done when:** report/hide/remove flows are role-gated and auditable.
 
@@ -1275,8 +1277,8 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 ### Scope
 
 - [x] `EXP-040` notification model + event producers
-- [ ] `EXP-041` notification center + preferences UI
-- [ ] `EXP-042` abuse report + moderation actions
+- [x] `EXP-041` notification center + preferences UI
+- [x] `EXP-042` abuse report + moderation actions
 - [ ] `EXP-043` expedition visibility/privacy controls
 - [ ] `EXP-044` safety/privacy regression and authorization gate
 
