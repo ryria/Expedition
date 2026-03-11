@@ -11,15 +11,9 @@ import "../StatsView/StatsView.css";
 import "./MapJournalView.css";
 
 type ProgressMode = "progress" | "insights";
+type HubTab = "progress" | "activity" | "social";
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
-type HubSectionId = "progressInsights" | "addActivity" | "social";
-
-const SECTION_LABELS: Record<HubSectionId, string> = {
-  progressInsights: "Progress & Insights",
-  addActivity: "Add Activity",
-  social: "Social Feed",
-};
 
 interface MapJournalViewProps {
   theme: Theme;
@@ -28,91 +22,10 @@ interface MapJournalViewProps {
   activeExpeditionId: bigint;
 }
 
-const INITIAL_ORDER: HubSectionId[] = ["progressInsights", "addActivity", "social"];
-
 export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpeditionId }: MapJournalViewProps) {
   const [progressMode, setProgressMode] = useState<ProgressMode>("progress");
   const [open, setOpen] = useState(true);
-  const [isEditingLayout, setIsEditingLayout] = useState(false);
-  const [sectionOrder, setSectionOrder] = useState<HubSectionId[]>(INITIAL_ORDER);
-  const [openSections, setOpenSections] = useState<Record<HubSectionId, boolean>>({
-    progressInsights: true,
-    addActivity: true,
-    social: true,
-  });
-
-  function moveSection(id: HubSectionId, direction: "up" | "down") {
-    setSectionOrder((prev) => {
-      const idx = prev.indexOf(id);
-      if (idx < 0) return prev;
-
-      const nextIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (nextIdx < 0 || nextIdx >= prev.length) return prev;
-
-      const next = [...prev];
-      const [item] = next.splice(idx, 1);
-      next.splice(nextIdx, 0, item);
-      return next;
-    });
-  }
-
-  function toggleSection(id: HubSectionId) {
-    setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
-  function sectionTitle(id: HubSectionId): string {
-    if (id === "progressInsights") {
-      return progressMode === "progress" ? "Progress" : "Insights";
-    }
-    if (id === "addActivity") return "Add Activity";
-    return "Social";
-  }
-
-  function sectionDescription(id: HubSectionId): string {
-    if (id === "progressInsights") return "Track milestones, splits, and trends.";
-    if (id === "addActivity") return "Log distance with notes in one quick action.";
-    return "Follow team activity, reactions, and comments.";
-  }
-
-  function renderSectionBody(id: HubSectionId) {
-    if (id === "progressInsights") {
-      return (
-        <>
-          <div className="drawer-tabs">
-            <button
-              className={progressMode === "progress" ? "active" : ""}
-              onClick={() => setProgressMode("progress")}
-            >
-              Progress
-            </button>
-            <button
-              className={progressMode === "insights" ? "active" : ""}
-              onClick={() => setProgressMode("insights")}
-            >
-              Insights
-            </button>
-          </div>
-          {progressMode === "progress" ? (
-            <>
-              <SummaryStats activeExpeditionId={activeExpeditionId} />
-              <LandmarksPassed activeExpeditionId={activeExpeditionId} />
-            </>
-          ) : (
-            <>
-              <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
-              <PersonBreakdown activeExpeditionId={activeExpeditionId} />
-            </>
-          )}
-        </>
-      );
-    }
-
-    if (id === "addActivity") {
-      return <LogForm activeExpeditionId={activeExpeditionId} />;
-    }
-
-    return <ActivityFeed activeExpeditionId={activeExpeditionId} />;
-  }
+  const [hubTab, setHubTab] = useState<HubTab>("progress");
 
   return (
     <div className={`map-journal-layout ${open ? "" : "hub-collapsed"}`.trim()}>
@@ -134,14 +47,6 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
             {open && <p>Your expedition control center</p>}
           </div>
           <div className="drawer-header-actions">
-            {open && (
-              <button
-                className={`drawer-toggle ${isEditingLayout ? "active" : ""}`}
-                onClick={() => setIsEditingLayout((v) => !v)}
-              >
-                {isEditingLayout ? "Done" : "Edit layout"}
-              </button>
-            )}
             <button className="drawer-toggle" onClick={() => setOpen((v) => !v)}>
               {open ? "Hide" : "Show"}
             </button>
@@ -150,41 +55,77 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
 
         {open && (
           <div className="drawer-content">
-            {sectionOrder.map((sectionId, idx) => (
-              <section key={sectionId} className={`drawer-section accordion-section section-${sectionId}`}>
-                <p className="section-kicker">{SECTION_LABELS[sectionId]}</p>
-                <div className="section-heading section-heading-row">
+            <div className="hub-tabs" role="tablist" aria-label="Hub sections">
+              <button type="button" className={hubTab === "progress" ? "active" : ""} onClick={() => setHubTab("progress")}>
+                Progress
+              </button>
+              <button type="button" className={hubTab === "activity" ? "active" : ""} onClick={() => setHubTab("activity")}>
+                Add Activity
+              </button>
+              <button type="button" className={hubTab === "social" ? "active" : ""} onClick={() => setHubTab("social")}>
+                Social
+              </button>
+            </div>
+
+            {hubTab === "progress" && (
+              <section className="drawer-section hub-panel">
+                <div className="panel-head">
+                  <h3>{progressMode === "progress" ? "Progress" : "Insights"}</h3>
+                  <p>Track milestones, landmarks, and contribution trends.</p>
+                </div>
+                <div className="drawer-tabs">
                   <button
-                    className="section-toggle"
-                    onClick={() => toggleSection(sectionId)}
+                    className={progressMode === "progress" ? "active" : ""}
+                    onClick={() => setProgressMode("progress")}
                   >
-                    {sectionTitle(sectionId)} {openSections[sectionId] ? "▲" : "▼"}
+                    Progress
                   </button>
-                  {isEditingLayout && (
-                    <div className="reorder-controls">
-                      <button
-                        onClick={() => moveSection(sectionId, "up")}
-                        disabled={idx === 0}
-                        aria-label="Move section up"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => moveSection(sectionId, "down")}
-                        disabled={idx === sectionOrder.length - 1}
-                        aria-label="Move section down"
-                      >
-                        ↓
-                      </button>
-                    </div>
+                  <button
+                    className={progressMode === "insights" ? "active" : ""}
+                    onClick={() => setProgressMode("insights")}
+                  >
+                    Insights
+                  </button>
+                </div>
+                <div className="accordion-body">
+                  {progressMode === "progress" ? (
+                    <>
+                      <SummaryStats activeExpeditionId={activeExpeditionId} />
+                      <LandmarksPassed activeExpeditionId={activeExpeditionId} />
+                    </>
+                  ) : (
+                    <>
+                      <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
+                      <PersonBreakdown activeExpeditionId={activeExpeditionId} />
+                    </>
                   )}
                 </div>
-                {openSections[sectionId] && <p className="section-description">{sectionDescription(sectionId)}</p>}
-                {openSections[sectionId] && (
-                  <div className="accordion-body">{renderSectionBody(sectionId)}</div>
-                )}
               </section>
-            ))}
+            )}
+
+            {hubTab === "activity" && (
+              <section className="drawer-section hub-panel">
+                <div className="panel-head">
+                  <h3>Add Activity</h3>
+                  <p>Log distance and notes to move the expedition forward.</p>
+                </div>
+                <div className="accordion-body">
+                  <LogForm activeExpeditionId={activeExpeditionId} />
+                </div>
+              </section>
+            )}
+
+            {hubTab === "social" && (
+              <section className="drawer-section hub-panel">
+                <div className="panel-head">
+                  <h3>Social Feed</h3>
+                  <p>See team updates, reactions, and comments in one place.</p>
+                </div>
+                <div className="accordion-body">
+                  <ActivityFeed activeExpeditionId={activeExpeditionId} />
+                </div>
+              </section>
+            )}
           </div>
         )}
       </aside>

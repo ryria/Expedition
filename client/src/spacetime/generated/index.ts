@@ -51,8 +51,11 @@ import RevokeInviteReducer from "./revoke_invite_reducer";
 import SetConfigReducer from "./set_config_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
 import TransferExpeditionOwnershipReducer from "./transfer_expedition_ownership_reducer";
+import UpsertEntitlementReducer from "./upsert_entitlement_reducer";
+import UpsertPlanSubscriptionReducer from "./upsert_plan_subscription_reducer";
 
 // Import all procedure arg schemas
+import * as CreateCheckoutSessionProcedure from "./create_checkout_session_procedure";
 import * as LinkStravaAccountProcedure from "./link_strava_account_procedure";
 import * as RequestAiCoachingProcedure from "./request_ai_coaching_procedure";
 import * as SetMyStravaTokensProcedure from "./set_my_strava_tokens_procedure";
@@ -62,10 +65,12 @@ import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_pr
 // Import all table schema definitions
 import ActivityLogRow from "./activity_log_table";
 import CommentRow from "./comment_table";
+import EntitlementRow from "./entitlement_table";
 import ExpeditionRow from "./expedition_table";
 import InviteRow from "./invite_table";
 import MemberRow from "./member_table";
 import MembershipRow from "./membership_table";
+import PlanSubscriptionRow from "./plan_subscription_table";
 import ReactionRow from "./reaction_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -94,6 +99,21 @@ const tablesSchema = __schema({
       { name: 'comment_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CommentRow),
+  entitlement: __table({
+    name: 'entitlement',
+    indexes: [
+      { name: 'expedition_feature_key', algorithm: 'btree', columns: [
+        'expeditionFeatureKey',
+      ] },
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'entitlement_expedition_feature_key_key', constraint: 'unique', columns: ['expeditionFeatureKey'] },
+      { name: 'entitlement_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, EntitlementRow),
   expedition: __table({
     name: 'expedition',
     indexes: [
@@ -158,6 +178,21 @@ const tablesSchema = __schema({
       { name: 'membership_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MembershipRow),
+  plan_subscription: __table({
+    name: 'plan_subscription',
+    indexes: [
+      { name: 'expedition_owner_key', algorithm: 'btree', columns: [
+        'expeditionOwnerKey',
+      ] },
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'plan_subscription_expedition_owner_key_key', constraint: 'unique', columns: ['expeditionOwnerKey'] },
+      { name: 'plan_subscription_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PlanSubscriptionRow),
   reaction: __table({
     name: 'reaction',
     indexes: [
@@ -190,10 +225,13 @@ const reducersSchema = __reducers(
   __reducerSchema("set_config", SetConfigReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
   __reducerSchema("transfer_expedition_ownership", TransferExpeditionOwnershipReducer),
+  __reducerSchema("upsert_entitlement", UpsertEntitlementReducer),
+  __reducerSchema("upsert_plan_subscription", UpsertPlanSubscriptionReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
+  __procedureSchema("create_checkout_session", CreateCheckoutSessionProcedure.params, CreateCheckoutSessionProcedure.returnType),
   __procedureSchema("link_strava_account", LinkStravaAccountProcedure.params, LinkStravaAccountProcedure.returnType),
   __procedureSchema("request_ai_coaching", RequestAiCoachingProcedure.params, RequestAiCoachingProcedure.returnType),
   __procedureSchema("set_my_strava_tokens", SetMyStravaTokensProcedure.params, SetMyStravaTokensProcedure.returnType),

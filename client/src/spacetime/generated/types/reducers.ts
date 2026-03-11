@@ -23,6 +23,8 @@ import RevokeInviteReducer from "../revoke_invite_reducer";
 import SetConfigReducer from "../set_config_reducer";
 import SetMembershipRoleReducer from "../set_membership_role_reducer";
 import TransferExpeditionOwnershipReducer from "../transfer_expedition_ownership_reducer";
+import UpsertEntitlementReducer from "../upsert_entitlement_reducer";
+import UpsertPlanSubscriptionReducer from "../upsert_plan_subscription_reducer";
 
 export type AcceptInviteParams = __Infer<typeof AcceptInviteReducer>;
 export type AddCommentParams = __Infer<typeof AddCommentReducer>;
@@ -41,4 +43,6 @@ export type RevokeInviteParams = __Infer<typeof RevokeInviteReducer>;
 export type SetConfigParams = __Infer<typeof SetConfigReducer>;
 export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;
 export type TransferExpeditionOwnershipParams = __Infer<typeof TransferExpeditionOwnershipReducer>;
+export type UpsertEntitlementParams = __Infer<typeof UpsertEntitlementReducer>;
+export type UpsertPlanSubscriptionParams = __Infer<typeof UpsertPlanSubscriptionReducer>;
 

@@ -46,6 +46,17 @@ export const Config = __t.object("Config", {
 });
 export type Config = __Infer<typeof Config>;
 
+export const Entitlement = __t.object("Entitlement", {
+  id: __t.u64(),
+  expeditionId: __t.u64(),
+  featureKey: __t.string(),
+  enabled: __t.bool(),
+  limitValue: __t.u32(),
+  expeditionFeatureKey: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type Entitlement = __Infer<typeof Entitlement>;
+
 export const Expedition = __t.object("Expedition", {
   id: __t.u64(),
   name: __t.string(),
@@ -98,6 +109,21 @@ export const Membership = __t.object("Membership", {
   expeditionMemberKey: __t.string(),
 });
 export type Membership = __Infer<typeof Membership>;
+
+export const PlanSubscription = __t.object("PlanSubscription", {
+  id: __t.u64(),
+  expeditionId: __t.u64(),
+  ownerMemberId: __t.u64(),
+  planCode: __t.string(),
+  status: __t.string(),
+  seatLimit: __t.u32(),
+  cancelAtPeriodEnd: __t.bool(),
+  periodStartEpoch: __t.i64(),
+  periodEndEpoch: __t.i64(),
+  expeditionOwnerKey: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type PlanSubscription = __Infer<typeof PlanSubscription>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),

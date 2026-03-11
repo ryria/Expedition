@@ -1,13 +1,13 @@
 .map-journal-layout {
   display: grid;
-  grid-template-columns: 1fr minmax(340px, 390px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
   height: 100%;
   min-height: 0;
   background: var(--bg);
 }
 
 .map-journal-layout.hub-collapsed {
-  grid-template-columns: 1fr 96px;
+  grid-template-columns: minmax(0, 1fr) 88px;
 }
 
 .map-hero {
@@ -34,6 +34,10 @@
 }
 
 .journal-drawer.collapsed .drawer-header h2 {
+  display: none;
+}
+
+.journal-drawer.collapsed .drawer-header p {
   display: none;
 }
 
@@ -83,7 +87,8 @@
 }
 
 .drawer-toggle,
-.drawer-tabs button {
+.drawer-tabs button,
+.hub-tabs button {
   border: 1px solid var(--input-border);
   background: var(--surface-muted);
   color: var(--text-muted);
@@ -97,6 +102,23 @@
 }
 
 .drawer-toggle.active {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+.hub-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.hub-tabs button {
+  font-size: 0.8rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.hub-tabs button.active {
   border-color: var(--accent-border);
   background: var(--accent-bg);
   color: var(--accent-text);
@@ -133,25 +155,7 @@
   gap: 0.9rem;
 }
 
-.section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section-heading h3 {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-}
-
-.section-heading-row {
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.accordion-section {
+.hub-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 0.8rem;
@@ -159,49 +163,15 @@
   box-shadow: var(--shadow-sm);
 }
 
-.section-kicker {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-  margin-bottom: 0.45rem;
+.panel-head h3 {
+  font-size: 0.95rem;
+  color: var(--text);
 }
 
-.section-description {
-  margin-top: 0.1rem;
-  margin-bottom: 0.55rem;
+.panel-head p {
+  margin-top: 0.2rem;
   color: var(--text-muted);
   font-size: 0.8rem;
-}
-
-.section-toggle {
-  border: 1px solid var(--input-border);
-  background: var(--surface-muted);
-  color: var(--text);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 0.82rem;
-  padding: 0.4rem 0.65rem;
-}
-
-.reorder-controls {
-  display: flex;
-  gap: 0.35rem;
-}
-
-.reorder-controls button {
-  border: 1px solid var(--input-border);
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 0.82rem;
-  padding: 0.3rem 0.5rem;
-}
-
-.reorder-controls button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .accordion-body {
@@ -242,6 +212,7 @@
   }
 
   .journal-drawer.collapsed .drawer-tabs,
+  .journal-drawer.collapsed .hub-tabs,
   .journal-drawer.collapsed .drawer-content {
     display: none;
   }
@@ -256,7 +227,11 @@
     padding: 0.65rem;
   }
 
-  .accordion-section {
+  .hub-panel {
     padding: 0.65rem;
+  }
+
+  .hub-tabs {
+    grid-template-columns: 1fr;
   }
 }

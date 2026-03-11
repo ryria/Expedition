@@ -63,6 +63,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 /* Main content area */
 .app-main { flex: 1; overflow: auto; }
 
+.content-shell {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
 .app-main.expedition-main {
   overflow: hidden;
   min-height: 0;
@@ -119,5 +125,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
   .empty-state {
     padding: 0.9rem;
+  }
+
+  .content-shell {
+    padding: 0.75rem;
   }
 }

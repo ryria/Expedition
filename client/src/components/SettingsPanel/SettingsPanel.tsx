@@ -27,6 +27,24 @@ type MembershipRow = {
   status: string;
   leftAt: unknown;
 };
+type PlanSubscriptionRow = {
+  id: bigint;
+  expeditionId: bigint;
+  ownerMemberId: bigint;
+  planCode: string;
+  status: string;
+  seatLimit: number;
+  cancelAtPeriodEnd: boolean;
+  periodStartEpoch: bigint;
+  periodEndEpoch: bigint;
+};
+type EntitlementRow = {
+  id: bigint;
+  expeditionId: bigint;
+  featureKey: string;
+  enabled: boolean;
+  limitValue: number;
+};
 
 interface SettingsPanelProps {
   theme: Theme;
@@ -74,11 +92,15 @@ export function SettingsPanel({
   const [revokingToken, setRevokingToken] = useState<string | null>(null);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<bigint | null>(null);
   const [transferringToMemberId, setTransferringToMemberId] = useState<bigint | null>(null);
+  const [billingStatus, setBillingStatus] = useState("");
+  const [isStartingCheckout, setIsStartingCheckout] = useState(false);
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
   const [inviteRows] = useTable(tables.invite);
   const [membershipRows] = useTable(tables.membership);
+  const [planSubscriptionRows] = useTable(tables.planSubscription);
+  const [entitlementRows] = useTable(tables.entitlement);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const suggestedName = useMemo(() => {
@@ -150,6 +172,20 @@ export function SettingsPanel({
       )
       .sort((a, b) => Number(b.id - a.id));
   }, [activeExpedition, inviteRows]);
+
+  const activePlanSubscription = useMemo(() => {
+    if (!activeExpedition) return null;
+    return (planSubscriptionRows as readonly PlanSubscriptionRow[]).find(
+      (row) => row.expeditionId === activeExpedition.id,
+    ) ?? null;
+  }, [activeExpedition, planSubscriptionRows]);
+
+  const activeEntitlements = useMemo(() => {
+    if (!activeExpedition) return [] as EntitlementRow[];
+    return (entitlementRows as readonly EntitlementRow[])
+      .filter((row) => row.expeditionId === activeExpedition.id)
+      .sort((a, b) => a.featureKey.localeCompare(b.featureKey));
+  }, [activeExpedition, entitlementRows]);
 
   useEffect(() => {
     if (!isSaving) return;
@@ -485,6 +521,49 @@ export function SettingsPanel({
     }
   }
 
+  function handleStartCheckout() {
+    setBillingStatus("");
+    if (!conn) {
+      setBillingStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setBillingStatus("Select an active expedition first.");
+      return;
+    }
+    if (!isOwner) {
+      setBillingStatus("Only the expedition owner can start checkout.");
+      return;
+    }
+
+    void (async () => {
+      try {
+        setIsStartingCheckout(true);
+        const procedures = conn.procedures as {
+          createCheckoutSession?: (args: { expeditionId: bigint }) => Promise<string>;
+        };
+        if (!procedures.createCheckoutSession) {
+          setBillingStatus("Checkout unavailable until client bindings are regenerated.");
+          return;
+        }
+
+        const checkoutUrl = await procedures.createCheckoutSession({
+          expeditionId: activeExpedition.id,
+        });
+        if (checkoutUrl && checkoutUrl.startsWith("http")) {
+          window.location.assign(checkoutUrl);
+          return;
+        }
+
+        setBillingStatus("Checkout session could not be created. Verify Stripe config keys.");
+      } catch (err) {
+        setBillingStatus(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsStartingCheckout(false);
+      }
+    })();
+  }
+
   return (
     <div className="settings-panel">
       <h2>User Settings</h2>
@@ -699,6 +778,45 @@ export function SettingsPanel({
           <p>Only the current owner can change roles or transfer ownership.</p>
         )}
         {roleStatus && <p className="field-error">{roleStatus}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Billing</h3>
+        {!activeExpedition ? (
+          <p>Select an active expedition to view billing state.</p>
+        ) : (
+          <>
+            {activePlanSubscription ? (
+              <p>
+                Plan: {activePlanSubscription.planCode} · Status: {activePlanSubscription.status} · Seats: {activePlanSubscription.seatLimit}
+              </p>
+            ) : (
+              <p>No subscription record for this expedition yet.</p>
+            )}
+
+            {activeEntitlements.length > 0 && (
+              <div className="invite-list">
+                {activeEntitlements.map((entitlement) => (
+                  <div key={String(entitlement.id)} className="invite-row">
+                    <span className="invite-token">{entitlement.featureKey}</span>
+                    <span className="invite-meta">
+                      {entitlement.enabled ? "enabled" : "disabled"} · limit {entitlement.limitValue}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="strava-actions">
+              <button type="button" onClick={handleStartCheckout} disabled={!isOwner || isStartingCheckout}>
+                {isStartingCheckout ? "Starting checkout…" : "Start checkout"}
+              </button>
+            </div>
+
+            {!isOwner && <p>Only the current owner can start checkout.</p>}
+          </>
+        )}
+        {billingStatus && <p className="field-error">{billingStatus}</p>}
       </section>
 
       <section className="settings-group">

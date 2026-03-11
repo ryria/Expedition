@@ -1,6 +1,7 @@
 .settings-panel {
   padding: 1rem;
-  max-width: 900px;
+  max-width: 760px;
+  width: 100%;
 }
 
 .settings-panel h2 {
@@ -8,13 +9,9 @@
 }
 
 .settings-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
-}
-
-.settings-panel > h2 {
-  grid-column: 1 / -1;
 }
 
 .settings-group {
@@ -229,14 +226,6 @@
   .settings-panel {
     padding: 0.75rem;
     max-width: 100%;
-    grid-template-columns: 1fr;
     gap: 0.7rem;
-  }
-}
-
-@media (max-width: 860px) {
-  .settings-panel {
-    grid-template-columns: 1fr;
-    max-width: 620px;
   }
 }

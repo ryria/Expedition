@@ -395,19 +395,23 @@ export default function App() {
           />
         )}
         {tab === "members" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
-          <MembersPanel activeExpeditionId={activeExpeditionId} />
+          <div className="content-shell">
+            <MembersPanel activeExpeditionId={activeExpeditionId} />
+          </div>
         )}
         {tab === "settings" && !expeditionLoading && (
-          <SettingsPanel
-            theme={theme}
-            onThemeChange={setTheme}
-            mapMode={mapMode}
-            onMapModeChange={setMapMode}
-            activeExpedition={activeExpedition}
-            onCreateExpedition={handleCreateExpedition}
-            isCreatingExpedition={isCreatingExpedition}
-            expeditionCreateError={expeditionCreateError}
-          />
+          <div className="content-shell">
+            <SettingsPanel
+              theme={theme}
+              onThemeChange={setTheme}
+              mapMode={mapMode}
+              onMapModeChange={setMapMode}
+              activeExpedition={activeExpedition}
+              onCreateExpedition={handleCreateExpedition}
+              isCreatingExpedition={isCreatingExpedition}
+              expeditionCreateError={expeditionCreateError}
+            />
+          </div>
         )}
       </main>
     </div>

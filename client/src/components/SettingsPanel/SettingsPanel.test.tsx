@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SettingsPanel } from "./SettingsPanel";
 import { tables } from "../../spacetime/generated";
 
@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     revokeInvite: vi.fn(),
     setMembershipRole: vi.fn(),
     transferExpeditionOwnership: vi.fn(),
+    createCheckoutSession: vi.fn(async () => "https://checkout.stripe.com/test"),
     addMember: vi.fn(),
     bindAuthIdentity: vi.fn(),
     syncMyStravaActivities: vi.fn(async () => ({})),
@@ -57,6 +58,7 @@ describe("SettingsPanel invite/role security", () => {
           revokeInvite: mocks.revokeInvite,
           setMembershipRole: mocks.setMembershipRole,
           transferExpeditionOwnership: mocks.transferExpeditionOwnership,
+          createCheckoutSession: mocks.createCheckoutSession,
         },
         procedures: {
           syncMyStravaActivities: mocks.syncMyStravaActivities,
@@ -169,5 +171,23 @@ describe("SettingsPanel invite/role security", () => {
 
     expect(screen.getByText("set_membership_role: allowed roles are owner")).toBeTruthy();
     expect(mocks.setMembershipRole).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts checkout for owner expedition", async () => {
+    const assignSpy = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+
+    renderPanel([
+      { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
+      { id: 2n, expeditionId: 10n, memberId: 2n, role: "member", status: "active", leftAt: null },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start checkout" }));
+
+    await waitFor(() => {
+      expect(mocks.createCheckoutSession).toHaveBeenCalledWith({ expeditionId: 10n });
+      expect(assignSpy).toHaveBeenCalledWith("https://checkout.stripe.com/test");
+    });
+
+    assignSpy.mockRestore();
   });
 });

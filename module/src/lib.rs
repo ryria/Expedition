@@ -5,8 +5,13 @@ const STDB_AUTH_ISSUER: &str = "https://auth.spacetimedb.com/oidc";
 const CONFIG_OWNER_SUB_KEY: &str = "_config_owner_sub";
 const STRAVA_CLIENT_ID_KEY: &str = "strava_client_id";
 const STRAVA_CLIENT_SECRET_KEY: &str = "strava_client_secret";
+const STRIPE_SECRET_KEY: &str = "stripe_secret_key";
+const STRIPE_PRICE_ID_KEY: &str = "stripe_price_id";
+const STRIPE_SUCCESS_URL_KEY: &str = "stripe_success_url";
+const STRIPE_CANCEL_URL_KEY: &str = "stripe_cancel_url";
 const STRAVA_OAUTH_TOKEN: &str = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_ENDPOINT: &str = "https://www.strava.com/api/v3/athlete/activities";
+const STRIPE_CHECKOUT_SESSIONS_ENDPOINT: &str = "https://api.stripe.com/v1/checkout/sessions";
 const STRAVA_OVERALL_LIMIT_15M: u32 = 200;
 const STRAVA_OVERALL_LIMIT_DAY: u32 = 2000;
 const STRAVA_READ_LIMIT_15M: u32 = 100;
@@ -2088,6 +2093,144 @@ pub fn request_ai_coaching(ctx: &mut ProcedureContext, log_id: u64) {
 }
 
 #[spacetimedb::procedure]
+pub fn create_checkout_session(ctx: &mut ProcedureContext, expedition_id: u64) -> String {
+    let owner_sub = match authenticated_subject_from_procedure(ctx) {
+        Ok(sub) => sub,
+        Err(err) => {
+            log::error!("create_checkout_session: {}", err);
+            return String::new();
+        }
+    };
+
+    let Some((owner_member_id, price_id, success_url, cancel_url, stripe_secret_key)) = ctx.with_tx(|tx| {
+        let member = tx.db.member().owner_sub().find(owner_sub.clone())?;
+        let expedition = tx.db.expedition().id().find(expedition_id)?;
+        if expedition.is_archived {
+            return None;
+        }
+
+        let expedition_member_key = format!("{}:{}", expedition_id, member.id);
+        let membership = tx
+            .db
+            .membership()
+            .expedition_member_key()
+            .find(expedition_member_key)?;
+
+        if membership.status != "active" || membership.role != MEMBERSHIP_ROLE_OWNER {
+            return None;
+        }
+
+        let price_id = tx.db.config().key().find(STRIPE_PRICE_ID_KEY.to_string())?.value;
+        let success_url = tx.db.config().key().find(STRIPE_SUCCESS_URL_KEY.to_string())?.value;
+        let cancel_url = tx.db.config().key().find(STRIPE_CANCEL_URL_KEY.to_string())?.value;
+        let stripe_secret_key = tx.db.config().key().find(STRIPE_SECRET_KEY.to_string())?.value;
+
+        Some((member.id, price_id, success_url, cancel_url, stripe_secret_key))
+    }) else {
+        log::error!(
+            "create_checkout_session: missing owner membership, expedition, or Stripe configuration"
+        );
+        return String::new();
+    };
+
+    let body = format!(
+        "mode=subscription&line_items[0][price]={}&line_items[0][quantity]=1&success_url={}&cancel_url={}&client_reference_id={}&metadata[expedition_id]={}&metadata[owner_member_id]={}",
+        url_encode(&price_id),
+        url_encode(&success_url),
+        url_encode(&cancel_url),
+        expedition_id,
+        expedition_id,
+        owner_member_id,
+    );
+
+    let request = match http::Request::builder()
+        .method("POST")
+        .uri(STRIPE_CHECKOUT_SESSIONS_ENDPOINT)
+        .header("authorization", format!("Bearer {}", stripe_secret_key))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(body)
+    {
+        Ok(request) => request,
+        Err(err) => {
+            log::error!("create_checkout_session: failed to build request: {}", err);
+            return String::new();
+        }
+    };
+
+    let response = match ctx.http.send(request) {
+        Ok(response) => response,
+        Err(err) => {
+            log::error!("create_checkout_session: HTTP request failed: {}", err);
+            return String::new();
+        }
+    };
+
+    let (parts, body) = response.into_parts();
+    let body_str = body.into_string_lossy();
+    if !parts.status.is_success() {
+        log::error!(
+            "create_checkout_session: Stripe returned status {}: {}",
+            parts.status,
+            body_str
+        );
+        return String::new();
+    }
+
+    let checkout = match serde_json::from_str::<StripeCheckoutSessionResponse>(&body_str) {
+        Ok(payload) => payload,
+        Err(err) => {
+            log::error!(
+                "create_checkout_session: failed to parse Stripe response JSON: {}",
+                err
+            );
+            return String::new();
+        }
+    };
+
+    if checkout.url.trim().is_empty() {
+        log::error!("create_checkout_session: Stripe response missing checkout URL");
+        return String::new();
+    }
+
+    let expedition_owner_key = format!("{}:{}", expedition_id, owner_member_id);
+    let now_ts = ctx.timestamp;
+    ctx.with_tx(|tx| {
+        if let Some(mut existing) = tx
+            .db
+            .plan_subscription()
+            .expedition_owner_key()
+            .find(expedition_owner_key.clone())
+        {
+            existing.plan_code = price_id.clone();
+            existing.status = SUBSCRIPTION_STATUS_INCOMPLETE.to_string();
+            existing.seat_limit = existing.seat_limit.max(1);
+            existing.cancel_at_period_end = false;
+            existing.period_start_epoch = existing.period_start_epoch.max(0);
+            existing.period_end_epoch = existing.period_end_epoch.max(0);
+            existing.updated_at = now_ts;
+            tx.db.plan_subscription().id().update(existing);
+            return;
+        }
+
+        tx.db.plan_subscription().insert(PlanSubscription {
+            id: 0,
+            expedition_id,
+            owner_member_id,
+            plan_code: price_id.clone(),
+            status: SUBSCRIPTION_STATUS_INCOMPLETE.to_string(),
+            seat_limit: 1,
+            cancel_at_period_end: false,
+            period_start_epoch: 0,
+            period_end_epoch: 0,
+            expedition_owner_key: expedition_owner_key.clone(),
+            updated_at: now_ts,
+        });
+    });
+
+    checkout.url
+}
+
+#[spacetimedb::procedure]
 pub fn link_strava_account(ctx: &mut ProcedureContext, code: String, redirect_uri: String) {
     let owner_sub = match authenticated_subject_from_procedure(ctx) {
         Ok(sub) => sub,
@@ -2333,4 +2476,9 @@ struct StravaActivity {
     activity_type: String,
     #[serde(rename = "distance")]
     distance: f64,
+}
+
+#[derive(Deserialize)]
+struct StripeCheckoutSessionResponse {
+    url: String,
 }

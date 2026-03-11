@@ -640,7 +640,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 ### Issues
 
-- [ ] `EXP-030` Add `plan_subscription` + `entitlement` data model  
+- [x] `EXP-030` Add `plan_subscription` + `entitlement` data model  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-004  
   **Done when:** active plan state and limits can be queried per expedition/owner.
 
@@ -668,6 +668,10 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 - [ ] Paid plan activates correctly from real webhook events
 - [ ] Free-tier limits are enforced consistently
+
+### Progress Notes
+
+- 2026-03-12: Completed `EXP-030` in `module/src/lib.rs` by adding public `plan_subscription` and `entitlement` tables plus owner-scoped reducers `upsert_plan_subscription` and `upsert_entitlement`; regenerated client bindings (`client/src/spacetime/generated/*`) and validated with `cargo check`, `npx vitest run` (26/26), and `npm run build`.
 
 ---
 
