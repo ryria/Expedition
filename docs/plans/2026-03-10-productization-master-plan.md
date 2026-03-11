@@ -648,15 +648,15 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-030  
   **Done when:** user can initiate checkout from app and return to success state.
 
-- [ ] `EXP-032` Implement webhook verification + idempotent processing  
+- [x] `EXP-032` Implement webhook verification + idempotent processing  
   **Priority:** P0 · **Owner:** BE/OPS · **Effort:** M · **Depends on:** EXP-031  
   **Done when:** duplicate webhook events do not corrupt subscription state.
 
-- [ ] `EXP-033` Add entitlement gating helpers across reducers/procedures  
+- [x] `EXP-033` Add entitlement gating helpers across reducers/procedures  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-030  
   **Done when:** free-plan limits are enforced at server boundary.
 
-- [ ] `EXP-034` Pricing + upgrade UX in client  
+- [x] `EXP-034` Pricing + upgrade UX in client  
   **Priority:** P1 · **Owner:** FE · **Effort:** S · **Depends on:** EXP-031  
   **Done when:** blocked actions show upgrade CTA with clear plan comparison.
 
@@ -673,6 +673,9 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 - 2026-03-12: Completed `EXP-030` in `module/src/lib.rs` by adding public `plan_subscription` and `entitlement` tables plus owner-scoped reducers `upsert_plan_subscription` and `upsert_entitlement`; regenerated client bindings (`client/src/spacetime/generated/*`) and validated with `cargo check`, `npx vitest run` (26/26), and `npm run build`.
 - 2026-03-12: Completed `EXP-031` by adding `create_checkout_session` Stripe procedure in `module/src/lib.rs` (owner-scoped expedition validation + config-driven checkout session creation) and wiring `Start checkout` action in `client/src/components/SettingsPanel/SettingsPanel.tsx`; regenerated bindings and validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
+- 2026-03-12: Completed `EXP-032` by adding Stripe webhook signature verification (`HMAC-SHA256`) and idempotent ingestion (`billing_webhook_event` table keyed by provider event id) in `module/src/lib.rs` via `ingest_stripe_webhook`; subscription state updates now handle `checkout.session.completed`, `customer.subscription.created|updated`, and `customer.subscription.deleted` without duplicate mutation; regenerated bindings and validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
+- 2026-03-12: Completed `EXP-033` by adding server-side entitlement gate helpers in `module/src/lib.rs` and enforcing free-tier/entitled member-capacity checks (`max_members`) on `join_expedition` and `accept_invite`; validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
+- 2026-03-12: Completed `EXP-034` in `client/src/components/SettingsPanel/SettingsPanel.tsx` and `SettingsPanel.css` by adding plan comparison rows and a dedicated upgrade CTA (`Upgrade now`), plus blocked-action upgrade guidance when plan limits are hit; validated with `npx vitest run` (28/28) and `npm run build`.
 
 ---
 

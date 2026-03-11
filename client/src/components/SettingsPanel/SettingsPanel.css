@@ -169,6 +169,34 @@
   font-size: 0.8rem;
 }
 
+.pricing-list {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pricing-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.pricing-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.pricing-summary {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 .role-list {
   display: flex;
   flex-direction: column;

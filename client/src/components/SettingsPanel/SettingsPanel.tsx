@@ -46,6 +46,12 @@ type EntitlementRow = {
   limitValue: number;
 };
 
+const PRICING_TIERS = [
+  { name: "Free", summary: "1 expedition · up to 5 members · base stats" },
+  { name: "Pro", summary: "Owner-paid monthly tier · expanded seats · advanced insights" },
+  { name: "Club", summary: "Higher seat tiers · admin controls · club operations" },
+] as const;
+
 interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
@@ -414,7 +420,11 @@ export function SettingsPanel({
       });
       setInviteStatus("Invite created. Share token from the active invites list.");
     } catch (err) {
-      setInviteStatus(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setInviteStatus(message);
+      if (message.toLowerCase().includes("limit reached")) {
+        setBillingStatus("Action blocked by current plan limit. Upgrade to Pro or Club for higher limits.");
+      }
     } finally {
       setIsCreatingInvite(false);
     }
@@ -439,7 +449,11 @@ export function SettingsPanel({
       setInviteTokenInput("");
       setInviteStatus("Join request sent.");
     } catch (err) {
-      setInviteStatus(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setInviteStatus(message);
+      if (message.toLowerCase().includes("limit reached")) {
+        setBillingStatus("Action blocked by current plan limit. Upgrade to Pro or Club for higher limits.");
+      }
     } finally {
       setIsJoiningInvite(false);
     }
@@ -745,6 +759,17 @@ export function SettingsPanel({
 
       <section className="settings-group">
         <h3>Billing</h3>
+        <p>Compare plan tiers and upgrade when limits block expedition actions.</p>
+
+        <div className="pricing-list">
+          {PRICING_TIERS.map((tier) => (
+            <div key={tier.name} className="pricing-row">
+              <span className="pricing-name">{tier.name}</span>
+              <span className="pricing-summary">{tier.summary}</span>
+            </div>
+          ))}
+        </div>
+
         {!activeExpedition ? (
           <p>Select an active expedition to view billing state.</p>
         ) : (
@@ -772,7 +797,7 @@ export function SettingsPanel({
 
             <div className="strava-actions">
               <button type="button" onClick={handleStartCheckout} disabled={!isOwner || isStartingCheckout}>
-                {isStartingCheckout ? "Starting checkout…" : "Start checkout"}
+                {isStartingCheckout ? "Starting checkout…" : "Upgrade now"}
               </button>
             </div>
 

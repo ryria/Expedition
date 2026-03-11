@@ -181,11 +181,29 @@ describe("SettingsPanel invite/role security", () => {
       { id: 2n, expeditionId: 10n, memberId: 2n, role: "member", status: "active", leftAt: null },
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start checkout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade now" }));
 
     await waitFor(() => {
       expect(mocks.createCheckoutSession).toHaveBeenCalledWith({ expeditionId: 10n });
       expect(screen.getByText("Checkout session could not be created. Verify Stripe config keys.")).toBeTruthy();
+    });
+  });
+
+  it("surfaces upgrade guidance when seat limit blocks invite acceptance", async () => {
+    mocks.acceptInvite.mockImplementation(() => {
+      throw new Error("accept_invite: member seat limit reached (5/5)");
+    });
+
+    renderPanel([
+      { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
+    ]);
+
+    fireEvent.change(screen.getByPlaceholderText("Invite token"), { target: { value: "seat-full" } });
+    fireEvent.click(screen.getByRole("button", { name: "Join by token" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Action blocked by current plan limit. Upgrade to Pro or Club for higher limits.")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Upgrade now" })).toBeTruthy();
     });
   });
 });

@@ -11,7 +11,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 }
 
 .app-title {
-  font-family: 'Inter', sans-serif; font-weight: 600;
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 1.1rem !important;
   color: var(--accent); letter-spacing: 0.04em; white-space: nowrap;
 }
 
@@ -38,6 +39,27 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
 .toolbar-right {
   margin-left: auto;
+}
+
+.toolbar-right .MuiTabs-root {
+  min-height: 38px;
+}
+
+.toolbar-right .MuiTab-root {
+  min-height: 38px;
+  text-transform: none;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.25rem 0.6rem;
+}
+
+.toolbar-right .Mui-selected {
+  color: var(--accent) !important;
+}
+
+.toolbar-right .MuiTabs-indicator {
+  background: var(--accent);
 }
 
 .expedition-controls {

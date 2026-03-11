@@ -34,6 +34,8 @@ const SUBSCRIPTION_STATUS_ACTIVE: &str = "active";
 const SUBSCRIPTION_STATUS_PAST_DUE: &str = "past_due";
 const SUBSCRIPTION_STATUS_CANCELED: &str = "canceled";
 const SUBSCRIPTION_STATUS_INCOMPLETE: &str = "incomplete";
+const ENTITLEMENT_KEY_MAX_MEMBERS: &str = "max_members";
+const FREE_PLAN_MAX_MEMBERS: u32 = 5;
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -800,6 +802,64 @@ fn now_epoch_seconds(ctx: &ReducerContext) -> i64 {
     (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64
 }
 
+fn subscription_is_access_granting(status: &str) -> bool {
+    status == SUBSCRIPTION_STATUS_ACTIVE || status == SUBSCRIPTION_STATUS_TRIALING
+}
+
+fn active_members_count(ctx: &ReducerContext, expedition_id: u64) -> u32 {
+    ctx.db
+        .membership()
+        .iter()
+        .filter(|membership| membership.expedition_id == expedition_id && membership.status == "active")
+        .count() as u32
+}
+
+fn effective_member_limit(ctx: &ReducerContext, expedition_id: u64) -> u32 {
+    let mut limit = FREE_PLAN_MAX_MEMBERS;
+
+    let entitlement_feature_key = format!("{}:{}", expedition_id, ENTITLEMENT_KEY_MAX_MEMBERS);
+    if let Some(entitlement) = ctx
+        .db
+        .entitlement()
+        .expedition_feature_key()
+        .find(entitlement_feature_key)
+    {
+        if entitlement.enabled && entitlement.limit_value > 0 {
+            limit = entitlement.limit_value;
+        }
+    }
+
+    if let Some(subscription) = ctx
+        .db
+        .plan_subscription()
+        .iter()
+        .find(|row| row.expedition_id == expedition_id)
+    {
+        if subscription_is_access_granting(&subscription.status) && subscription.seat_limit > 0 {
+            limit = limit.max(subscription.seat_limit);
+        }
+    }
+
+    limit
+}
+
+fn require_member_capacity(ctx: &ReducerContext, expedition_id: u64) -> Result<(), String> {
+    let member_limit = effective_member_limit(ctx, expedition_id);
+    if member_limit == 0 {
+        return Ok(());
+    }
+
+    let active_count = active_members_count(ctx, expedition_id);
+    if active_count >= member_limit {
+        return Err(format!(
+            "member seat limit reached ({}/{})",
+            active_count, member_limit
+        ));
+    }
+
+    Ok(())
+}
+
 fn create_unique_invite_token(ctx: &ReducerContext, expedition_id: u64, member_id: u64) -> String {
     let base = format!(
         "inv-{}-{}-{}",
@@ -1131,6 +1191,11 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
     };
 
     if find_active_membership(ctx, expedition.id, me.id).is_some() {
+        return;
+    }
+
+    if let Err(err) = require_member_capacity(ctx, expedition.id) {
+        log::error!("join_expedition: {}", err);
         return;
     }
 
@@ -1562,6 +1627,11 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
     };
 
     if find_active_membership(ctx, expedition.id, me.id).is_none() {
+        if let Err(err) = require_member_capacity(ctx, expedition.id) {
+            log::error!("accept_invite: {}", err);
+            return;
+        }
+
         let expedition_member_key = format!("{}:{}", expedition.id, me.id);
         if let Some(mut membership) = ctx
             .db
