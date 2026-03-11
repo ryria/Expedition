@@ -21,6 +21,11 @@ const LEGACY_DEFAULT_EXPEDITION_SLUG: &str = "legacy-default";
 const MEMBERSHIP_ROLE_OWNER: &str = "owner";
 const MEMBERSHIP_ROLE_ADMIN: &str = "admin";
 const MEMBERSHIP_ROLE_MEMBER: &str = "member";
+const SUBSCRIPTION_STATUS_TRIALING: &str = "trialing";
+const SUBSCRIPTION_STATUS_ACTIVE: &str = "active";
+const SUBSCRIPTION_STATUS_PAST_DUE: &str = "past_due";
+const SUBSCRIPTION_STATUS_CANCELED: &str = "canceled";
+const SUBSCRIPTION_STATUS_INCOMPLETE: &str = "incomplete";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -571,6 +576,38 @@ pub struct Invite {
     pub revoked_at: Option<Timestamp>,
 }
 
+#[spacetimedb::table(accessor = plan_subscription, public)]
+pub struct PlanSubscription {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub expedition_id: u64,
+    pub owner_member_id: u64,
+    pub plan_code: String,
+    pub status: String,
+    pub seat_limit: u32,
+    pub cancel_at_period_end: bool,
+    pub period_start_epoch: i64,
+    pub period_end_epoch: i64,
+    #[unique]
+    pub expedition_owner_key: String,
+    pub updated_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = entitlement, public)]
+pub struct Entitlement {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub expedition_id: u64,
+    pub feature_key: String,
+    pub enabled: bool,
+    pub limit_value: u32,
+    #[unique]
+    pub expedition_feature_key: String,
+    pub updated_at: Timestamp,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -657,6 +694,14 @@ fn is_valid_membership_role(role: &str) -> bool {
 
 fn is_invite_manager_role(role: &str) -> bool {
     role == MEMBERSHIP_ROLE_OWNER || role == MEMBERSHIP_ROLE_ADMIN
+}
+
+fn is_valid_subscription_status(status: &str) -> bool {
+    status == SUBSCRIPTION_STATUS_TRIALING
+        || status == SUBSCRIPTION_STATUS_ACTIVE
+        || status == SUBSCRIPTION_STATUS_PAST_DUE
+        || status == SUBSCRIPTION_STATUS_CANCELED
+        || status == SUBSCRIPTION_STATUS_INCOMPLETE
 }
 
 fn now_epoch_seconds(ctx: &ReducerContext) -> i64 {
@@ -1164,6 +1209,152 @@ pub fn transfer_expedition_ownership(
 
     current_owner_membership.role = MEMBERSHIP_ROLE_ADMIN.to_string();
     ctx.db.membership().id().update(current_owner_membership);
+}
+
+#[spacetimedb::reducer]
+pub fn upsert_plan_subscription(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    plan_code: String,
+    status: String,
+    seat_limit: u32,
+    cancel_at_period_end: bool,
+    period_start_epoch: i64,
+    period_end_epoch: i64,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("upsert_plan_subscription: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
+        log::error!("upsert_plan_subscription: {}", err);
+        return;
+    }
+
+    if let Err(err) = require_membership_with_allowed_roles(
+        ctx,
+        expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER],
+    ) {
+        log::error!("upsert_plan_subscription: {}", err);
+        return;
+    }
+
+    let plan_code = plan_code.trim().to_string();
+    if plan_code.is_empty() {
+        log::error!("upsert_plan_subscription: plan_code cannot be empty");
+        return;
+    }
+
+    let status = status.trim().to_lowercase();
+    if !is_valid_subscription_status(&status) {
+        log::error!("upsert_plan_subscription: invalid status");
+        return;
+    }
+
+    if period_start_epoch > period_end_epoch {
+        log::error!("upsert_plan_subscription: period_start_epoch cannot be after period_end_epoch");
+        return;
+    }
+
+    let expedition_owner_key = format!("{}:{}", expedition_id, me.id);
+    if let Some(mut existing) = ctx
+        .db
+        .plan_subscription()
+        .expedition_owner_key()
+        .find(expedition_owner_key.clone())
+    {
+        existing.plan_code = plan_code;
+        existing.status = status;
+        existing.seat_limit = seat_limit;
+        existing.cancel_at_period_end = cancel_at_period_end;
+        existing.period_start_epoch = period_start_epoch;
+        existing.period_end_epoch = period_end_epoch;
+        existing.updated_at = ctx.timestamp;
+        ctx.db.plan_subscription().id().update(existing);
+        return;
+    }
+
+    ctx.db.plan_subscription().insert(PlanSubscription {
+        id: 0,
+        expedition_id,
+        owner_member_id: me.id,
+        plan_code,
+        status,
+        seat_limit,
+        cancel_at_period_end,
+        period_start_epoch,
+        period_end_epoch,
+        expedition_owner_key,
+        updated_at: ctx.timestamp,
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn upsert_entitlement(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    feature_key: String,
+    enabled: bool,
+    limit_value: u32,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("upsert_entitlement: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
+        log::error!("upsert_entitlement: {}", err);
+        return;
+    }
+
+    if let Err(err) = require_membership_with_allowed_roles(
+        ctx,
+        expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER],
+    ) {
+        log::error!("upsert_entitlement: {}", err);
+        return;
+    }
+
+    let feature_key = feature_key.trim().to_string();
+    if feature_key.is_empty() {
+        log::error!("upsert_entitlement: feature_key cannot be empty");
+        return;
+    }
+
+    let expedition_feature_key = format!("{}:{}", expedition_id, feature_key);
+    if let Some(mut existing) = ctx
+        .db
+        .entitlement()
+        .expedition_feature_key()
+        .find(expedition_feature_key.clone())
+    {
+        existing.enabled = enabled;
+        existing.limit_value = limit_value;
+        existing.updated_at = ctx.timestamp;
+        ctx.db.entitlement().id().update(existing);
+        return;
+    }
+
+    ctx.db.entitlement().insert(Entitlement {
+        id: 0,
+        expedition_id,
+        feature_key,
+        enabled,
+        limit_value,
+        expedition_feature_key,
+        updated_at: ctx.timestamp,
+    });
 }
 
 #[spacetimedb::reducer]
