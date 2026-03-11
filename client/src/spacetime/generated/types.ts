@@ -117,6 +117,22 @@ export const Membership = __t.object("Membership", {
 });
 export type Membership = __Infer<typeof Membership>;
 
+export const Notification = __t.object("Notification", {
+  id: __t.u64(),
+  recipientMemberId: __t.u64(),
+  actorMemberId: __t.u64(),
+  expeditionId: __t.u64(),
+  eventKind: __t.string(),
+  title: __t.string(),
+  body: __t.string(),
+  entityType: __t.string(),
+  entityId: __t.u64(),
+  isRead: __t.bool(),
+  createdAt: __t.timestamp(),
+  readAt: __t.option(__t.timestamp()),
+});
+export type Notification = __Infer<typeof Notification>;
+
 export const PlanSubscription = __t.object("PlanSubscription", {
   id: __t.u64(),
   expeditionId: __t.u64(),

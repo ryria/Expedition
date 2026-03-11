@@ -156,3 +156,130 @@ button {
 button:hover { border-color: var(--border-bright); background: var(--surface-raised); }
 button:active { transform: translateY(1px); }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ============================================================
+   Microinteraction keyframes
+   ============================================================ */
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bouncePop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.28); }
+  60%  { transform: scale(0.92); }
+  80%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================================
+   MUI component overrides — force our theme on all MUI surfaces
+   ============================================================ */
+
+/* Paper / Card */
+.MuiPaper-root {
+  background-color: var(--panel-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* AppBar */
+.MuiAppBar-root { background: transparent !important; box-shadow: none !important; }
+
+/* Toolbar */
+.MuiToolbar-root { color: var(--text) !important; }
+
+/* Typography */
+.MuiTypography-root { color: inherit !important; }
+
+/* Avatar */
+.MuiAvatar-root {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  border: 2px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Select / Menu */
+.MuiSelect-root, .MuiInputBase-root {
+  color: var(--text) !important;
+}
+.MuiMenu-paper, .MuiPopover-paper {
+  background-color: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.MuiMenuItem-root {
+  color: var(--text) !important;
+  font-size: 0.9rem !important;
+}
+.MuiMenuItem-root:hover {
+  background: var(--accent-bg) !important;
+}
+.MuiMenuItem-root.Mui-selected {
+  background: var(--accent-bg) !important;
+  color: var(--accent-text) !important;
+}
+
+/* Input labels */
+.MuiInputLabel-root { color: var(--text-muted) !important; }
+.MuiInputLabel-root.Mui-focused { color: var(--accent) !important; }
+
+/* Outlined input */
+.MuiOutlinedInput-notchedOutline { border-color: var(--input-border) !important; }
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline { border-color: var(--border-bright) !important; }
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline { border-color: var(--accent-dim) !important; }
+
+/* Tabs */
+.MuiTab-root { color: var(--text-muted) !important; }
+.MuiTab-root.Mui-selected { color: var(--bg) !important; }
+
+/* Alert */
+.MuiAlert-root {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  border-radius: var(--radius-md) !important;
+}
+.MuiAlert-icon { color: var(--accent) !important; }
+
+/* CircularProgress */
+.MuiCircularProgress-root { color: var(--accent) !important; }
+
+/* Button */
+.MuiButton-contained {
+  background: var(--accent) !important;
+  color: #0d1626 !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+}
+.MuiButton-contained:hover { background: var(--accent-text) !important; box-shadow: none !important; }
+.MuiButton-text {
+  color: var(--text-dim) !important;
+  text-transform: none !important;
+}
+.MuiButton-text:hover { color: var(--text) !important; background: transparent !important; }

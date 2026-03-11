@@ -37,8 +37,15 @@
   padding: 0.6rem 0.75rem;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.18s, border-color 0.18s;
+  animation: fadeSlideUp 0.24s ease both;
 }
+
+.member-list li:nth-child(1) .member-row { animation-delay: 0.04s; }
+.member-list li:nth-child(2) .member-row { animation-delay: 0.08s; }
+.member-list li:nth-child(3) .member-row { animation-delay: 0.12s; }
+.member-list li:nth-child(4) .member-row { animation-delay: 0.16s; }
+.member-list li:nth-child(5) .member-row { animation-delay: 0.20s; }
 
 .member-row:hover {
   background: var(--surface-muted);

@@ -30,6 +30,7 @@
   z-index: 10;
   position: relative;
   flex-wrap: wrap;
+  animation: fadeIn 0.3s ease both;
 }
 
 /* Stat chips inside the bar */

@@ -42,10 +42,15 @@
   border-radius: var(--radius-md);
   background: var(--panel-bg-elevated);
   box-shadow: var(--shadow-xs);
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
   position: relative;
   overflow: hidden;
+  animation: scaleIn 0.24s ease both;
 }
+
+.summary-stats .stat:nth-child(1) { animation-delay: 0.04s; }
+.summary-stats .stat:nth-child(2) { animation-delay: 0.09s; }
+.summary-stats .stat:nth-child(3) { animation-delay: 0.14s; }
 
 .stat::before {
   content: '';
@@ -163,6 +168,7 @@
   margin-bottom: 0.4rem;
   background: var(--accent-bg);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  animation: fadeSlideUp 0.24s ease both;
 }
 
 .landmark-item:last-child { margin-bottom: 0; }

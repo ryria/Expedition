@@ -36,6 +36,14 @@ const SUBSCRIPTION_STATUS_CANCELED: &str = "canceled";
 const SUBSCRIPTION_STATUS_INCOMPLETE: &str = "incomplete";
 const ENTITLEMENT_KEY_MAX_MEMBERS: &str = "max_members";
 const FREE_PLAN_MAX_MEMBERS: u32 = 5;
+const NOTIFICATION_EVENT_INVITE_CREATED: &str = "invite_created";
+const NOTIFICATION_EVENT_INVITE_ACCEPTED: &str = "invite_accepted";
+const NOTIFICATION_EVENT_INVITE_REVOKED: &str = "invite_revoked";
+const NOTIFICATION_EVENT_ROLE_CHANGED: &str = "membership_role_changed";
+const NOTIFICATION_EVENT_OWNERSHIP_TRANSFERRED: &str = "ownership_transferred";
+const NOTIFICATION_EVENT_COMMENT_ADDED: &str = "comment_added";
+const NOTIFICATION_EVENT_REACTION_ADDED: &str = "reaction_added";
+const NOTIFICATION_EVENT_ACTIVITY_MILESTONE: &str = "activity_milestone";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -721,6 +729,24 @@ pub struct BillingWebhookEvent {
     pub processed_at: Timestamp,
 }
 
+#[spacetimedb::table(accessor = notification, public)]
+pub struct Notification {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub recipient_member_id: u64,
+    pub actor_member_id: u64,
+    pub expedition_id: u64,
+    pub event_kind: String,
+    pub title: String,
+    pub body: String,
+    pub entity_type: String,
+    pub entity_id: u64,
+    pub is_read: bool,
+    pub created_at: Timestamp,
+    pub read_at: Option<Timestamp>,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -860,6 +886,84 @@ fn effective_member_limit(ctx: &ReducerContext, expedition_id: u64) -> u32 {
     }
 
     limit
+}
+
+fn insert_notification(
+    ctx: &ReducerContext,
+    recipient_member_id: u64,
+    actor_member_id: u64,
+    expedition_id: u64,
+    event_kind: &str,
+    title: String,
+    body: String,
+    entity_type: &str,
+    entity_id: u64,
+) {
+    if recipient_member_id == 0 || event_kind.trim().is_empty() {
+        return;
+    }
+
+    ctx.db.notification().insert(Notification {
+        id: 0,
+        recipient_member_id,
+        actor_member_id,
+        expedition_id,
+        event_kind: event_kind.to_string(),
+        title: title.trim().to_string(),
+        body: body.trim().to_string(),
+        entity_type: entity_type.to_string(),
+        entity_id,
+        is_read: false,
+        created_at: ctx.timestamp,
+        read_at: None,
+    });
+}
+
+fn notify_active_members_except(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    actor_member_id: u64,
+    event_kind: &str,
+    title: String,
+    body: String,
+    entity_type: &str,
+    entity_id: u64,
+) {
+    for membership in ctx.db.membership().iter() {
+        if membership.expedition_id != expedition_id || membership.status != "active" {
+            continue;
+        }
+
+        if membership.member_id == actor_member_id {
+            continue;
+        }
+
+        insert_notification(
+            ctx,
+            membership.member_id,
+            actor_member_id,
+            expedition_id,
+            event_kind,
+            title.clone(),
+            body.clone(),
+            entity_type,
+            entity_id,
+        );
+    }
+}
+
+fn milestone_label(distance_km: f64) -> Option<&'static str> {
+    if distance_km >= 100.0 {
+        Some("100K")
+    } else if distance_km >= 42.195 {
+        Some("Marathon")
+    } else if distance_km >= 21.097 {
+        Some("Half marathon")
+    } else if distance_km >= 10.0 {
+        Some("10K")
+    } else {
+        None
+    }
 }
 
 fn require_member_capacity(ctx: &ReducerContext, expedition_id: u64) -> Result<(), String> {
@@ -1237,8 +1341,25 @@ pub fn set_membership_role(
         return;
     }
 
-    target_membership.role = role;
+    let previous_role = target_membership.role.clone();
+    target_membership.role = role.clone();
+    let membership_id = target_membership.id;
     ctx.db.membership().id().update(target_membership);
+
+    insert_notification(
+        ctx,
+        target_member_id,
+        me.id,
+        expedition_id,
+        NOTIFICATION_EVENT_ROLE_CHANGED,
+        "Your role was updated".to_string(),
+        format!(
+            "{} changed your role from {} to {}.",
+            me.name, previous_role, role
+        ),
+        "membership",
+        membership_id,
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1291,6 +1412,47 @@ pub fn transfer_expedition_ownership(
 
     current_owner_membership.role = MEMBERSHIP_ROLE_ADMIN.to_string();
     ctx.db.membership().id().update(current_owner_membership);
+
+    insert_notification(
+        ctx,
+        new_owner_member_id,
+        me.id,
+        expedition_id,
+        NOTIFICATION_EVENT_OWNERSHIP_TRANSFERRED,
+        "You are now expedition owner".to_string(),
+        format!("{} transferred expedition ownership to you.", me.name),
+        "expedition",
+        expedition_id,
+    );
+}
+
+#[spacetimedb::reducer]
+pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("mark_notification_read: {}", err);
+            return;
+        }
+    };
+
+    let Some(mut notification) = ctx.db.notification().id().find(notification_id) else {
+        log::error!("mark_notification_read: notification not found");
+        return;
+    };
+
+    if notification.recipient_member_id != me.id {
+        log::error!("mark_notification_read: cannot read another user's notification");
+        return;
+    }
+
+    if notification.is_read {
+        return;
+    }
+
+    notification.is_read = true;
+    notification.read_at = Some(ctx.timestamp);
+    ctx.db.notification().id().update(notification);
 }
 
 #[spacetimedb::reducer]
@@ -1501,6 +1663,17 @@ pub fn create_invite(ctx: &ReducerContext, expedition_id: u64, ttl_minutes: u32,
         last_used_at: None,
         revoked_at: None,
     });
+
+    notify_active_members_except(
+        ctx,
+        expedition.id,
+        me.id,
+        NOTIFICATION_EVENT_INVITE_CREATED,
+        "New invite link created".to_string(),
+        format!("{} created an invite link (max uses: {}).", me.name, max_uses),
+        "expedition",
+        expedition.id,
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1585,6 +1758,17 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
     invite.used_count = invite.used_count.saturating_add(1);
     invite.last_used_at = Some(ctx.timestamp);
     ctx.db.invite().id().update(invite);
+
+    notify_active_members_except(
+        ctx,
+        expedition.id,
+        me.id,
+        NOTIFICATION_EVENT_INVITE_ACCEPTED,
+        "A member joined".to_string(),
+        format!("{} joined the expedition using an invite.", me.name),
+        "expedition",
+        expedition.id,
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1633,8 +1817,20 @@ pub fn revoke_invite(ctx: &ReducerContext, token: String) {
         return;
     }
 
+    let expedition_id = invite.expedition_id;
     invite.revoked_at = Some(ctx.timestamp);
     ctx.db.invite().id().update(invite);
+
+    notify_active_members_except(
+        ctx,
+        expedition_id,
+        me.id,
+        NOTIFICATION_EVENT_INVITE_REVOKED,
+        "Invite link revoked".to_string(),
+        format!("{} revoked an invite link.", me.name),
+        "expedition",
+        expedition_id,
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1943,17 +2139,36 @@ pub fn log_activity(
         return;
     }
 
+    let actor_name = me.name.clone();
+    let milestone_activity_type = activity_type.clone();
+
     ctx.db.activity_log().insert(ActivityLog {
         id: 0,
         expedition_id,
         member_id,
-        person_name: me.name,
+        person_name: actor_name.clone(),
         activity_type,
         distance_km,
         note: note.trim().to_string(),
         timestamp: ctx.timestamp,
         ai_response: String::new(),
     });
+
+    if let Some(label) = milestone_label(distance_km) {
+        notify_active_members_except(
+            ctx,
+            expedition_id,
+            me.id,
+            NOTIFICATION_EVENT_ACTIVITY_MILESTONE,
+            "New activity milestone".to_string(),
+            format!(
+                "{} logged a {} {} activity.",
+                actor_name, label, milestone_activity_type
+            ),
+            "expedition",
+            expedition_id,
+        );
+    }
 }
 
 // ─── Reaction ─────────────────────────────────────────────────────────────────
@@ -2011,14 +2226,31 @@ pub fn add_reaction(
         return;
     }
 
+    let actor_name = me.name.clone();
+    let reaction_emoji = emoji.clone();
+
     ctx.db.reaction().insert(Reaction {
         id: 0,
         expedition_id: activity.expedition_id,
         log_id,
         emoji,
-        reacted_by: me.name,
+        reacted_by: actor_name.clone(),
         timestamp: ctx.timestamp,
     });
+
+    if activity.member_id != 0 && activity.member_id != me.id {
+        insert_notification(
+            ctx,
+            activity.member_id,
+            me.id,
+            activity.expedition_id,
+            NOTIFICATION_EVENT_REACTION_ADDED,
+            "Someone reacted to your activity".to_string(),
+            format!("{} reacted with {}.", actor_name, reaction_emoji),
+            "activity_log",
+            activity.id,
+        );
+    }
 }
 
 // ─── Comment ──────────────────────────────────────────────────────────────────
@@ -2076,14 +2308,30 @@ pub fn add_comment(
         return;
     }
 
+    let actor_name = me.name.clone();
+
     ctx.db.comment().insert(Comment {
         id: 0,
         expedition_id: activity.expedition_id,
         log_id,
-        author: me.name,
+        author: actor_name.clone(),
         body,
         timestamp: ctx.timestamp,
     });
+
+    if activity.member_id != 0 && activity.member_id != me.id {
+        insert_notification(
+            ctx,
+            activity.member_id,
+            me.id,
+            activity.expedition_id,
+            NOTIFICATION_EVENT_COMMENT_ADDED,
+            "New comment on your activity".to_string(),
+            format!("{} commented on your activity.", actor_name),
+            "activity_log",
+            activity.id,
+        );
+    }
 }
 
 // ─── AI Coaching Procedure ────────────────────────────────────────────────────

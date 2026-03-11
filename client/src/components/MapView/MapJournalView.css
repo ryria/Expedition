@@ -100,9 +100,11 @@
   color: var(--text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.12s, box-shadow 0.2s;
   letter-spacing: 0.01em;
 }
+
+.hub-tabs button:active { transform: scale(0.96); }
 
 .hub-tabs button:hover:not(.active) {
   background: var(--surface-muted);
@@ -155,6 +157,7 @@
   padding: 0.9rem;
   background: var(--panel-bg-elevated);
   box-shadow: var(--shadow-sm);
+  animation: fadeSlideUp 0.22s ease both;
 }
 
 .panel-head {

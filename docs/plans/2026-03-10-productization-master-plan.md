@@ -677,6 +677,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-12: Completed `EXP-033` by adding server-side entitlement gate helpers in `module/src/lib.rs` and enforcing free-tier/entitled member-capacity checks (`max_members`) on `join_expedition` and `accept_invite`; validated with `cargo check`, `npx vitest run` (27/27), and `npm run build`.
 - 2026-03-12: Completed `EXP-034` in `client/src/components/SettingsPanel/SettingsPanel.tsx` and `SettingsPanel.css` by adding plan comparison rows and a dedicated upgrade CTA (`Upgrade now`), plus blocked-action upgrade guidance when plan limits are hit; validated with `npx vitest run` (28/28) and `npm run build`.
 - 2026-03-12: Completed `EXP-035` by adding `reconcile_billing_state` procedure in `module/src/lib.rs` and fixture-style webhook status unit tests (`past_due`, `canceled`, replay-deterministic mapping); regenerated bindings and validated with `cargo check`, `npx vitest run` (28/28), and `npm run build` (Rust `cargo test` execution is environment-limited here due non-runnable wasm artifact and missing native target toolchain).
+- 2026-03-12: Completed `EXP-040` by adding public `notification` records + read-state transition reducer (`mark_notification_read`) and event producers in `module/src/lib.rs` for invite lifecycle, membership role/ownership changes, comment/reaction engagement, and activity milestone events; regenerated bindings, validated with `cargo check`, `npx vitest run` (28/28), and `npm run build`, then published to `hostinger-tls`.
 
 ---
 
@@ -688,7 +689,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 ### Issues
 
-- [ ] `EXP-040` Add `notification` model + event producers  
+- [x] `EXP-040` Add `notification` model + event producers  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-022  
   **Done when:** key events generate notification records.
 
@@ -1273,7 +1274,7 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 
 ### Scope
 
-- [ ] `EXP-040` notification model + event producers
+- [x] `EXP-040` notification model + event producers
 - [ ] `EXP-041` notification center + preferences UI
 - [ ] `EXP-042` abuse report + moderation actions
 - [ ] `EXP-043` expedition visibility/privacy controls

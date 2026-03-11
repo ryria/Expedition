@@ -49,7 +49,15 @@
   gap: var(--space-3);
 }
 
-.toolbar-left { flex: 1; min-width: 0; }
+.toolbar-left {
+  flex: 1;
+  min-width: 0;
+  /* Override MUI Stack — always row on mobile too */
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
 .toolbar-right { flex-shrink: 0; }
 
 /* ============================================================
@@ -75,9 +83,20 @@
    ============================================================ */
 
 .expedition-controls {
-  display: flex;
+  display: flex !important;
+  flex-direction: row !important;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Constrain the MUI Select width on mobile */
+.expedition-controls .MuiFormControl-root {
+  min-width: 0 !important;
+  flex: 1;
+  max-width: 200px;
 }
 
 /* MUI Select overrides */
@@ -319,6 +338,19 @@
 
 @media (max-width: 480px) {
   .app-title {
-    font-size: 0.88rem !important;
+    font-size: 0.78rem !important;
+    letter-spacing: 0.04em !important;
+  }
+
+  .expedition-controls .MuiFormControl-root {
+    max-width: 160px;
+  }
+
+  .expedition-controls .MuiInputLabel-root {
+    font-size: 0.78rem !important;
+  }
+
+  .expedition-controls .MuiOutlinedInput-root {
+    font-size: 0.8rem !important;
   }
 }

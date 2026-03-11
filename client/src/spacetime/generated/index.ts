@@ -45,6 +45,7 @@ import CreateInviteReducer from "./create_invite_reducer";
 import JoinExpeditionReducer from "./join_expedition_reducer";
 import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
+import MarkNotificationReadReducer from "./mark_notification_read_reducer";
 import OpsBackfillLegacyExpeditionReducer from "./ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import RevokeInviteReducer from "./revoke_invite_reducer";
@@ -72,6 +73,7 @@ import ExpeditionRow from "./expedition_table";
 import InviteRow from "./invite_table";
 import MemberRow from "./member_table";
 import MembershipRow from "./membership_table";
+import NotificationRow from "./notification_table";
 import PlanSubscriptionRow from "./plan_subscription_table";
 import ReactionRow from "./reaction_table";
 
@@ -180,6 +182,17 @@ const tablesSchema = __schema({
       { name: 'membership_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MembershipRow),
+  notification: __table({
+    name: 'notification',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'notification_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, NotificationRow),
   plan_subscription: __table({
     name: 'plan_subscription',
     indexes: [
@@ -221,6 +234,7 @@ const reducersSchema = __reducers(
   __reducerSchema("join_expedition", JoinExpeditionReducer),
   __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
+  __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
   __reducerSchema("ops_backfill_legacy_expedition", OpsBackfillLegacyExpeditionReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("revoke_invite", RevokeInviteReducer),
