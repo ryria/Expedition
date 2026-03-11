@@ -34,18 +34,23 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptInviteReducer from "./accept_invite_reducer";
 import AddCommentReducer from "./add_comment_reducer";
 import AddMemberReducer from "./add_member_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ArchiveExpeditionReducer from "./archive_expedition_reducer";
 import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
 import CreateExpeditionReducer from "./create_expedition_reducer";
+import CreateInviteReducer from "./create_invite_reducer";
 import JoinExpeditionReducer from "./join_expedition_reducer";
 import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
 import OpsBackfillLegacyExpeditionReducer from "./ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
+import RevokeInviteReducer from "./revoke_invite_reducer";
 import SetConfigReducer from "./set_config_reducer";
+import SetMembershipRoleReducer from "./set_membership_role_reducer";
+import TransferExpeditionOwnershipReducer from "./transfer_expedition_ownership_reducer";
 
 // Import all procedure arg schemas
 import * as LinkStravaAccountProcedure from "./link_strava_account_procedure";
@@ -58,6 +63,7 @@ import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_pr
 import ActivityLogRow from "./activity_log_table";
 import CommentRow from "./comment_table";
 import ExpeditionRow from "./expedition_table";
+import InviteRow from "./invite_table";
 import MemberRow from "./member_table";
 import MembershipRow from "./membership_table";
 import ReactionRow from "./reaction_table";
@@ -103,6 +109,21 @@ const tablesSchema = __schema({
       { name: 'expedition_slug_key', constraint: 'unique', columns: ['slug'] },
     ],
   }, ExpeditionRow),
+  invite: __table({
+    name: 'invite',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'token', algorithm: 'btree', columns: [
+        'token',
+      ] },
+    ],
+    constraints: [
+      { name: 'invite_id_key', constraint: 'unique', columns: ['id'] },
+      { name: 'invite_token_key', constraint: 'unique', columns: ['token'] },
+    ],
+  }, InviteRow),
   member: __table({
     name: 'member',
     indexes: [
@@ -152,18 +173,23 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("accept_invite", AcceptInviteReducer),
   __reducerSchema("add_comment", AddCommentReducer),
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("archive_expedition", ArchiveExpeditionReducer),
   __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
   __reducerSchema("create_expedition", CreateExpeditionReducer),
+  __reducerSchema("create_invite", CreateInviteReducer),
   __reducerSchema("join_expedition", JoinExpeditionReducer),
   __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
   __reducerSchema("ops_backfill_legacy_expedition", OpsBackfillLegacyExpeditionReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
+  __reducerSchema("revoke_invite", RevokeInviteReducer),
   __reducerSchema("set_config", SetConfigReducer),
+  __reducerSchema("set_membership_role", SetMembershipRoleReducer),
+  __reducerSchema("transfer_expedition_ownership", TransferExpeditionOwnershipReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

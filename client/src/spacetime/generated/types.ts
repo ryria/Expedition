@@ -64,6 +64,20 @@ export const ImportedStravaActivity = __t.object("ImportedStravaActivity", {
 });
 export type ImportedStravaActivity = __Infer<typeof ImportedStravaActivity>;
 
+export const Invite = __t.object("Invite", {
+  id: __t.u64(),
+  token: __t.string(),
+  expeditionId: __t.u64(),
+  createdByMemberId: __t.u64(),
+  maxUses: __t.u32(),
+  usedCount: __t.u32(),
+  expiresAtEpoch: __t.i64(),
+  createdAt: __t.timestamp(),
+  lastUsedAt: __t.option(__t.timestamp()),
+  revokedAt: __t.option(__t.timestamp()),
+});
+export type Invite = __Infer<typeof Invite>;
+
 export const Member = __t.object("Member", {
   id: __t.u64(),
   name: __t.string(),

@@ -6,29 +6,39 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptInviteReducer from "../accept_invite_reducer";
 import AddCommentReducer from "../add_comment_reducer";
 import AddMemberReducer from "../add_member_reducer";
 import AddReactionReducer from "../add_reaction_reducer";
 import ArchiveExpeditionReducer from "../archive_expedition_reducer";
 import BindAuthIdentityReducer from "../bind_auth_identity_reducer";
 import CreateExpeditionReducer from "../create_expedition_reducer";
+import CreateInviteReducer from "../create_invite_reducer";
 import JoinExpeditionReducer from "../join_expedition_reducer";
 import LeaveExpeditionReducer from "../leave_expedition_reducer";
 import LogActivityReducer from "../log_activity_reducer";
 import OpsBackfillLegacyExpeditionReducer from "../ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "../remove_member_reducer";
+import RevokeInviteReducer from "../revoke_invite_reducer";
 import SetConfigReducer from "../set_config_reducer";
+import SetMembershipRoleReducer from "../set_membership_role_reducer";
+import TransferExpeditionOwnershipReducer from "../transfer_expedition_ownership_reducer";
 
+export type AcceptInviteParams = __Infer<typeof AcceptInviteReducer>;
 export type AddCommentParams = __Infer<typeof AddCommentReducer>;
 export type AddMemberParams = __Infer<typeof AddMemberReducer>;
 export type AddReactionParams = __Infer<typeof AddReactionReducer>;
 export type ArchiveExpeditionParams = __Infer<typeof ArchiveExpeditionReducer>;
 export type BindAuthIdentityParams = __Infer<typeof BindAuthIdentityReducer>;
 export type CreateExpeditionParams = __Infer<typeof CreateExpeditionReducer>;
+export type CreateInviteParams = __Infer<typeof CreateInviteReducer>;
 export type JoinExpeditionParams = __Infer<typeof JoinExpeditionReducer>;
 export type LeaveExpeditionParams = __Infer<typeof LeaveExpeditionReducer>;
 export type LogActivityParams = __Infer<typeof LogActivityReducer>;
 export type OpsBackfillLegacyExpeditionParams = __Infer<typeof OpsBackfillLegacyExpeditionReducer>;
 export type RemoveMemberParams = __Infer<typeof RemoveMemberReducer>;
+export type RevokeInviteParams = __Infer<typeof RevokeInviteReducer>;
 export type SetConfigParams = __Infer<typeof SetConfigReducer>;
+export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;
+export type TransferExpeditionOwnershipParams = __Infer<typeof TransferExpeditionOwnershipReducer>;
 

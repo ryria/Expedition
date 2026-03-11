@@ -1,14 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "react-oidc-context";
-import { useSpacetimeDB } from "spacetimedb/react";
+import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
-import { DbConnection } from "../../spacetime/generated";
+import { DbConnection, tables } from "../../spacetime/generated";
 import { DEFAULT_COLORS, STRAVA_CLIENT_ID } from "../../config";
 import "./SettingsPanel.css";
 
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
+type InviteRow = {
+  id: bigint;
+  token: string;
+  expeditionId: bigint;
+  createdByMemberId: bigint;
+  maxUses: number;
+  usedCount: number;
+  expiresAtEpoch: bigint;
+  revokedAt: unknown;
+};
+type MembershipRow = {
+  expeditionId: bigint;
+  memberId: bigint;
+  role: string;
+  status: string;
+  leftAt: unknown;
+};
 
 interface SettingsPanelProps {
   theme: Theme;
@@ -46,9 +63,18 @@ export function SettingsPanel({
   const [isLinkingStrava, setIsLinkingStrava] = useState(false);
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
   const [newExpeditionName, setNewExpeditionName] = useState("");
+  const [inviteTokenInput, setInviteTokenInput] = useState("");
+  const [inviteTtlMinutes, setInviteTtlMinutes] = useState("1440");
+  const [inviteMaxUses, setInviteMaxUses] = useState("1");
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [isJoiningInvite, setIsJoiningInvite] = useState(false);
+  const [revokingToken, setRevokingToken] = useState<string | null>(null);
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
+  const [inviteRows] = useTable(tables.invite);
+  const [membershipRows] = useTable(tables.membership);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const suggestedName = useMemo(() => {
@@ -64,6 +90,33 @@ export function SettingsPanel({
   }, [auth.user?.profile]);
 
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
+  const activeMembership = useMemo(() => {
+    if (!activeExpedition || !linkedMember) return null;
+    return (membershipRows as readonly MembershipRow[]).find(
+      (row) =>
+        row.expeditionId === activeExpedition.id &&
+        row.memberId === linkedMember.id &&
+        row.leftAt == null &&
+        row.status.toLowerCase() !== "left",
+    ) ?? null;
+  }, [activeExpedition, linkedMember, membershipRows]);
+
+  const canManageInvites =
+    activeMembership != null &&
+    (activeMembership.role === "owner" || activeMembership.role === "admin");
+
+  const activeInvites = useMemo(() => {
+    if (!activeExpedition) return [] as InviteRow[];
+    const nowEpoch = BigInt(Math.floor(Date.now() / 1000));
+    return (inviteRows as readonly InviteRow[])
+      .filter(
+        (invite) =>
+          invite.expeditionId === activeExpedition.id &&
+          invite.revokedAt == null &&
+          invite.expiresAtEpoch > nowEpoch,
+      )
+      .sort((a, b) => Number(b.id - a.id));
+  }, [activeExpedition, inviteRows]);
 
   useEffect(() => {
     if (!isSaving) return;
@@ -257,6 +310,89 @@ export function SettingsPanel({
     })();
   }
 
+  function handleCreateInvite() {
+    setInviteStatus("");
+    if (!conn) {
+      setInviteStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setInviteStatus("Select an active expedition first.");
+      return;
+    }
+    if (!canManageInvites) {
+      setInviteStatus("Only owner/admin can create invites.");
+      return;
+    }
+
+    const ttl = Number(inviteTtlMinutes);
+    const maxUses = Number(inviteMaxUses);
+    if (!Number.isInteger(ttl) || ttl < 1 || ttl > 43200) {
+      setInviteStatus("TTL must be between 1 and 43200 minutes.");
+      return;
+    }
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) {
+      setInviteStatus("Max uses must be between 1 and 10000.");
+      return;
+    }
+
+    try {
+      setIsCreatingInvite(true);
+      conn.reducers.createInvite({
+        expeditionId: activeExpedition.id,
+        ttlMinutes: ttl,
+        maxUses,
+      });
+      setInviteStatus("Invite created. Share token from the active invites list.");
+    } catch (err) {
+      setInviteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  }
+
+  function handleJoinByToken() {
+    setInviteStatus("");
+    if (!conn) {
+      setInviteStatus("SpacetimeDB not connected");
+      return;
+    }
+
+    const token = inviteTokenInput.trim();
+    if (!token) {
+      setInviteStatus("Invite token required.");
+      return;
+    }
+
+    try {
+      setIsJoiningInvite(true);
+      conn.reducers.acceptInvite({ token });
+      setInviteTokenInput("");
+      setInviteStatus("Join request sent.");
+    } catch (err) {
+      setInviteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsJoiningInvite(false);
+    }
+  }
+
+  function handleRevokeInvite(token: string) {
+    setInviteStatus("");
+    if (!conn) {
+      setInviteStatus("SpacetimeDB not connected");
+      return;
+    }
+    try {
+      setRevokingToken(token);
+      conn.reducers.revokeInvite({ token });
+      setInviteStatus("Invite revoked.");
+    } catch (err) {
+      setInviteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRevokingToken(null);
+    }
+  }
+
   return (
     <div className="settings-panel">
       <h2>User Settings</h2>
@@ -343,11 +479,76 @@ export function SettingsPanel({
           <button type="submit" disabled={isCreatingExpedition}>
             {isCreatingExpedition ? "Creating…" : "Create expedition"}
           </button>
-          <button type="button" disabled title="Coming in Sprint 3">
-            Invite members (coming in Sprint 3)
-          </button>
         </form>
         {expeditionCreateError && <p className="field-error">{expeditionCreateError}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Invites</h3>
+        <div className="strava-actions">
+          <input
+            type="number"
+            min={1}
+            max={43200}
+            value={inviteTtlMinutes}
+            onChange={(e) => setInviteTtlMinutes(e.target.value)}
+            placeholder="TTL (minutes)"
+            className="invite-input"
+          />
+          <input
+            type="number"
+            min={1}
+            max={10000}
+            value={inviteMaxUses}
+            onChange={(e) => setInviteMaxUses(e.target.value)}
+            placeholder="Max uses"
+            className="invite-input"
+          />
+          <button type="button" onClick={handleCreateInvite} disabled={!canManageInvites || isCreatingInvite}>
+            {isCreatingInvite ? "Creating…" : "Create invite"}
+          </button>
+        </div>
+
+        {!canManageInvites && (
+          <p>Owner/admin membership is required to create and revoke invites for the active expedition.</p>
+        )}
+
+        <div className="invite-list">
+          {activeInvites.length === 0 ? (
+            <p>No active invites for this expedition.</p>
+          ) : (
+            activeInvites.map((invite) => (
+              <div key={String(invite.id)} className="invite-row">
+                <span className="invite-token">{invite.token}</span>
+                <span className="invite-meta">
+                  uses {invite.usedCount}/{invite.maxUses}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRevokeInvite(invite.token)}
+                  disabled={!canManageInvites || revokingToken === invite.token}
+                >
+                  {revokingToken === invite.token ? "Revoking…" : "Revoke"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="strava-actions">
+          <input
+            type="text"
+            value={inviteTokenInput}
+            onChange={(e) => setInviteTokenInput(e.target.value)}
+            placeholder="Invite token"
+            className="invite-input"
+          />
+          <button type="button" onClick={handleJoinByToken} disabled={isJoiningInvite}>
+            {isJoiningInvite ? "Joining…" : "Join by token"}
+          </button>
+        </div>
+
+        {inviteStatus && <p className="field-error">{inviteStatus}</p>}
       </section>
 
       <section className="settings-group">

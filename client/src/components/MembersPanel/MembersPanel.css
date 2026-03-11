@@ -1,4 +1,10 @@
-.members-panel { padding: 1rem; max-width: 480px; }
+.members-panel {
+  margin: 1rem;
+  padding: 1rem;
+  max-width: 560px;
+  border-radius: 10px;
+  background: var(--panel-bg) !important;
+}
 
 .members-empty {
   margin: 0.5rem 0 0.75rem;
@@ -10,7 +16,7 @@
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.45rem 0; border-bottom: 1px solid var(--border);
 }
-.swatch { display: inline-block; width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0; }
+.swatch { width: 30px !important; height: 30px !important; font-size: 0.8rem !important; flex-shrink: 0; }
 .member-name { flex: 1; color: var(--text); font-size: 0.95rem; }
 
 /* Responsive */

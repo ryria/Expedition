@@ -1,4 +1,5 @@
 import { useMembers } from "../../hooks/useMembers";
+import { Avatar, List, ListItem, ListItemAvatar, ListItemText, Paper, Typography } from "@mui/material";
 import "./MembersPanel.css";
 
 interface MembersPanelProps {
@@ -9,19 +10,27 @@ export function MembersPanel({ activeExpeditionId }: MembersPanelProps) {
   const { members } = useMembers(activeExpeditionId);
 
   return (
-    <div className="members-panel">
-      <h2>Current Expedition Members</h2>
+    <Paper className="members-panel" variant="outlined">
+      <Typography variant="h6" gutterBottom>
+        Current Expedition Members
+      </Typography>
 
-      {!members.length && <p className="members-empty">No members yet. Add yourself in Settings.</p>}
+      {!members.length && (
+        <Typography className="members-empty">No members yet. Add yourself in Settings.</Typography>
+      )}
 
-      <ul className="member-list">
+      <List className="member-list" disablePadding>
         {members.map((m) => (
-          <li key={String(m.id)} className="member-row">
-            <span className="swatch" style={{ background: m.colorHex }} />
-            <span className="member-name">{m.name}</span>
-          </li>
+          <ListItem key={String(m.id)} className="member-row" disableGutters>
+            <ListItemAvatar>
+              <Avatar className="swatch" sx={{ bgcolor: m.colorHex }}>
+                {m.name.slice(0, 1).toUpperCase()}
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText primary={m.name} className="member-name" />
+          </ListItem>
         ))}
-      </ul>
-    </div>
+      </List>
+    </Paper>
   );
 }

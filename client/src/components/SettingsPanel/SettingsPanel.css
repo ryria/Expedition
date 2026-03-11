@@ -100,6 +100,44 @@
   background: var(--accent-bg-hover);
 }
 
+.invite-input {
+  min-width: 120px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.invite-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.invite-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.invite-token {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+}
+
+.invite-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .remove-btn {
   background: transparent !important;
   color: var(--danger-text) !important;

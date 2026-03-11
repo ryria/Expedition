@@ -18,6 +18,9 @@ const DEFAULT_AI_COACHING_FALLBACK: &str =
     "Keep it up! Every step counts toward the 14,500 km goal!";
 const LEGACY_DEFAULT_EXPEDITION_NAME: &str = "Legacy Expedition";
 const LEGACY_DEFAULT_EXPEDITION_SLUG: &str = "legacy-default";
+const MEMBERSHIP_ROLE_OWNER: &str = "owner";
+const MEMBERSHIP_ROLE_ADMIN: &str = "admin";
+const MEMBERSHIP_ROLE_MEMBER: &str = "member";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -551,6 +554,23 @@ pub struct Membership {
     pub expedition_member_key: String,
 }
 
+#[spacetimedb::table(accessor = invite, public)]
+pub struct Invite {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[unique]
+    pub token: String,
+    pub expedition_id: u64,
+    pub created_by_member_id: u64,
+    pub max_uses: u32,
+    pub used_count: u32,
+    pub expires_at_epoch: i64,
+    pub created_at: Timestamp,
+    pub last_used_at: Option<Timestamp>,
+    pub revoked_at: Option<Timestamp>,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -610,11 +630,59 @@ fn require_owner_membership_for_archive(
     member_id: u64,
 ) -> Result<Membership, String> {
     let membership = require_active_membership(ctx, expedition_id, member_id)?;
-    if membership.role != "owner" {
+    if membership.role != MEMBERSHIP_ROLE_OWNER {
         return Err("only owner can archive expedition".to_string());
     }
 
     Ok(membership)
+}
+
+fn require_membership_with_allowed_roles(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    member_id: u64,
+    allowed_roles: &[&str],
+) -> Result<Membership, String> {
+    let membership = require_active_membership(ctx, expedition_id, member_id)?;
+    if allowed_roles.iter().any(|role| *role == membership.role.as_str()) {
+        return Ok(membership);
+    }
+
+    Err("insufficient role for this action".to_string())
+}
+
+fn is_valid_membership_role(role: &str) -> bool {
+    role == MEMBERSHIP_ROLE_OWNER || role == MEMBERSHIP_ROLE_ADMIN || role == MEMBERSHIP_ROLE_MEMBER
+}
+
+fn is_invite_manager_role(role: &str) -> bool {
+    role == MEMBERSHIP_ROLE_OWNER || role == MEMBERSHIP_ROLE_ADMIN
+}
+
+fn now_epoch_seconds(ctx: &ReducerContext) -> i64 {
+    (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64
+}
+
+fn create_unique_invite_token(ctx: &ReducerContext, expedition_id: u64, member_id: u64) -> String {
+    let base = format!(
+        "inv-{}-{}-{}",
+        expedition_id,
+        member_id,
+        ctx.timestamp.to_micros_since_unix_epoch()
+    );
+
+    if ctx.db.invite().token().find(base.clone()).is_none() {
+        return base;
+    }
+
+    let mut counter: u64 = 1;
+    loop {
+        let candidate = format!("{}-{}", base, counter);
+        if ctx.db.invite().token().find(candidate.clone()).is_none() {
+            return candidate;
+        }
+        counter += 1;
+    }
 }
 
 fn select_deterministic_active_expedition_id_for_member(
@@ -700,7 +768,7 @@ fn resolve_or_create_expedition_for_member(
             id: 0,
             expedition_id: expedition.id,
             member_id: member.id,
-            role: "member".to_string(),
+            role: MEMBERSHIP_ROLE_MEMBER.to_string(),
             status: "active".to_string(),
             joined_at: ctx.timestamp,
             left_at: None,
@@ -790,7 +858,7 @@ fn resolve_or_create_expedition_for_member_procedure(
                 id: 0,
                 expedition_id: expedition.id,
                 member_id: member.id,
-                role: "member".to_string(),
+                role: MEMBERSHIP_ROLE_MEMBER.to_string(),
                 status: "active".to_string(),
                 joined_at: now_ts,
                 left_at: None,
@@ -867,7 +935,7 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         id: 0,
         expedition_id: expedition.id,
         member_id: me.id,
-        role: "owner".to_string(),
+        role: MEMBERSHIP_ROLE_OWNER.to_string(),
         status: "active".to_string(),
         joined_at: ctx.timestamp,
         left_at: None,
@@ -947,7 +1015,7 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
         id: 0,
         expedition_id: expedition.id,
         member_id: me.id,
-        role: "member".to_string(),
+        role: MEMBERSHIP_ROLE_MEMBER.to_string(),
         status: "active".to_string(),
         joined_at: ctx.timestamp,
         left_at: None,
@@ -973,7 +1041,7 @@ pub fn leave_expedition(ctx: &ReducerContext, expedition_id: u64) {
         }
     };
 
-    if membership.role == "owner" {
+    if membership.role == MEMBERSHIP_ROLE_OWNER {
         log::error!("leave_expedition: owner cannot leave expedition");
         return;
     }
@@ -981,6 +1049,314 @@ pub fn leave_expedition(ctx: &ReducerContext, expedition_id: u64) {
     membership.status = "left".to_string();
     membership.left_at = Some(ctx.timestamp);
     ctx.db.membership().id().update(membership);
+}
+
+#[spacetimedb::reducer]
+pub fn set_membership_role(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    target_member_id: u64,
+    new_role: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("set_membership_role: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
+        log::error!("set_membership_role: {}", err);
+        return;
+    }
+
+    if let Err(err) = require_membership_with_allowed_roles(
+        ctx,
+        expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER],
+    ) {
+        log::error!("set_membership_role: {}", err);
+        return;
+    }
+
+    if target_member_id == me.id {
+        log::error!("set_membership_role: owner cannot change own role");
+        return;
+    }
+
+    let role = new_role.trim().to_string();
+    if !is_valid_membership_role(&role) {
+        log::error!("set_membership_role: invalid role");
+        return;
+    }
+
+    if role == MEMBERSHIP_ROLE_OWNER {
+        log::error!("set_membership_role: use transfer_expedition_ownership for owner changes");
+        return;
+    }
+
+    let mut target_membership = match require_active_membership(ctx, expedition_id, target_member_id)
+    {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("set_membership_role: {}", err);
+            return;
+        }
+    };
+
+    if target_membership.role == role {
+        return;
+    }
+
+    target_membership.role = role;
+    ctx.db.membership().id().update(target_membership);
+}
+
+#[spacetimedb::reducer]
+pub fn transfer_expedition_ownership(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    new_owner_member_id: u64,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("transfer_expedition_ownership: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
+        log::error!("transfer_expedition_ownership: {}", err);
+        return;
+    }
+
+    let mut current_owner_membership = match require_membership_with_allowed_roles(
+        ctx,
+        expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER],
+    ) {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("transfer_expedition_ownership: {}", err);
+            return;
+        }
+    };
+
+    if new_owner_member_id == me.id {
+        return;
+    }
+
+    let mut next_owner_membership = match require_active_membership(ctx, expedition_id, new_owner_member_id)
+    {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("transfer_expedition_ownership: {}", err);
+            return;
+        }
+    };
+
+    next_owner_membership.role = MEMBERSHIP_ROLE_OWNER.to_string();
+    ctx.db.membership().id().update(next_owner_membership);
+
+    current_owner_membership.role = MEMBERSHIP_ROLE_ADMIN.to_string();
+    ctx.db.membership().id().update(current_owner_membership);
+}
+
+#[spacetimedb::reducer]
+pub fn create_invite(ctx: &ReducerContext, expedition_id: u64, ttl_minutes: u32, max_uses: u32) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("create_invite: {}", err);
+            return;
+        }
+    };
+
+    let expedition = match require_joinable_expedition(ctx, expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("create_invite: {}", err);
+            return;
+        }
+    };
+
+    let membership = match require_membership_with_allowed_roles(
+        ctx,
+        expedition.id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER, MEMBERSHIP_ROLE_ADMIN],
+    ) {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("create_invite: {}", err);
+            return;
+        }
+    };
+
+    if !is_invite_manager_role(&membership.role) {
+        log::error!("create_invite: only owner or admin can create invites");
+        return;
+    }
+
+    if ttl_minutes == 0 || ttl_minutes > 43_200 {
+        log::error!("create_invite: ttl_minutes must be in range 1..=43200");
+        return;
+    }
+
+    if max_uses == 0 || max_uses > 10_000 {
+        log::error!("create_invite: max_uses must be in range 1..=10000");
+        return;
+    }
+
+    let now_epoch = now_epoch_seconds(ctx);
+    let expires_at_epoch = now_epoch.saturating_add((ttl_minutes as i64) * 60);
+    let token = create_unique_invite_token(ctx, expedition.id, me.id);
+
+    ctx.db.invite().insert(Invite {
+        id: 0,
+        token,
+        expedition_id: expedition.id,
+        created_by_member_id: me.id,
+        max_uses,
+        used_count: 0,
+        expires_at_epoch,
+        created_at: ctx.timestamp,
+        last_used_at: None,
+        revoked_at: None,
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn accept_invite(ctx: &ReducerContext, token: String) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("accept_invite: {}", err);
+            return;
+        }
+    };
+
+    let token = token.trim().to_string();
+    if token.is_empty() {
+        log::error!("accept_invite: token cannot be empty");
+        return;
+    }
+
+    let mut invite = match ctx.db.invite().token().find(token) {
+        Some(invite) => invite,
+        None => {
+            log::error!("accept_invite: invite not found");
+            return;
+        }
+    };
+
+    if invite.revoked_at.is_some() {
+        log::error!("accept_invite: invite has been revoked");
+        return;
+    }
+
+    let now_epoch = now_epoch_seconds(ctx);
+    if invite.expires_at_epoch <= now_epoch {
+        log::error!("accept_invite: invite has expired");
+        return;
+    }
+
+    if invite.used_count >= invite.max_uses {
+        log::error!("accept_invite: invite usage limit reached");
+        return;
+    }
+
+    let expedition = match require_joinable_expedition(ctx, invite.expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("accept_invite: {}", err);
+            return;
+        }
+    };
+
+    if find_active_membership(ctx, expedition.id, me.id).is_none() {
+        let expedition_member_key = format!("{}:{}", expedition.id, me.id);
+        if let Some(mut membership) = ctx
+            .db
+            .membership()
+            .expedition_member_key()
+            .find(expedition_member_key.clone())
+        {
+            membership.status = "active".to_string();
+            membership.joined_at = ctx.timestamp;
+            membership.left_at = None;
+            ctx.db.membership().id().update(membership);
+        } else {
+            ctx.db.membership().insert(Membership {
+                id: 0,
+                expedition_id: expedition.id,
+                member_id: me.id,
+                role: MEMBERSHIP_ROLE_MEMBER.to_string(),
+                status: "active".to_string(),
+                joined_at: ctx.timestamp,
+                left_at: None,
+                expedition_member_key,
+            });
+        }
+    }
+
+    invite.used_count = invite.used_count.saturating_add(1);
+    invite.last_used_at = Some(ctx.timestamp);
+    ctx.db.invite().id().update(invite);
+}
+
+#[spacetimedb::reducer]
+pub fn revoke_invite(ctx: &ReducerContext, token: String) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("revoke_invite: {}", err);
+            return;
+        }
+    };
+
+    let token = token.trim().to_string();
+    if token.is_empty() {
+        log::error!("revoke_invite: token cannot be empty");
+        return;
+    }
+
+    let mut invite = match ctx.db.invite().token().find(token) {
+        Some(invite) => invite,
+        None => {
+            log::error!("revoke_invite: invite not found");
+            return;
+        }
+    };
+
+    let membership = match require_membership_with_allowed_roles(
+        ctx,
+        invite.expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER, MEMBERSHIP_ROLE_ADMIN],
+    ) {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("revoke_invite: {}", err);
+            return;
+        }
+    };
+
+    if !is_invite_manager_role(&membership.role) {
+        log::error!("revoke_invite: only owner or admin can revoke invites");
+        return;
+    }
+
+    if invite.revoked_at.is_some() {
+        return;
+    }
+
+    invite.revoked_at = Some(ctx.timestamp);
+    ctx.db.invite().id().update(invite);
 }
 
 #[spacetimedb::reducer]
@@ -1042,9 +1418,9 @@ pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64
     for member_id in all_member_ids {
         let expedition_member_key = format!("{}:{}", expedition_id, member_id);
         let expected_role = if member_id == owner_member_id {
-            "owner".to_string()
+            MEMBERSHIP_ROLE_OWNER.to_string()
         } else {
-            "member".to_string()
+            MEMBERSHIP_ROLE_MEMBER.to_string()
         };
 
         if let Some(mut membership) = ctx

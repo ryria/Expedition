@@ -599,11 +599,11 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 ### Issues
 
-- [ ] `EXP-020` Add `invite` table + token lifecycle  
+- [x] `EXP-020` Add `invite` table + token lifecycle  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-011  
   **Done when:** invite create/revoke/expire logic is persisted with TTL.
 
-- [ ] `EXP-021` Implement role model (`owner/admin/member`) with guards  
+- [x] `EXP-021` Implement role model (`owner/admin/member`) with guards  
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-010  
   **Done when:** every privileged reducer checks role and expedition scope.
 
@@ -618,6 +618,9 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - [ ] `EXP-024` Invite/role security tests  
   **Priority:** P0 · **Owner:** QA · **Effort:** S · **Depends on:** EXP-021, EXP-022  
   **Done when:** role escalation and invite abuse edge cases are covered.
+
+- 2026-03-12: Completed `EXP-020` in `module/src/lib.rs` by adding `invite` table and reducers `create_invite`, `accept_invite`, and `revoke_invite` with TTL, max-use, revocation, and joinability checks; validated with `cargo check`, `npx vitest run` (22/22), and `npm run build`.
+- 2026-03-12: Completed `EXP-021` in `module/src/lib.rs` by centralizing role guards and adding `set_membership_role` + `transfer_expedition_ownership` reducers; invite management reducers now enforce owner/admin roles through shared scoped guard helpers; validated with `cargo check`, `npx vitest run` (22/22), and `npm run build`.
 
 ### Sprint Exit Criteria
 

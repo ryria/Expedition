@@ -8,9 +8,27 @@ import { useMembers } from "./hooks/useMembers";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { DbConnection, tables } from "./spacetime/generated";
 import { emitExpeditionEvent } from "./hooks/expeditionEvents";
+import {
+  Alert,
+  AppBar,
+  Box,
+  Button,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import "./App.css";
 
-type Tab = "expedition" | "members" | "settings";
+type AppTab = "expedition" | "members" | "settings";
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
 
@@ -70,7 +88,7 @@ function loadInitialMapMode(): MapMode {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("expedition");
+  const [tab, setTab] = useState<AppTab>("expedition");
   const [theme, setTheme] = useState<Theme>(loadInitialTheme);
   const [mapMode, setMapMode] = useState<MapMode>(loadInitialMapMode);
   const [activeExpeditionId, setActiveExpeditionId] = useState<bigint | null>(null);
@@ -121,7 +139,7 @@ export default function App() {
     [availableExpeditions, activeExpeditionId],
   );
 
-  const visibleTabs: Tab[] = ["expedition", "members", "settings"];
+  const visibleTabs: AppTab[] = ["expedition", "members", "settings"];
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -279,74 +297,94 @@ export default function App() {
 
   return (
     <div className="app">
-      <nav className="app-nav">
-        <h1 className="app-title">The Expedition</h1>
-        {isRegistered && (
-          <div className="expedition-controls">
-            <label className="expedition-label" htmlFor="active-expedition-select">Expedition</label>
-            <select
-              id="active-expedition-select"
-              className="expedition-select"
-              value={activeExpeditionId?.toString() ?? ""}
-              onChange={(e) => handleSwitchExpedition(e.target.value)}
-              disabled={!availableExpeditions.length}
-            >
-              {!availableExpeditions.length && <option value="">No active expeditions</option>}
-              {availableExpeditions.map((expedition) => (
-                <option key={expedition.id.toString()} value={expedition.id.toString()}>
-                  {expedition.name}
-                </option>
-              ))}
-            </select>
+      <AppBar position="static" color="transparent" elevation={0} className="app-bar">
+        <Toolbar className="app-toolbar" disableGutters>
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={1} className="toolbar-block toolbar-left">
+            <Typography variant="h6" className="app-title">
+              The Expedition
+            </Typography>
+            {isRegistered && (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} className="expedition-controls">
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <InputLabel id="active-expedition-select-label">Expedition</InputLabel>
+                  <Select
+                    labelId="active-expedition-select-label"
+                    id="active-expedition-select"
+                    value={activeExpeditionId?.toString() ?? ""}
+                    label="Expedition"
+                    onChange={(e) => handleSwitchExpedition(e.target.value)}
+                    disabled={!availableExpeditions.length}
+                  >
+                    {!availableExpeditions.length && <MenuItem value="">No active expeditions</MenuItem>}
+                    {availableExpeditions.map((expedition) => (
+                      <MenuItem key={expedition.id.toString()} value={expedition.id.toString()}>
+                        {expedition.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-            <form className="expedition-create-inline" onSubmit={handleHeaderCreate}>
-              <input
-                value={newExpeditionName}
-                onChange={(e) => setNewExpeditionName(e.target.value)}
-                placeholder="New expedition"
-                maxLength={64}
-              />
-              <button type="submit" className="nav-tab" disabled={isCreatingExpedition}>
-                {isCreatingExpedition ? "Creating…" : "Create"}
-              </button>
-            </form>
-          </div>
-        )}
-        <div className="nav-tabs">
-          {visibleTabs.map((t) => (
-            <button key={t} className={`nav-tab ${tab === t ? "active" : ""}`}
-              onClick={() => setTab(t)}>
-              {t === "expedition" ? "Expedition" : t === "members" ? "Members" : "Settings"}
-            </button>
-          ))}
-          <button className="nav-tab" onClick={() => auth.signoutRedirect()}>
-            Sign out
-          </button>
-        </div>
-      </nav>
+                <Box component="form" className="expedition-create-inline" onSubmit={handleHeaderCreate}>
+                  <TextField
+                    size="small"
+                    value={newExpeditionName}
+                    onChange={(e) => setNewExpeditionName(e.target.value)}
+                    placeholder="New expedition"
+                    inputProps={{ maxLength: 64 }}
+                  />
+                  <Button type="submit" variant="outlined" disabled={isCreatingExpedition}>
+                    {isCreatingExpedition ? "Creating…" : "Create"}
+                  </Button>
+                </Box>
+              </Stack>
+            )}
+          </Stack>
+
+          <Stack direction="row" spacing={1} alignItems="center" className="toolbar-block toolbar-right">
+            <Tabs value={tab} onChange={(_, value) => setTab(value as AppTab)} variant="scrollable" allowScrollButtonsMobile>
+              {visibleTabs.map((t) => (
+                <Tab
+                  key={t}
+                  value={t}
+                  label={t === "expedition" ? "Expedition" : t === "members" ? "Members" : "Settings"}
+                />
+              ))}
+            </Tabs>
+            <Button variant="text" color="inherit" onClick={() => auth.signoutRedirect()}>
+              Sign out
+            </Button>
+          </Stack>
+        </Toolbar>
+      </AppBar>
       <main className={`app-main ${tab === "expedition" ? "expedition-main" : ""}`}>
         {expeditionLoading && (
-          <p>Loading expeditions…</p>
+          <Box className="status-row">
+            <CircularProgress size={18} />
+            <Typography variant="body2">Loading expeditions…</Typography>
+          </Box>
         )}
         {hasNoMembership && (
-          <div className="empty-state">
-            <p>You are not in an expedition yet. Create one to get started.</p>
-            <form className="empty-state-create" onSubmit={handleHeaderCreate}>
-              <input
+          <Paper className="empty-state" variant="outlined">
+            <Typography variant="body1">You are not in an expedition yet. Create one to get started.</Typography>
+            <Box className="empty-state-create" component="form" onSubmit={handleHeaderCreate}>
+              <TextField
+                size="small"
                 value={newExpeditionName}
                 onChange={(e) => setNewExpeditionName(e.target.value)}
                 placeholder="Expedition name"
-                maxLength={64}
+                inputProps={{ maxLength: 64 }}
               />
-              <button type="submit" disabled={isCreatingExpedition}>
+              <Button type="submit" variant="contained" disabled={isCreatingExpedition}>
                 {isCreatingExpedition ? "Creating…" : "Create expedition"}
-              </button>
-            </form>
-            {expeditionCreateError && <p className="field-error">{expeditionCreateError}</p>}
-          </div>
+              </Button>
+            </Box>
+            {expeditionCreateError && <Alert severity="error">{expeditionCreateError}</Alert>}
+          </Paper>
         )}
         {!isRegistered && (
-          <p>Please complete onboarding in Settings (set your name and colour) to unlock Log and Stats.</p>
+          <Alert severity="info" className="onboarding-alert">
+            Please complete onboarding in Settings (set your name and colour) to unlock Log and Stats.
+          </Alert>
         )}
         {tab === "expedition" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <MapJournalView
