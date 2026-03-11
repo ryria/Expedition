@@ -15,8 +15,8 @@ interface Props { entry: ActivityEntry; }
 export function ActivityCard({ entry }: Props) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
-  const { members } = useMembers();
-  const { reactionsFor } = useReactions();
+  const { members } = useMembers(entry.expeditionId);
+  const { reactionsFor } = useReactions(entry.expeditionId);
   const [actionError, setActionError] = useState("");
   const reactionList = reactionsFor(entry.id);
   const displayName = members.find((m) => m.id === entry.memberId)?.name ?? entry.personName;
@@ -68,7 +68,7 @@ export function ActivityCard({ entry }: Props) {
         })}
       </div>
       {actionError && <p className="field-error">{actionError}</p>}
-      <CommentThread logId={entry.id} />
+      <CommentThread logId={entry.id} expeditionId={entry.expeditionId} />
     </li>
   );
 }

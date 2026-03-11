@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useAuth } from "react-oidc-context";
 import { useSpacetimeDB } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
@@ -14,6 +15,14 @@ interface SettingsPanelProps {
   onThemeChange: (theme: Theme) => void;
   mapMode: MapMode;
   onMapModeChange: (mode: MapMode) => void;
+  activeExpedition: {
+    id: bigint;
+    name: string;
+    slug: string;
+  } | null;
+  onCreateExpedition: (name: string) => Promise<boolean>;
+  isCreatingExpedition: boolean;
+  expeditionCreateError: string;
 }
 
 export function SettingsPanel({
@@ -21,6 +30,10 @@ export function SettingsPanel({
   onThemeChange,
   mapMode,
   onMapModeChange,
+  activeExpedition,
+  onCreateExpedition,
+  isCreatingExpedition,
+  expeditionCreateError,
 }: SettingsPanelProps) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
@@ -32,6 +45,7 @@ export function SettingsPanel({
   const [stravaStatus, setStravaStatus] = useState("");
   const [isLinkingStrava, setIsLinkingStrava] = useState(false);
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
+  const [newExpeditionName, setNewExpeditionName] = useState("");
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
@@ -233,6 +247,16 @@ export function SettingsPanel({
     })();
   }
 
+  function handleCreateExpedition(e: FormEvent) {
+    e.preventDefault();
+    void (async () => {
+      const created = await onCreateExpedition(newExpeditionName);
+      if (created) {
+        setNewExpeditionName("");
+      }
+    })();
+  }
+
   return (
     <div className="settings-panel">
       <h2>User Settings</h2>
@@ -299,6 +323,31 @@ export function SettingsPanel({
         </div>
         <p>{linkedMember ? "This profile is linked to your sign-in." : "Create your linked member profile."}</p>
         {error && <p className="field-error">{error}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Expedition</h3>
+        <p>
+          {activeExpedition
+            ? `Active expedition: ${activeExpedition.name} (${activeExpedition.slug})`
+            : "No active expedition selected."}
+        </p>
+        <form className="strava-actions" onSubmit={handleCreateExpedition}>
+          <input
+            type="text"
+            value={newExpeditionName}
+            onChange={(e) => setNewExpeditionName(e.target.value)}
+            placeholder="New expedition name"
+            maxLength={64}
+          />
+          <button type="submit" disabled={isCreatingExpedition}>
+            {isCreatingExpedition ? "Creating…" : "Create expedition"}
+          </button>
+          <button type="button" disabled title="Coming in Sprint 3">
+            Invite members (coming in Sprint 3)
+          </button>
+        </form>
+        {expeditionCreateError && <p className="field-error">{expeditionCreateError}</p>}
       </section>
 
       <section className="settings-group">

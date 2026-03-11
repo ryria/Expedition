@@ -1,0 +1,2028 @@
+﻿{
+  "typespace": {
+    "types": [
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "person_name"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "activity_type"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "distance_km"
+              },
+              "algebraic_type": {
+                "F64": []
+              }
+            },
+            {
+              "name": {
+                "some": "note"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "timestamp"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "ai_response"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "member_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "expedition_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "sender_identity"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "owner_sub"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "updated_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "log_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "author"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "body"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "timestamp"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "expedition_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "key"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "value"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "name"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "slug"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "created_by_member_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "is_archived"
+              },
+              "algebraic_type": {
+                "Bool": []
+              }
+            },
+            {
+              "name": {
+                "some": "created_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "archived_at"
+              },
+              "algebraic_type": {
+                "Sum": {
+                  "variants": [
+                    {
+                      "name": {
+                        "some": "some"
+                      },
+                      "algebraic_type": {
+                        "Product": {
+                          "elements": [
+                            {
+                              "name": {
+                                "some": "__timestamp_micros_since_unix_epoch__"
+                              },
+                              "algebraic_type": {
+                                "I64": []
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "name": {
+                        "some": "none"
+                      },
+                      "algebraic_type": {
+                        "Product": {
+                          "elements": []
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "strava_activity_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "owner_sub"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "imported_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "name"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "owner_sub"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "color_hex"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "created_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "expedition_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "member_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "role"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "status"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "joined_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "left_at"
+              },
+              "algebraic_type": {
+                "Sum": {
+                  "variants": [
+                    {
+                      "name": {
+                        "some": "some"
+                      },
+                      "algebraic_type": {
+                        "Product": {
+                          "elements": [
+                            {
+                              "name": {
+                                "some": "__timestamp_micros_since_unix_epoch__"
+                              },
+                              "algebraic_type": {
+                                "I64": []
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "name": {
+                        "some": "none"
+                      },
+                      "algebraic_type": {
+                        "Product": {
+                          "elements": []
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "expedition_member_key"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "log_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "emoji"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "reacted_by"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "timestamp"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "expedition_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "owner_sub"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "member_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "athlete_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            },
+            {
+              "name": {
+                "some": "access_token"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "refresh_token"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "expires_at_epoch"
+              },
+              "algebraic_type": {
+                "I64": []
+              }
+            },
+            {
+              "name": {
+                "some": "last_synced_epoch"
+              },
+              "algebraic_type": {
+                "I64": []
+              }
+            },
+            {
+              "name": {
+                "some": "created_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": {
+                "some": "updated_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Product": {
+          "elements": [
+            {
+              "name": {
+                "some": "key"
+              },
+              "algebraic_type": {
+                "U8": []
+              }
+            },
+            {
+              "name": {
+                "some": "window_15_m_start_epoch"
+              },
+              "algebraic_type": {
+                "I64": []
+              }
+            },
+            {
+              "name": {
+                "some": "overall_count_15_m"
+              },
+              "algebraic_type": {
+                "U32": []
+              }
+            },
+            {
+              "name": {
+                "some": "read_count_15_m"
+              },
+              "algebraic_type": {
+                "U32": []
+              }
+            },
+            {
+              "name": {
+                "some": "window_day_start_epoch"
+              },
+              "algebraic_type": {
+                "I64": []
+              }
+            },
+            {
+              "name": {
+                "some": "overall_count_day"
+              },
+              "algebraic_type": {
+                "U32": []
+              }
+            },
+            {
+              "name": {
+                "some": "read_count_day"
+              },
+              "algebraic_type": {
+                "U32": []
+              }
+            },
+            {
+              "name": {
+                "some": "updated_at"
+              },
+              "algebraic_type": {
+                "Product": {
+                  "elements": [
+                    {
+                      "name": {
+                        "some": "__timestamp_micros_since_unix_epoch__"
+                      },
+                      "algebraic_type": {
+                        "I64": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "tables": [
+    {
+      "name": "activity_log",
+      "product_type_ref": 0,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "activity_log_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "activity_log_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "activity_log_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "auth_binding",
+      "product_type_ref": 1,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "auth_binding_sender_identity_idx_btree"
+          },
+          "accessor_name": {
+            "some": "sender_identity"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "auth_binding_sender_identity_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Private": []
+      }
+    },
+    {
+      "name": "comment",
+      "product_type_ref": 2,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "comment_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "comment_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "comment_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "config",
+      "product_type_ref": 3,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "config_key_idx_btree"
+          },
+          "accessor_name": {
+            "some": "key"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "config_key_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Private": []
+      }
+    },
+    {
+      "name": "expedition",
+      "product_type_ref": 4,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "expedition_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        },
+        {
+          "name": {
+            "some": "expedition_slug_idx_btree"
+          },
+          "accessor_name": {
+            "some": "slug"
+          },
+          "algorithm": {
+            "BTree": [
+              2
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "expedition_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "name": {
+            "some": "expedition_slug_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                2
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "expedition_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "imported_strava_activity",
+      "product_type_ref": 5,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "imported_strava_activity_strava_activity_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "strava_activity_id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "imported_strava_activity_strava_activity_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Private": []
+      }
+    },
+    {
+      "name": "member",
+      "product_type_ref": 6,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "member_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        },
+        {
+          "name": {
+            "some": "member_name_idx_btree"
+          },
+          "accessor_name": {
+            "some": "name"
+          },
+          "algorithm": {
+            "BTree": [
+              1
+            ]
+          }
+        },
+        {
+          "name": {
+            "some": "member_owner_sub_idx_btree"
+          },
+          "accessor_name": {
+            "some": "owner_sub"
+          },
+          "algorithm": {
+            "BTree": [
+              2
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "member_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        },
+        {
+          "name": {
+            "some": "member_name_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                1
+              ]
+            }
+          }
+        },
+        {
+          "name": {
+            "some": "member_owner_sub_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                2
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "member_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "membership",
+      "product_type_ref": 7,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "membership_expedition_member_key_idx_btree"
+          },
+          "accessor_name": {
+            "some": "expedition_member_key"
+          },
+          "algorithm": {
+            "BTree": [
+              7
+            ]
+          }
+        },
+        {
+          "name": {
+            "some": "membership_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "membership_expedition_member_key_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                7
+              ]
+            }
+          }
+        },
+        {
+          "name": {
+            "some": "membership_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "membership_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "reaction",
+      "product_type_ref": 8,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "reaction_id_idx_btree"
+          },
+          "accessor_name": {
+            "some": "id"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "reaction_id_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "name": {
+            "some": "reaction_id_seq"
+          },
+          "column": 0,
+          "start": {
+            "none": []
+          },
+          "min_value": {
+            "none": []
+          },
+          "max_value": {
+            "none": []
+          },
+          "increment": 1
+        }
+      ],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Public": []
+      }
+    },
+    {
+      "name": "strava_connection",
+      "product_type_ref": 9,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "strava_connection_owner_sub_idx_btree"
+          },
+          "accessor_name": {
+            "some": "owner_sub"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "strava_connection_owner_sub_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Private": []
+      }
+    },
+    {
+      "name": "strava_rate_limit_state",
+      "product_type_ref": 10,
+      "primary_key": [
+        0
+      ],
+      "indexes": [
+        {
+          "name": {
+            "some": "strava_rate_limit_state_key_idx_btree"
+          },
+          "accessor_name": {
+            "some": "key"
+          },
+          "algorithm": {
+            "BTree": [
+              0
+            ]
+          }
+        }
+      ],
+      "constraints": [
+        {
+          "name": {
+            "some": "strava_rate_limit_state_key_key"
+          },
+          "data": {
+            "Unique": {
+              "columns": [
+                0
+              ]
+            }
+          }
+        }
+      ],
+      "sequences": [],
+      "schedule": {
+        "none": []
+      },
+      "table_type": {
+        "User": []
+      },
+      "table_access": {
+        "Private": []
+      }
+    }
+  ],
+  "reducers": [
+    {
+      "name": "add_comment",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "log_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          },
+          {
+            "name": {
+              "some": "_author"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "body"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "add_member",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "name"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "color_hex"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "add_reaction",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "log_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          },
+          {
+            "name": {
+              "some": "emoji"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "_reacted_by"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "archive_expedition",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "expedition_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "bind_auth_identity",
+      "params": {
+        "elements": []
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "create_expedition",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "name"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "slug"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "identity_connected",
+      "params": {
+        "elements": []
+      },
+      "lifecycle": {
+        "some": {
+          "OnConnect": []
+        }
+      }
+    },
+    {
+      "name": "identity_disconnected",
+      "params": {
+        "elements": []
+      },
+      "lifecycle": {
+        "some": {
+          "OnDisconnect": []
+        }
+      }
+    },
+    {
+      "name": "init",
+      "params": {
+        "elements": []
+      },
+      "lifecycle": {
+        "some": {
+          "Init": []
+        }
+      }
+    },
+    {
+      "name": "join_expedition",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "expedition_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "leave_expedition",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "expedition_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "log_activity",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "member_id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          },
+          {
+            "name": {
+              "some": "activity_type"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "distance_km"
+            },
+            "algebraic_type": {
+              "F64": []
+            }
+          },
+          {
+            "name": {
+              "some": "note"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "remove_member",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "id"
+            },
+            "algebraic_type": {
+              "U64": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    },
+    {
+      "name": "set_config",
+      "params": {
+        "elements": [
+          {
+            "name": {
+              "some": "key"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          },
+          {
+            "name": {
+              "some": "value"
+            },
+            "algebraic_type": {
+              "String": []
+            }
+          }
+        ]
+      },
+      "lifecycle": {
+        "none": []
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": {
+        "scope": [],
+        "name": "ActivityLog"
+      },
+      "ty": 0,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "AuthBinding"
+      },
+      "ty": 1,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Comment"
+      },
+      "ty": 2,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Config"
+      },
+      "ty": 3,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Expedition"
+      },
+      "ty": 4,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "ImportedStravaActivity"
+      },
+      "ty": 5,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Member"
+      },
+      "ty": 6,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Membership"
+      },
+      "ty": 7,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "Reaction"
+      },
+      "ty": 8,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "StravaConnection"
+      },
+      "ty": 9,
+      "custom_ordering": true
+    },
+    {
+      "name": {
+        "scope": [],
+        "name": "StravaRateLimitState"
+      },
+      "ty": 10,
+      "custom_ordering": true
+    }
+  ],
+  "misc_exports": [
+    {
+      "ColumnDefaultValue": {
+        "table": "comment",
+        "col_id": 5,
+        "value": "0000000000000000"
+      }
+    },
+    {
+      "ColumnDefaultValue": {
+        "table": "reaction",
+        "col_id": 5,
+        "value": "0000000000000000"
+      }
+    },
+    {
+      "ColumnDefaultValue": {
+        "table": "activity_log",
+        "col_id": 7,
+        "value": "0000000000000000"
+      }
+    },
+    {
+      "ColumnDefaultValue": {
+        "table": "activity_log",
+        "col_id": 8,
+        "value": "0000000000000000"
+      }
+    },
+    {
+      "Procedure": {
+        "name": "link_strava_account",
+        "params": {
+          "elements": [
+            {
+              "name": {
+                "some": "code"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "redirect_uri"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            }
+          ]
+        },
+        "return_type": {
+          "Product": {
+            "elements": []
+          }
+        }
+      }
+    },
+    {
+      "Procedure": {
+        "name": "request_ai_coaching",
+        "params": {
+          "elements": [
+            {
+              "name": {
+                "some": "log_id"
+              },
+              "algebraic_type": {
+                "U64": []
+              }
+            }
+          ]
+        },
+        "return_type": {
+          "Product": {
+            "elements": []
+          }
+        }
+      }
+    },
+    {
+      "Procedure": {
+        "name": "set_my_strava_tokens",
+        "params": {
+          "elements": [
+            {
+              "name": {
+                "some": "access_token"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            },
+            {
+              "name": {
+                "some": "refresh_token"
+              },
+              "algebraic_type": {
+                "String": []
+              }
+            }
+          ]
+        },
+        "return_type": {
+          "Product": {
+            "elements": []
+          }
+        }
+      }
+    },
+    {
+      "Procedure": {
+        "name": "sync_all_strava_activities",
+        "params": {
+          "elements": []
+        },
+        "return_type": {
+          "Product": {
+            "elements": []
+          }
+        }
+      }
+    },
+    {
+      "Procedure": {
+        "name": "sync_my_strava_activities",
+        "params": {
+          "elements": []
+        },
+        "return_type": {
+          "Product": {
+            "elements": []
+          }
+        }
+      }
+    }
+  ],
+  "row_level_security": []
+}

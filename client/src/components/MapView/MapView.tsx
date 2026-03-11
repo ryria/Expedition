@@ -15,11 +15,12 @@ interface MapViewProps {
   mode: ViewMode;
   onModeChange: (mode: ViewMode) => void;
   hubOpen: boolean;
+  activeExpeditionId: bigint;
 }
 
-export function MapView({ theme, mode, onModeChange, hubOpen }: MapViewProps) {
-  const { entries } = useActivityLog();
-  const { members } = useMembers();
+export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId }: MapViewProps) {
+  const { entries } = useActivityLog(activeExpeditionId);
+  const { members } = useMembers(activeExpeditionId);
   const { waypoints, routeTotalKm } = useRoadRoute();
 
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
@@ -44,7 +45,7 @@ export function MapView({ theme, mode, onModeChange, hubOpen }: MapViewProps) {
       />
       <div className="map-controls">
         <ModeToggle mode={mode} onChange={onModeChange} />
-        <PersonLegend />
+        <PersonLegend activeExpeditionId={activeExpeditionId} />
       </div>
     </div>
   );

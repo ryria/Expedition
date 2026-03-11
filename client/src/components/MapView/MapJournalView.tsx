@@ -19,11 +19,12 @@ interface MapJournalViewProps {
   theme: Theme;
   mapMode: MapMode;
   onMapModeChange: (mode: MapMode) => void;
+  activeExpeditionId: bigint;
 }
 
 const INITIAL_ORDER: HubSectionId[] = ["progressInsights", "addActivity", "social"];
 
-export function MapJournalView({ theme, mapMode, onMapModeChange }: MapJournalViewProps) {
+export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpeditionId }: MapJournalViewProps) {
   const [progressMode, setProgressMode] = useState<ProgressMode>("progress");
   const [open, setOpen] = useState(true);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
@@ -81,13 +82,13 @@ export function MapJournalView({ theme, mapMode, onMapModeChange }: MapJournalVi
           </div>
           {progressMode === "progress" ? (
             <>
-              <SummaryStats />
-              <LandmarksPassed />
+              <SummaryStats activeExpeditionId={activeExpeditionId} />
+              <LandmarksPassed activeExpeditionId={activeExpeditionId} />
             </>
           ) : (
             <>
-              <ActivityTypeChart />
-              <PersonBreakdown />
+              <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
+              <PersonBreakdown activeExpeditionId={activeExpeditionId} />
             </>
           )}
         </>
@@ -95,10 +96,10 @@ export function MapJournalView({ theme, mapMode, onMapModeChange }: MapJournalVi
     }
 
     if (id === "addActivity") {
-      return <LogForm />;
+      return <LogForm activeExpeditionId={activeExpeditionId} />;
     }
 
-    return <ActivityFeed />;
+    return <ActivityFeed activeExpeditionId={activeExpeditionId} />;
   }
 
   return (
@@ -109,6 +110,7 @@ export function MapJournalView({ theme, mapMode, onMapModeChange }: MapJournalVi
           mode={mapMode}
           onModeChange={onMapModeChange}
           hubOpen={open}
+          activeExpeditionId={activeExpeditionId}
         />
       </div>
 

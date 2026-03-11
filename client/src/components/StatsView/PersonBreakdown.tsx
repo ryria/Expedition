@@ -2,9 +2,13 @@ import { useMembers } from "../../hooks/useMembers";
 import { useActivityLog } from "../../hooks/useActivityLog";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
 
-export function PersonBreakdown() {
-  const { members } = useMembers();
-  const { entries } = useActivityLog();
+interface PersonBreakdownProps {
+  activeExpeditionId?: bigint;
+}
+
+export function PersonBreakdown({ activeExpeditionId }: PersonBreakdownProps) {
+  const { members } = useMembers(activeExpeditionId);
+  const { entries } = useActivityLog(activeExpeditionId);
   return (
     <div className="person-breakdown">
       <h3>Per Person</h3>

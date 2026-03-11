@@ -12,6 +12,7 @@ import {
 
 export const ActivityLog = __t.object("ActivityLog", {
   id: __t.u64(),
+  expeditionId: __t.u64(),
   personName: __t.string(),
   activityType: __t.string(),
   distanceKm: __t.f64(),
@@ -31,6 +32,7 @@ export type AuthBinding = __Infer<typeof AuthBinding>;
 
 export const Comment = __t.object("Comment", {
   id: __t.u64(),
+  expeditionId: __t.u64(),
   logId: __t.u64(),
   author: __t.string(),
   body: __t.string(),
@@ -85,6 +87,7 @@ export type Membership = __Infer<typeof Membership>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),
+  expeditionId: __t.u64(),
   logId: __t.u64(),
   emoji: __t.string(),
   reactedBy: __t.string(),

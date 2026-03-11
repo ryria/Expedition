@@ -1,8 +1,12 @@
 import { useActivityLog } from "../../hooks/useActivityLog";
 import { LANDMARKS } from "../../data/route";
 
-export function LandmarksPassed() {
-  const { entries } = useActivityLog();
+interface LandmarksPassedProps {
+  activeExpeditionId?: bigint;
+}
+
+export function LandmarksPassed({ activeExpeditionId }: LandmarksPassedProps) {
+  const { entries } = useActivityLog(activeExpeditionId);
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   const passed = LANDMARKS.filter((l) => l.km <= totalKm && l.km > 0);
   if (!passed.length) return null;

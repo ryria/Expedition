@@ -2,8 +2,12 @@ import { useActivityLog } from "../../hooks/useActivityLog";
 import { LANDMARKS } from "../../data/route";
 import { ROUTE_TOTAL_KM } from "../../config";
 
-export function SummaryStats() {
-  const { entries } = useActivityLog();
+interface SummaryStatsProps {
+  activeExpeditionId?: bigint;
+}
+
+export function SummaryStats({ activeExpeditionId }: SummaryStatsProps) {
+  const { entries } = useActivityLog(activeExpeditionId);
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   const pct = ((totalKm / ROUTE_TOTAL_KM) * 100).toFixed(2);
   const remaining = (ROUTE_TOTAL_KM - totalKm).toFixed(1);

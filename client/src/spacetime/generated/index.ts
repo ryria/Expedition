@@ -37,8 +37,11 @@ import {
 import AddCommentReducer from "./add_comment_reducer";
 import AddMemberReducer from "./add_member_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
+import ArchiveExpeditionReducer from "./archive_expedition_reducer";
 import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
 import CreateExpeditionReducer from "./create_expedition_reducer";
+import JoinExpeditionReducer from "./join_expedition_reducer";
+import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import SetConfigReducer from "./set_config_reducer";
@@ -151,8 +154,11 @@ const reducersSchema = __reducers(
   __reducerSchema("add_comment", AddCommentReducer),
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("add_reaction", AddReactionReducer),
+  __reducerSchema("archive_expedition", ArchiveExpeditionReducer),
   __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
   __reducerSchema("create_expedition", CreateExpeditionReducer),
+  __reducerSchema("join_expedition", JoinExpeditionReducer),
+  __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("set_config", SetConfigReducer),

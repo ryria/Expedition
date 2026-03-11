@@ -8,7 +8,7 @@ export interface ExpeditionProcedures {
   syncAllStravaActivities?: (args?: Record<string, never>) => Promise<unknown>;
 }
 
-// VITE_STDB_URI: WebSocket URI for SpacetimeDB Maincloud, e.g. "wss://maincloud.spacetimedb.com"
+// VITE_STDB_URI: WebSocket URI for your SpacetimeDB host, e.g. "wss://spacetimedb-yzil.srv1482020.hstgr.cloud"
 const STDB_URI = import.meta.env.VITE_STDB_URI as string;
 const STDB_DB = "expedition";
 const CONNECT_TIMEOUT_MS = 15_000;
@@ -51,7 +51,7 @@ function normalizeConnectError(err: unknown): Error {
 
   if (normalized.message.includes("Failed to fetch")) {
     return new Error(
-      "WebSocket connection failed (Failed to fetch). Check VITE_STDB_URI, network/firewall access to maincloud.spacetimedb.com, and that your browser allows secure WebSocket (wss)."
+      "WebSocket connection failed (Failed to fetch). Check VITE_STDB_URI, network/firewall access to your configured SpacetimeDB host, and that your browser allows secure WebSocket (wss)."
     );
   }
 

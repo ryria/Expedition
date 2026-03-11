@@ -1,6 +1,8 @@
 name: Deploy to GitHub Pages
 
 on:
+  pull_request:
+    branches: [master]
   push:
     branches: [master]
 
@@ -44,7 +46,7 @@ jobs:
             return 1
           }
 
-          STDB_URI="$(pick_non_empty "${{ secrets.VITE_STDB_URI }}" "${{ vars.VITE_STDB_URI }}" "wss://maincloud.spacetimedb.com")"
+          STDB_URI="$(pick_non_empty "${{ secrets.VITE_STDB_URI }}" "${{ vars.VITE_STDB_URI }}" "wss://spacetimedb-yzil.srv1482020.hstgr.cloud")"
           AUTH_CLIENT_ID="$(pick_non_empty \
             "${{ secrets.VITE_STDB_AUTH_CLIENT_ID }}" \
             "${{ secrets.VITE_STDB_CLIENT_ID }}" \
@@ -66,12 +68,33 @@ jobs:
         working-directory: client
 
       - name: Upload artifact
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
           path: client/dist
 
+  isolation-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Run tenant isolation tests (EXP-014)
+        run: npx vitest run src/hooks/useActivityLog.test.ts src/hooks/useMembers.test.ts src/hooks/useComments.test.ts src/hooks/useReactions.test.ts
+        working-directory: client
+
   deploy:
-    needs: build
+    if: github.event_name == 'push'
+    needs: [build, isolation-gate]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

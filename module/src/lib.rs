@@ -16,6 +16,8 @@ const STRAVA_WINDOW_DAY_SECONDS: i64 = 24 * 60 * 60;
 const STRAVA_RATE_LIMIT_KEY: u8 = 1;
 const DEFAULT_AI_COACHING_FALLBACK: &str =
     "Keep it up! Every step counts toward the 14,500 km goal!";
+const LEGACY_DEFAULT_EXPEDITION_NAME: &str = "Legacy Expedition";
+const LEGACY_DEFAULT_EXPEDITION_SLUG: &str = "legacy-default";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -254,6 +256,7 @@ fn import_strava_activities_for_owner(
 ) -> Result<u64, String> {
     let now_epoch = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64;
     let now_ts = ctx.timestamp;
+    let expedition_id = resolve_or_create_expedition_for_member_procedure(ctx, member)?;
 
     if connection.expires_at_epoch <= now_epoch + 30 {
         let refreshed = refresh_strava_token(ctx, &connection, client_id, client_secret)?;
@@ -334,6 +337,7 @@ fn import_strava_activities_for_owner(
 
             tx.db.activity_log().insert(ActivityLog {
                 id: 0,
+                expedition_id,
                 member_id: member.id,
                 person_name: member.name.clone(),
                 activity_type: mapped_type.to_string(),
@@ -547,6 +551,257 @@ pub struct Membership {
     pub expedition_member_key: String,
 }
 
+fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
+    let owner_sub = authenticated_subject(ctx)?;
+    ctx.db
+        .member()
+        .owner_sub()
+        .find(owner_sub)
+        .ok_or("profile not found for authenticated user".to_string())
+}
+
+fn require_expedition(ctx: &ReducerContext, expedition_id: u64) -> Result<Expedition, String> {
+    ctx.db
+        .expedition()
+        .id()
+        .find(expedition_id)
+        .ok_or("expedition not found".to_string())
+}
+
+fn require_joinable_expedition(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+) -> Result<Expedition, String> {
+    let expedition = require_expedition(ctx, expedition_id)?;
+    if expedition.is_archived {
+        return Err("expedition is archived".to_string());
+    }
+
+    Ok(expedition)
+}
+
+fn find_active_membership(ctx: &ReducerContext, expedition_id: u64, member_id: u64) -> Option<Membership> {
+    let expedition_member_key = format!("{}:{}", expedition_id, member_id);
+    let membership = ctx
+        .db
+        .membership()
+        .expedition_member_key()
+        .find(expedition_member_key)?;
+
+    if membership.status == "active" {
+        Some(membership)
+    } else {
+        None
+    }
+}
+
+fn require_active_membership(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    member_id: u64,
+) -> Result<Membership, String> {
+    find_active_membership(ctx, expedition_id, member_id)
+        .ok_or("active membership required".to_string())
+}
+
+fn require_owner_membership_for_archive(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    member_id: u64,
+) -> Result<Membership, String> {
+    let membership = require_active_membership(ctx, expedition_id, member_id)?;
+    if membership.role != "owner" {
+        return Err("only owner can archive expedition".to_string());
+    }
+
+    Ok(membership)
+}
+
+fn select_deterministic_active_expedition_id_for_member(
+    ctx: &ReducerContext,
+    member_id: u64,
+) -> Option<u64> {
+    ctx.db
+        .membership()
+        .iter()
+        .filter(|membership| membership.member_id == member_id && membership.status == "active")
+        .filter_map(|membership| {
+            ctx.db
+                .expedition()
+                .id()
+                .find(membership.expedition_id)
+                .filter(|expedition| !expedition.is_archived)
+                .map(|expedition| expedition.id)
+        })
+        .min()
+}
+
+fn resolve_or_create_expedition_for_member(
+    ctx: &ReducerContext,
+    member: &Member,
+) -> Result<u64, String> {
+    if let Some(expedition_id) =
+        select_deterministic_active_expedition_id_for_member(ctx, member.id)
+    {
+        return Ok(expedition_id);
+    }
+
+    let mut expedition = if let Some(existing) = ctx
+        .db
+        .expedition()
+        .slug()
+        .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+    {
+        existing
+    } else {
+        ctx.db.expedition().insert(Expedition {
+            id: 0,
+            name: LEGACY_DEFAULT_EXPEDITION_NAME.to_string(),
+            slug: LEGACY_DEFAULT_EXPEDITION_SLUG.to_string(),
+            created_by_member_id: member.id,
+            is_archived: false,
+            created_at: ctx.timestamp,
+            archived_at: None,
+        });
+        ctx.db
+            .expedition()
+            .slug()
+            .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+            .ok_or("failed to resolve legacy default expedition".to_string())?
+    };
+
+    if expedition.is_archived {
+        expedition.is_archived = false;
+        expedition.archived_at = None;
+        ctx.db.expedition().id().update(expedition);
+        expedition = ctx
+            .db
+            .expedition()
+            .slug()
+            .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+            .ok_or("failed to reload legacy default expedition".to_string())?;
+    }
+
+    let expedition_member_key = format!("{}:{}", expedition.id, member.id);
+    if let Some(mut membership) = ctx
+        .db
+        .membership()
+        .expedition_member_key()
+        .find(expedition_member_key.clone())
+    {
+        if membership.status != "active" {
+            membership.status = "active".to_string();
+            membership.joined_at = ctx.timestamp;
+            membership.left_at = None;
+            ctx.db.membership().id().update(membership);
+        }
+    } else {
+        ctx.db.membership().insert(Membership {
+            id: 0,
+            expedition_id: expedition.id,
+            member_id: member.id,
+            role: "member".to_string(),
+            status: "active".to_string(),
+            joined_at: ctx.timestamp,
+            left_at: None,
+            expedition_member_key,
+        });
+    }
+
+    Ok(expedition.id)
+}
+
+fn resolve_or_create_expedition_for_member_procedure(
+    ctx: &mut ProcedureContext,
+    member: &Member,
+) -> Result<u64, String> {
+    let now_ts = ctx.timestamp;
+    ctx.with_tx(|tx| {
+        let active_expedition_id = tx
+            .db
+            .membership()
+            .iter()
+            .filter(|membership| membership.member_id == member.id && membership.status == "active")
+            .filter_map(|membership| {
+                tx.db
+                    .expedition()
+                    .id()
+                    .find(membership.expedition_id)
+                    .filter(|expedition| !expedition.is_archived)
+                    .map(|expedition| expedition.id)
+            })
+            .min();
+
+        if let Some(expedition_id) = active_expedition_id {
+            return Ok(expedition_id);
+        }
+
+        let mut expedition = if let Some(existing) = tx
+            .db
+            .expedition()
+            .slug()
+            .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+        {
+            existing
+        } else {
+            tx.db.expedition().insert(Expedition {
+                id: 0,
+                name: LEGACY_DEFAULT_EXPEDITION_NAME.to_string(),
+                slug: LEGACY_DEFAULT_EXPEDITION_SLUG.to_string(),
+                created_by_member_id: member.id,
+                is_archived: false,
+                created_at: now_ts,
+                archived_at: None,
+            });
+            tx.db
+                .expedition()
+                .slug()
+                .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+                .ok_or("failed to resolve legacy default expedition".to_string())?
+        };
+
+        if expedition.is_archived {
+            expedition.is_archived = false;
+            expedition.archived_at = None;
+            tx.db.expedition().id().update(expedition);
+            expedition = tx
+                .db
+                .expedition()
+                .slug()
+                .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+                .ok_or("failed to reload legacy default expedition".to_string())?;
+        }
+
+        let expedition_member_key = format!("{}:{}", expedition.id, member.id);
+        if let Some(mut membership) = tx
+            .db
+            .membership()
+            .expedition_member_key()
+            .find(expedition_member_key.clone())
+        {
+            if membership.status != "active" {
+                membership.status = "active".to_string();
+                membership.joined_at = now_ts;
+                membership.left_at = None;
+                tx.db.membership().id().update(membership);
+            }
+        } else {
+            tx.db.membership().insert(Membership {
+                id: 0,
+                expedition_id: expedition.id,
+                member_id: member.id,
+                role: "member".to_string(),
+                status: "active".to_string(),
+                joined_at: now_ts,
+                left_at: None,
+                expedition_member_key,
+            });
+        }
+
+        Ok(expedition.id)
+    })
+}
+
 #[spacetimedb::reducer]
 pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
     let owner_sub = match authenticated_subject(ctx) {
@@ -618,6 +873,253 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         left_at: None,
         expedition_member_key,
     });
+}
+
+#[spacetimedb::reducer]
+pub fn archive_expedition(ctx: &ReducerContext, expedition_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("archive_expedition: {}", err);
+            return;
+        }
+    };
+
+    let mut expedition = match require_expedition(ctx, expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("archive_expedition: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_owner_membership_for_archive(ctx, expedition.id, me.id) {
+        log::error!("archive_expedition: {}", err);
+        return;
+    }
+
+    if expedition.is_archived {
+        return;
+    }
+
+    expedition.is_archived = true;
+    expedition.archived_at = Some(ctx.timestamp);
+    ctx.db.expedition().id().update(expedition);
+}
+
+#[spacetimedb::reducer]
+pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("join_expedition: {}", err);
+            return;
+        }
+    };
+
+    let expedition = match require_joinable_expedition(ctx, expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("join_expedition: {}", err);
+            return;
+        }
+    };
+
+    if find_active_membership(ctx, expedition.id, me.id).is_some() {
+        return;
+    }
+
+    let expedition_member_key = format!("{}:{}", expedition.id, me.id);
+    if let Some(mut membership) = ctx
+        .db
+        .membership()
+        .expedition_member_key()
+        .find(expedition_member_key.clone())
+    {
+        membership.status = "active".to_string();
+        membership.joined_at = ctx.timestamp;
+        membership.left_at = None;
+        ctx.db.membership().id().update(membership);
+        return;
+    }
+
+    ctx.db.membership().insert(Membership {
+        id: 0,
+        expedition_id: expedition.id,
+        member_id: me.id,
+        role: "member".to_string(),
+        status: "active".to_string(),
+        joined_at: ctx.timestamp,
+        left_at: None,
+        expedition_member_key,
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn leave_expedition(ctx: &ReducerContext, expedition_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("leave_expedition: {}", err);
+            return;
+        }
+    };
+
+    let mut membership = match require_active_membership(ctx, expedition_id, me.id) {
+        Ok(membership) => membership,
+        Err(err) => {
+            log::error!("leave_expedition: {}", err);
+            return;
+        }
+    };
+
+    if membership.role == "owner" {
+        log::error!("leave_expedition: owner cannot leave expedition");
+        return;
+    }
+
+    membership.status = "left".to_string();
+    membership.left_at = Some(ctx.timestamp);
+    ctx.db.membership().id().update(membership);
+}
+
+#[spacetimedb::reducer]
+pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64) {
+    let expedition_count = ctx.db.expedition().iter().count();
+    let membership_count = ctx.db.membership().iter().count();
+    if expedition_count > 0 || membership_count > 0 {
+        log::error!(
+            "ops_backfill_legacy_expedition: migration is one-time only and requires empty expedition/membership tables"
+        );
+        return;
+    }
+
+    if ctx.db.member().id().find(owner_member_id).is_none() {
+        log::error!(
+            "ops_backfill_legacy_expedition: owner_member_id {} not found",
+            owner_member_id
+        );
+        return;
+    }
+
+    if ctx
+        .db
+        .expedition()
+        .slug()
+        .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+        .is_none()
+    {
+        ctx.db.expedition().insert(Expedition {
+            id: 0,
+            name: LEGACY_DEFAULT_EXPEDITION_NAME.to_string(),
+            slug: LEGACY_DEFAULT_EXPEDITION_SLUG.to_string(),
+            created_by_member_id: owner_member_id,
+            is_archived: false,
+            created_at: ctx.timestamp,
+            archived_at: None,
+        });
+    }
+
+    let Some(mut expedition) = ctx
+        .db
+        .expedition()
+        .slug()
+        .find(LEGACY_DEFAULT_EXPEDITION_SLUG.to_string())
+    else {
+        log::error!("ops_backfill_legacy_expedition: failed to resolve legacy expedition");
+        return;
+    };
+
+    let expedition_id = expedition.id;
+
+    if expedition.is_archived {
+        expedition.is_archived = false;
+        expedition.archived_at = None;
+        ctx.db.expedition().id().update(expedition);
+    }
+
+    let all_member_ids: Vec<u64> = ctx.db.member().iter().map(|member| member.id).collect();
+    for member_id in all_member_ids {
+        let expedition_member_key = format!("{}:{}", expedition_id, member_id);
+        let expected_role = if member_id == owner_member_id {
+            "owner".to_string()
+        } else {
+            "member".to_string()
+        };
+
+        if let Some(mut membership) = ctx
+            .db
+            .membership()
+            .expedition_member_key()
+            .find(expedition_member_key.clone())
+        {
+            membership.status = "active".to_string();
+            membership.left_at = None;
+            membership.joined_at = ctx.timestamp;
+            membership.role = expected_role;
+            ctx.db.membership().id().update(membership);
+        } else {
+            ctx.db.membership().insert(Membership {
+                id: 0,
+                expedition_id,
+                member_id,
+                role: expected_role,
+                status: "active".to_string(),
+                joined_at: ctx.timestamp,
+                left_at: None,
+                expedition_member_key,
+            });
+        }
+    }
+
+    let activity_ids_to_backfill: Vec<u64> = ctx
+        .db
+        .activity_log()
+        .iter()
+        .filter(|activity| activity.expedition_id == 0)
+        .map(|activity| activity.id)
+        .collect();
+
+    for activity_id in activity_ids_to_backfill {
+        if let Some(mut activity) = ctx.db.activity_log().id().find(activity_id) {
+            activity.expedition_id = expedition_id;
+            ctx.db.activity_log().id().update(activity);
+        }
+    }
+
+    let comment_ids: Vec<u64> = ctx.db.comment().iter().map(|comment| comment.id).collect();
+    for comment_id in comment_ids {
+        if let Some(mut comment) = ctx.db.comment().id().find(comment_id) {
+            let parent_expedition_id = ctx
+                .db
+                .activity_log()
+                .id()
+                .find(comment.log_id)
+                .map(|activity| activity.expedition_id)
+                .unwrap_or(expedition_id);
+            if comment.expedition_id != parent_expedition_id {
+                comment.expedition_id = parent_expedition_id;
+                ctx.db.comment().id().update(comment);
+            }
+        }
+    }
+
+    let reaction_ids: Vec<u64> = ctx.db.reaction().iter().map(|reaction| reaction.id).collect();
+    for reaction_id in reaction_ids {
+        if let Some(mut reaction) = ctx.db.reaction().id().find(reaction_id) {
+            let parent_expedition_id = ctx
+                .db
+                .activity_log()
+                .id()
+                .find(reaction.log_id)
+                .map(|activity| activity.expedition_id)
+                .unwrap_or(expedition_id);
+            if reaction.expedition_id != parent_expedition_id {
+                reaction.expedition_id = parent_expedition_id;
+                ctx.db.reaction().id().update(reaction);
+            }
+        }
+    }
 }
 
 #[spacetimedb::table(accessor = member, public)]
@@ -736,6 +1238,8 @@ pub struct ActivityLog {
     pub ai_response: String,  // empty until request_ai_coaching patches it
     #[default(0u64)]
     pub member_id: u64,
+    #[default(0u64)]
+    pub expedition_id: u64,
 }
 
 #[spacetimedb::reducer]
@@ -773,8 +1277,23 @@ pub fn log_activity(
         log::error!("log_activity: distance_km out of range: {}", distance_km);
         return;
     }
+
+    let expedition_id = match resolve_or_create_expedition_for_member(ctx, &me) {
+        Ok(id) => id,
+        Err(err) => {
+            log::error!("log_activity: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_active_membership(ctx, expedition_id, me.id) {
+        log::error!("log_activity: {}", err);
+        return;
+    }
+
     ctx.db.activity_log().insert(ActivityLog {
         id: 0,
+        expedition_id,
         member_id,
         person_name: me.name,
         activity_type,
@@ -796,6 +1315,8 @@ pub struct Reaction {
     pub emoji: String,
     pub reacted_by: String,
     pub timestamp: Timestamp,
+    #[default(0u64)]
+    pub expedition_id: u64,
 }
 
 #[spacetimedb::reducer]
@@ -818,8 +1339,17 @@ pub fn add_reaction(
         return;
     };
 
-    if ctx.db.activity_log().id().find(log_id).is_none() {
+    let Some(activity) = ctx.db.activity_log().id().find(log_id) else {
         log::error!("add_reaction: activity log not found");
+        return;
+    };
+
+    if activity.expedition_id != 0
+        && require_active_membership(ctx, activity.expedition_id, me.id).is_err()
+    {
+        log::error!(
+            "add_reaction: active membership required for parent activity expedition"
+        );
         return;
     }
 
@@ -831,6 +1361,7 @@ pub fn add_reaction(
 
     ctx.db.reaction().insert(Reaction {
         id: 0,
+        expedition_id: activity.expedition_id,
         log_id,
         emoji,
         reacted_by: me.name,
@@ -849,6 +1380,8 @@ pub struct Comment {
     pub author: String,
     pub body: String,
     pub timestamp: Timestamp,
+    #[default(0u64)]
+    pub expedition_id: u64,
 }
 
 #[spacetimedb::reducer]
@@ -871,8 +1404,17 @@ pub fn add_comment(
         return;
     };
 
-    if ctx.db.activity_log().id().find(log_id).is_none() {
+    let Some(activity) = ctx.db.activity_log().id().find(log_id) else {
         log::error!("add_comment: activity log not found");
+        return;
+    };
+
+    if activity.expedition_id != 0
+        && require_active_membership(ctx, activity.expedition_id, me.id).is_err()
+    {
+        log::error!(
+            "add_comment: active membership required for parent activity expedition"
+        );
         return;
     }
 
@@ -884,6 +1426,7 @@ pub fn add_comment(
 
     ctx.db.comment().insert(Comment {
         id: 0,
+        expedition_id: activity.expedition_id,
         log_id,
         author: me.name,
         body,

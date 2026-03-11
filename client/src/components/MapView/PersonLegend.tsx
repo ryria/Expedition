@@ -1,9 +1,13 @@
 import { useMembers } from "../../hooks/useMembers";
 import { useActivityLog } from "../../hooks/useActivityLog";
 
-export function PersonLegend() {
-  const { members } = useMembers();
-  const { entries } = useActivityLog();
+interface PersonLegendProps {
+  activeExpeditionId: bigint;
+}
+
+export function PersonLegend({ activeExpeditionId }: PersonLegendProps) {
+  const { members } = useMembers(activeExpeditionId);
+  const { entries } = useActivityLog(activeExpeditionId);
   return (
     <div className="person-legend">
       {members.map((m) => {

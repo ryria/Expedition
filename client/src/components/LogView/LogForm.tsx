@@ -10,10 +10,14 @@ type ExpeditionProcedures = {
   requestAiCoaching(args: { logId: bigint }): Promise<unknown>;
 };
 
-export function LogForm() {
+interface LogFormProps {
+  activeExpeditionId?: bigint;
+}
+
+export function LogForm({ activeExpeditionId }: LogFormProps) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
-  const { members } = useMembers();
+  const { members } = useMembers(activeExpeditionId);
   const [personMemberId, setPersonMemberId] = useState("");
   const [actType, setActType] = useState<string>("run");
   const [dist, setDist] = useState("");
@@ -49,6 +53,10 @@ export function LogForm() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (activeExpeditionId == null) {
+      setError("Select an expedition first");
+      return;
+    }
     const km = parseFloat(dist);
     if (sub && !linkedMember) {
       setError("Create your member profile first (Members tab)");
@@ -72,7 +80,12 @@ export function LogForm() {
       const conn = connectionState.getConnection() as DbConnection | null;
       if (!conn) throw new Error("SpacetimeDB not connected");
       pendingMemberId.current = selectedMember.id;
-      conn.reducers.logActivity({ memberId: selectedMember.id, activityType: actType, distanceKm: km, note: note.trim() });
+      conn.reducers.logActivity({
+        memberId: selectedMember.id,
+        activityType: actType,
+        distanceKm: km,
+        note: note.trim(),
+      });
       setDist("");
       setNote("");
     } catch (err: unknown) {

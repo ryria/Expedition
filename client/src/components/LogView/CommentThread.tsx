@@ -5,13 +5,16 @@ import { useComments } from "../../hooks/useComments";
 import { useMembers } from "../../hooks/useMembers";
 import { DbConnection } from "../../spacetime/generated";
 
-interface Props { logId: bigint; }
+interface Props {
+  logId: bigint;
+  expeditionId: bigint;
+}
 
-export function CommentThread({ logId }: Props) {
+export function CommentThread({ logId, expeditionId }: Props) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
-  const { members } = useMembers();
-  const { commentsFor } = useComments();
+  const { members } = useMembers(expeditionId);
+  const { commentsFor } = useComments(expeditionId);
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState("");

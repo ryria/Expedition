@@ -17,6 +17,39 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
   color: var(--accent); letter-spacing: 0.04em; white-space: nowrap;
 }
 
+.expedition-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.expedition-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.expedition-select,
+.expedition-create-inline input,
+.empty-state-create input {
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.expedition-create-inline,
+.empty-state-create {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 .nav-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 
 .nav-tab {
@@ -33,6 +66,29 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .app-main.expedition-main {
   overflow: hidden;
   min-height: 0;
+}
+
+.empty-state {
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.empty-state-create button {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+.field-error {
+  color: var(--danger-text);
+  font-size: 0.85rem;
 }
 
 /* Responsive: on very small screens, title shrinks */

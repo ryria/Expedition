@@ -12,6 +12,7 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
+  expeditionId: __t.u64().name("expedition_id"),
   logId: __t.u64().name("log_id"),
   emoji: __t.string(),
   reactedBy: __t.string().name("reacted_by"),

@@ -5,6 +5,7 @@ import { tables } from "../spacetime/generated";
 
 export interface ActivityEntry {
   id: bigint;
+  expeditionId: bigint;
   memberId: bigint;
   personName: string;
   activityType: string;
@@ -14,14 +15,17 @@ export interface ActivityEntry {
   aiResponse: string;
 }
 
-export function useActivityLog() {
+export function useActivityLog(activeExpeditionId?: bigint | null) {
   const [rows] = useTable(tables.activity_log);
+
   const entries = useMemo(
     () =>
-      [...(rows as readonly ActivityEntry[])].sort(
+      [...(rows as readonly ActivityEntry[])]
+        .filter((row) => (activeExpeditionId == null ? true : row.expeditionId === activeExpeditionId))
+        .sort(
         (a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime(),
       ),
-    [rows],
+    [rows, activeExpeditionId],
   );
 
   return { entries };

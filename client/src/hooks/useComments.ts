@@ -5,15 +5,22 @@ import { tables } from "../spacetime/generated";
 
 export interface CommentRow {
   id: bigint;
+  expeditionId: bigint;
   logId: bigint;
   author: string;
   body: string;
   timestamp: Timestamp;
 }
 
-export function useComments() {
+export function useComments(activeExpeditionId?: bigint | null) {
   const [rows] = useTable(tables.comment);
-  const comments = useMemo(() => rows as readonly CommentRow[], [rows]);
+  const comments = useMemo(
+    () =>
+      (rows as readonly CommentRow[]).filter((row) =>
+        activeExpeditionId == null ? true : row.expeditionId === activeExpeditionId,
+      ),
+    [rows, activeExpeditionId],
+  );
 
   function commentsFor(logId: bigint) {
     return comments

@@ -1,8 +1,12 @@
 import { useMembers } from "../../hooks/useMembers";
 import "./MembersPanel.css";
 
-export function MembersPanel() {
-  const { members } = useMembers();
+interface MembersPanelProps {
+  activeExpeditionId: bigint;
+}
+
+export function MembersPanel({ activeExpeditionId }: MembersPanelProps) {
+  const { members } = useMembers(activeExpeditionId);
 
   return (
     <div className="members-panel">

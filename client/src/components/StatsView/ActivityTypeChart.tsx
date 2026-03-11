@@ -5,8 +5,12 @@ const COLORS: Record<string, string> = {
   run: "#c0392b", row: "#2980b9", walk: "#27ae60", cycle: "#f39c12",
 };
 
-export function ActivityTypeChart() {
-  const { entries } = useActivityLog();
+interface ActivityTypeChartProps {
+  activeExpeditionId?: bigint;
+}
+
+export function ActivityTypeChart({ activeExpeditionId }: ActivityTypeChartProps) {
+  const { entries } = useActivityLog(activeExpeditionId);
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   if (totalKm === 0) return <p>No data yet.</p>;
   return (
