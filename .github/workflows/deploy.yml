@@ -89,7 +89,7 @@ jobs:
         working-directory: client
 
       - name: Run tenant isolation tests (EXP-014)
-        run: npx vitest run src/hooks/useActivityLog.test.ts src/hooks/useMembers.test.ts src/hooks/useComments.test.ts src/hooks/useReactions.test.ts
+        run: npx vitest run src/hooks/useActivityLog.test.ts src/hooks/useMembers.test.ts src/hooks/useComments.test.ts src/hooks/useReactions.test.ts src/components/LogView/LogForm.test.tsx
         working-directory: client
 
   deploy:

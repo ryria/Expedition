@@ -586,6 +586,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-11: Added and executed one-time `ops_backfill_legacy_expedition` reducer in `module/src/lib.rs`; post-run verification on `maincloud` shows `expedition_count = 1`, `membership_count = 3`, and zero unscoped rows for `activity_log`/`comment`/`reaction` (`expedition_id = 0` counts all `0`).
 - 2026-03-11: Expanded `EXP-014` hook isolation coverage with explicit cross-expedition deny-path and legacy no-active-expedition regression tests in `useComments`/`useReactions`; validated with targeted Vitest run (12/12 passing) and `npm run build`.
 - 2026-03-11: Manual replay-resistance check for migration path passed: second `ops_backfill_legacy_expedition` invocation was rejected by one-time guard (`migration is one-time only and requires empty expedition/membership tables`) and post-attempt counts remained unchanged (`expedition_count = 1`, `membership_count = 3`, zero unscoped rows).
+- 2026-03-11: Added `LogForm` integration/security tests (`client/src/components/LogView/LogForm.test.tsx`) covering active-expedition requirement, authenticated-unlinked-member rejection, and valid scoped reducer call path; isolation suite now 15/15 passing and wired into CI isolation gate.
 
 ---
 
@@ -978,14 +979,14 @@ This section consolidates second-wave agent outputs into issue-ready execution i
 
 - [x] Phase A: add new tables and nullable `expedition_id` columns (expand-only)
 - [x] Phase B: create legacy expedition + seed memberships
-- [~] Phase C: backfill `expedition_id` for activity/comment/reaction
+- [x] Phase C: backfill `expedition_id` for activity/comment/reaction
 - [ ] Phase D: enforce non-null + strict scoped checks, switch client to scoped reads
 
 ### Backfill verification checklist
 
-- [ ] Zero null `expedition_id` rows in scoped tables
+- [x] Zero null `expedition_id` rows in scoped tables
 - [x] Comment/reaction `expedition_id` always matches parent activity
-- [ ] No unresolved backfill rows without remediation plan
+- [x] No unresolved backfill rows without remediation plan
 - [ ] Regression smoke for map/feed/stats passes in legacy expedition
 
 ### Rollback checkpoints
@@ -1037,7 +1038,7 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 ### Test matrix coverage
 
 - [x] Unit tests for expedition-scoped hooks/selectors
-- [ ] Integration tests for scoped reducers and permission guards
+- [~] Integration tests for scoped reducers and permission guards
 - [x] Regression tests for legacy behavior under scoped model
 - [~] Security tests for cross-expedition access attempts
 
@@ -1046,8 +1047,8 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [x] `EXP014-UT-001` active expedition filter for members
 - [x] `EXP014-UT-002` activity feed scoped filtering
 - [x] `EXP014-UT-003` switch context invalidates stale state
-- [ ] `EXP014-INT-001..005` scoped mutation auth/behavior checks
-- [~] `EXP014-SEC-001..003` auth mismatch and forged context rejection (hook-level cross-expedition deny checks added; reducer-level auth mismatch tests pending)
+- [~] `EXP014-INT-001..005` scoped mutation auth/behavior checks (added `LogForm` guard-path integration tests for active-expedition and linked-member enforcement)
+- [~] `EXP014-SEC-001..003` auth mismatch and forged context rejection (hook-level cross-expedition deny checks + `LogForm` auth-mismatch guard tests added; reducer-level forged-context rejection automation still pending)
 - [x] `EXP014-REG-001..004` migration and cross-tenant regression checks
 
 ### Sprint 2 quality gate
