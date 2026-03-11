@@ -1,25 +1,69 @@
+/* ============================================================
+   MembersPanel
+   ============================================================ */
+
 .members-panel {
   width: min(640px, 100%);
-  padding: 1rem;
-  max-width: 100%;
-  border-radius: 10px;
-  background: var(--panel-bg) !important;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .members-empty {
   margin: 0.5rem 0 0.75rem;
   color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
-.member-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+/* ============================================================
+   Member list
+   ============================================================ */
+
+.member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .member-row {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.45rem 0; border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
 }
-.swatch { width: 30px !important; height: 30px !important; font-size: 0.8rem !important; flex-shrink: 0; }
-.member-name { flex: 1; color: var(--text); font-size: 0.95rem; }
 
-/* Responsive */
+.member-row:hover {
+  background: var(--surface-muted);
+  border-color: var(--border);
+}
+
+.swatch {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 0.8rem !important;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs) !important;
+}
+
+.member-name {
+  flex: 1;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
 @media (max-width: 600px) {
-  .members-panel { padding: 0.75rem; max-width: 100%; }
+  .members-panel { padding: 0.9rem; }
 }
