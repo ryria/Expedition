@@ -12,9 +12,9 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
-  expeditionId: __t.u64().name("expedition_id"),
   logId: __t.u64().name("log_id"),
   author: __t.string(),
   body: __t.string(),
   timestamp: __t.timestamp(),
+  expeditionId: __t.u64().name("expedition_id"),
 });

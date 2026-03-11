@@ -43,6 +43,7 @@ import CreateExpeditionReducer from "./create_expedition_reducer";
 import JoinExpeditionReducer from "./join_expedition_reducer";
 import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
+import OpsBackfillLegacyExpeditionReducer from "./ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import SetConfigReducer from "./set_config_reducer";
 
@@ -160,6 +161,7 @@ const reducersSchema = __reducers(
   __reducerSchema("join_expedition", JoinExpeditionReducer),
   __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
+  __reducerSchema("ops_backfill_legacy_expedition", OpsBackfillLegacyExpeditionReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("set_config", SetConfigReducer),
 );

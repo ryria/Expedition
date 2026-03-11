@@ -556,7 +556,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-010  
   **Done when:** users can create and join expedition spaces with auth validation.
 
-- [~] `EXP-012` Add `expedition_id` migration for activity/comment/reaction  
+- [x] `EXP-012` Add `expedition_id` migration for activity/comment/reaction  
   **Priority:** P0 · **Owner:** BE · **Effort:** L · **Depends on:** EXP-010  
   **Done when:** all existing rows are scoped and isolation queries pass.
 
@@ -587,6 +587,7 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-11: Expanded `EXP-014` hook isolation coverage with explicit cross-expedition deny-path and legacy no-active-expedition regression tests in `useComments`/`useReactions`; validated with targeted Vitest run (12/12 passing) and `npm run build`.
 - 2026-03-11: Manual replay-resistance check for migration path passed: second `ops_backfill_legacy_expedition` invocation was rejected by one-time guard (`migration is one-time only and requires empty expedition/membership tables`) and post-attempt counts remained unchanged (`expedition_count = 1`, `membership_count = 3`, zero unscoped rows).
 - 2026-03-11: Added `LogForm` integration/security tests (`client/src/components/LogView/LogForm.test.tsx`) covering active-expedition requirement, authenticated-unlinked-member rejection, and valid scoped reducer call path; isolation suite now 15/15 passing and wired into CI isolation gate.
+- 2026-03-12: Reconciled parallel EXP-012/EXP-014 tracks: rollback drill artifacts captured on `hostinger-tls` and additional `LogForm` reducer-rejection integration tests merged; local full preflight run now green (`npx vitest run`: 22/22, `npm run build`: pass).
 
 ---
 
@@ -1057,9 +1058,9 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 ### Sprint 2 quality gate
 
 - [ ] All `SEC` and cross-expedition `INT` tests green in CI
-- [~] Local preflight green on 2026-03-11 (`isolation-gate` command: 17/17 tests pass, plus `npm run build` pass); awaiting GitHub Actions run for CI checkbox above
+- [~] Local preflight green on 2026-03-12 (`npx vitest run`: 22/22 tests pass, plus `npm run build` pass); awaiting GitHub Actions run for CI checkbox above
 - [ ] Zero P0/P1 leakage or authorization defects
-- [ ] Migration verification artifacts attached to sprint review
+- [x] Migration verification artifacts attached to sprint review
 - [ ] Manual multi-session leakage check completed
 
 ---

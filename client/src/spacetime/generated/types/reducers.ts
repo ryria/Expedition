@@ -15,6 +15,7 @@ import CreateExpeditionReducer from "../create_expedition_reducer";
 import JoinExpeditionReducer from "../join_expedition_reducer";
 import LeaveExpeditionReducer from "../leave_expedition_reducer";
 import LogActivityReducer from "../log_activity_reducer";
+import OpsBackfillLegacyExpeditionReducer from "../ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "../remove_member_reducer";
 import SetConfigReducer from "../set_config_reducer";
 
@@ -27,6 +28,7 @@ export type CreateExpeditionParams = __Infer<typeof CreateExpeditionReducer>;
 export type JoinExpeditionParams = __Infer<typeof JoinExpeditionReducer>;
 export type LeaveExpeditionParams = __Infer<typeof LeaveExpeditionReducer>;
 export type LogActivityParams = __Infer<typeof LogActivityReducer>;
+export type OpsBackfillLegacyExpeditionParams = __Infer<typeof OpsBackfillLegacyExpeditionReducer>;
 export type RemoveMemberParams = __Infer<typeof RemoveMemberReducer>;
 export type SetConfigParams = __Infer<typeof SetConfigReducer>;
 

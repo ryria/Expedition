@@ -12,7 +12,6 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
-  expeditionId: __t.u64().name("expedition_id"),
   personName: __t.string().name("person_name"),
   activityType: __t.string().name("activity_type"),
   distanceKm: __t.f64().name("distance_km"),
@@ -20,4 +19,5 @@ export default __t.row({
   timestamp: __t.timestamp(),
   aiResponse: __t.string().name("ai_response"),
   memberId: __t.u64().name("member_id"),
+  expeditionId: __t.u64().name("expedition_id"),
 });
