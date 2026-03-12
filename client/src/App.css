@@ -540,8 +540,7 @@
   display: none;
 }
 
-.mobile-expedition-controls,
-.mobile-quick-actions {
+.mobile-ribbon {
   display: none;
 }
 
@@ -573,37 +572,24 @@
     padding-bottom: calc(70px + env(safe-area-inset-bottom));
   }
 
-  .main-page-head {
-    flex-direction: column;
-    align-items: flex-start;
-    margin-bottom: 0.7rem;
+  .desktop-page-head {
+    display: none;
   }
 
   .page-actions {
     display: none;
   }
 
-  .mobile-expedition-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+  .mobile-ribbon {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 0.7rem;
   }
 
-  .mobile-expedition-controls .MuiFormControl-root,
-  .mobile-expedition-controls .MuiButton-root {
-    width: 100%;
-  }
-
-  .mobile-quick-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .mobile-quick-actions .MuiButton-root {
-    width: 100%;
+  .mobile-ribbon .MuiFormControl-root {
+    min-width: 0;
   }
 
   .dashboard-hero {
@@ -613,6 +599,18 @@
 
   .dashboard-map-preview .map-view {
     min-height: 220px;
+  }
+
+  .dashboard-map-preview .map-stats-bar,
+  .dashboard-map-preview .map-controls,
+  .dashboard-map-preview .map-overlay-chip.milestone,
+  .dashboard-map-preview .map-overlay-chip.activity {
+    display: none;
+  }
+
+  .dashboard-map-preview .map-overlay-chips {
+    top: 0.55rem;
+    left: 0.55rem;
   }
 
   .dashboard-cards-row {

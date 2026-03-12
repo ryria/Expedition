@@ -931,7 +931,7 @@ export default function App() {
         </aside>
 
         <main className={`app-main ${tab === "map" ? "expedition-main" : ""}`}>
-          <div className="main-page-head">
+          <div className="main-page-head desktop-page-head">
             <div>
               <Typography variant="h5" className="page-title">{tabLabel(tab)}</Typography>
               <Typography variant="body2" className="page-subtitle">
@@ -958,8 +958,8 @@ export default function App() {
             </div>
           </div>
 
-          {isRegistered && (
-            <div className="mobile-expedition-controls">
+          {isRegistered && !showOnboardingFlow && (
+            <div className="mobile-ribbon" aria-label="Mobile ribbon menu">
               <FormControl size="small" sx={{ minWidth: 220 }}>
                 <InputLabel id="mobile-active-expedition-select-label">Expedition</InputLabel>
                 <Select
@@ -977,31 +977,19 @@ export default function App() {
                   ))}
                 </Select>
               </FormControl>
-              <Button variant="outlined" onClick={openCreateExpedition} disabled={isCreatingExpedition}>
-                Create Expedition
+              <Button
+                variant="outlined"
+                onClick={openNotifications}
+                disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
+                aria-label="Open notifications"
+              >
+                🔔{unreadNotificationCount > 0 ? ` (${unreadNotificationCount})` : ""}
+              </Button>
+              <Button variant="outlined" onClick={() => setTab("settings")} aria-label="Open settings">
+                ⚙️
               </Button>
             </div>
           )}
-
-          <div className="mobile-quick-actions" aria-label="Mobile quick actions">
-            <Button
-              variant="outlined"
-              onClick={openNotifications}
-              disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
-            >
-              🔔 {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ""}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={openQuickLog}
-              disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
-            >
-              Log
-            </Button>
-            <Button variant="outlined" onClick={() => setTab("members")} disabled={showOnboardingFlow}>Invite</Button>
-            <Button variant="outlined" onClick={openBugReport}>Report</Button>
-            <Button variant="text" color="inherit" onClick={() => auth.signoutRedirect()}>Sign out</Button>
-          </div>
 
         {expeditionLoading && (
           <Box className="status-row">
