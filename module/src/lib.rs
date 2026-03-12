@@ -680,6 +680,7 @@ pub struct Expedition {
     pub archived_at: Option<Timestamp>,
     #[default(false)]
     pub invite_only: bool,
+    #[default(None::<String>)]
     pub route_template_key: Option<String>,
 }
 

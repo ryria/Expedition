@@ -164,6 +164,16 @@ export const Notification = __t.object("Notification", {
 });
 export type Notification = __Infer<typeof Notification>;
 
+export const OperationalCounter = __t.object("OperationalCounter", {
+  key: __t.string(),
+  operation: __t.string(),
+  status: __t.string(),
+  count: __t.u64(),
+  lastErrorCode: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type OperationalCounter = __Infer<typeof OperationalCounter>;
+
 export const PlanSubscription = __t.object("PlanSubscription", {
   id: __t.u64(),
   expeditionId: __t.u64(),

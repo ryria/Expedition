@@ -81,6 +81,7 @@ import MemberRow from "./member_table";
 import MembershipRow from "./membership_table";
 import ModerationAuditRow from "./moderation_audit_table";
 import NotificationRow from "./notification_table";
+import OperationalCounterRow from "./operational_counter_table";
 import PlanSubscriptionRow from "./plan_subscription_table";
 import ReactionRow from "./reaction_table";
 
@@ -222,6 +223,17 @@ const tablesSchema = __schema({
       { name: 'notification_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, NotificationRow),
+  operational_counter: __table({
+    name: 'operational_counter',
+    indexes: [
+      { name: 'key', algorithm: 'btree', columns: [
+        'key',
+      ] },
+    ],
+    constraints: [
+      { name: 'operational_counter_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, OperationalCounterRow),
   plan_subscription: __table({
     name: 'plan_subscription',
     indexes: [

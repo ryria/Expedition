@@ -10,9 +10,11 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  name: __t.string(),
-  slug: __t.string(),
-  routeTemplateKey: __t.string(),
-  inviteOnly: __t.bool(),
-};
+export default __t.row({
+  key: __t.string().primaryKey(),
+  operation: __t.string(),
+  status: __t.string(),
+  count: __t.u64(),
+  lastErrorCode: __t.string().name("last_error_code"),
+  updatedAt: __t.timestamp().name("updated_at"),
+});
