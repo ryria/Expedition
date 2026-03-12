@@ -628,18 +628,21 @@
 
   .mobile-bottom-nav {
     display: flex;
-    gap: 0;
+    gap: 0.4rem;
     overflow-x: hidden;
     position: fixed;
-    left: 0;
-    right: 0;
+    left: 0.55rem;
+    right: 0.55rem;
     bottom: 0;
-    border-top: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border);
+    border-bottom: none;
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     z-index: 240;
-    padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+    padding: 0.4rem 0.4rem max(0.45rem, env(safe-area-inset-bottom));
     scrollbar-width: none;
   }
 
@@ -650,17 +653,19 @@
   .mobile-bottom-nav button {
     flex: 1 1 0;
     min-width: 0;
-    border: none;
-    border-radius: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-dim);
-    padding: 0.55rem 0.2rem;
-    font-size: 0.75rem;
-    font-weight: 600;
+    padding: 0.58rem 0.24rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
 
   .mobile-bottom-nav button.active {
     color: var(--accent-dim);
     background: var(--accent-bg);
+    border-color: var(--accent-border);
   }
 }

@@ -266,8 +266,8 @@ export default function App() {
   } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
-  const mobilePrimaryNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
-  const mobileSecondaryNavTabs: AppTab[] = ["challenges", "members", "settings"];
+  const mobilePrimaryNavTabs: AppTab[] = ["dashboard", "map", "feed"];
+  const mobileSecondaryNavTabs: AppTab[] = ["stats", "challenges", "members", "settings"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
