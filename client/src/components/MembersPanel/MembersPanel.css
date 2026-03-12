@@ -3,7 +3,7 @@
    ============================================================ */
 
 .members-panel {
-  width: min(640px, 100%);
+  width: 100%;
   padding: 1.25rem;
   border-radius: var(--radius-md);
   background: var(--panel-bg);

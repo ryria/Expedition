@@ -1,5 +1,5 @@
-import { Polyline, Tooltip } from "react-leaflet";
-import { buildSegmentLatLngs, type RouteWaypoint, type TrailSegment } from "../../data/route";
+import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
+import { buildSegmentLatLngs, interpolatePositionOnRoute, type RouteWaypoint, type TrailSegment } from "../../data/route";
 
 interface Props {
   segments: TrailSegment[];
@@ -44,14 +44,14 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
         <Polyline
           key="route-guide"
           positions={fullRoute}
-          pathOptions={{ color: "#ffffff", weight: 2, opacity: 0.2 }}
+          pathOptions={{ color: "#64748B", weight: 3, opacity: 0.35 }}
         />
       )}
       {segments.map((seg, i) => {
         const positions = buildSegmentLatLngs(seg.fromKm, seg.toKm, waypoints);
         if (positions.length < 2) return null;
         return (
-          <Polyline key={`bloom-${i}`} positions={positions} pathOptions={{ color: seg.color, weight: 10, opacity: 0.25 }} />
+          <Polyline key={`bloom-${i}`} positions={positions} pathOptions={{ color: seg.color, weight: 11, opacity: 0.28 }} />
         );
       })}
       {segments.map((seg, i) => {
@@ -73,6 +73,40 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
           </Polyline>
         );
       })}
+      {totalKm > 0 && waypoints.length > 1 && (() => {
+        const frontier = interpolatePositionOnRoute(totalKm, waypoints);
+        return (
+          <>
+            <CircleMarker
+              center={[frontier.lat, frontier.lng]}
+              radius={15}
+              pathOptions={{
+                color: "#2DD4BF",
+                fillColor: "#2DD4BF",
+                fillOpacity: 0.22,
+                weight: 1,
+                className: "frontier-pulse",
+              }}
+            />
+            <CircleMarker
+              center={[frontier.lat, frontier.lng]}
+              radius={7}
+              pathOptions={{
+                color: "#14B8A6",
+                fillColor: "#14B8A6",
+                fillOpacity: 0.95,
+                weight: 2,
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -8]}>
+                <strong>Current frontier</strong>
+                <br />
+                {totalKm.toFixed(1)} km logged
+              </Tooltip>
+            </CircleMarker>
+          </>
+        );
+      })()}
     </>
   );
 }

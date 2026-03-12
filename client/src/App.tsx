@@ -6,7 +6,6 @@ import { MembersPanel } from "./components/MembersPanel/MembersPanel";
 import { SettingsPanel } from "./components/SettingsPanel/SettingsPanel";
 import { ActivityFeed } from "./components/LogView/ActivityFeed";
 import { LogForm } from "./components/LogView/LogForm";
-import { KpiDashboard } from "./components/StatsView/KpiDashboard";
 import { SummaryStats } from "./components/StatsView/SummaryStats";
 import { ActivityTypeChart } from "./components/StatsView/ActivityTypeChart";
 import { PersonBreakdown } from "./components/StatsView/PersonBreakdown";
@@ -587,7 +586,18 @@ export default function App() {
   const expeditionLoading = linkedMember != null && !activeResolved;
   const hasNoMembership = linkedMember != null && activeResolved && availableExpeditions.length === 0;
 
-  const showRightRail = tab !== "map" && tab !== "settings" && tab !== "members";
+  const completionLabel =
+    dashboardMetrics.completionPct > 0 && dashboardMetrics.completionPct < 0.1
+      ? "<0.1% complete"
+      : `${dashboardMetrics.completionPct.toFixed(1)}% complete`;
+  const journeyMessage =
+    dashboardMetrics.totalKm < 5
+      ? "First steps on the route — your team has started the journey together."
+      : "Every session keeps the team moving forward on the shared route.";
+  const latestActivityAt = scopedActivity.length
+    ? scopedActivity[scopedActivity.length - 1]?.timestamp.toDate().toLocaleString()
+    : "No logs yet";
+  const showRightRail = tab !== "map" && tab !== "settings";
 
   return (
     <div className="app">
@@ -707,9 +717,10 @@ export default function App() {
             <section className="dashboard-hero">
               <div className="dashboard-hero-copy">
                 <p className="hero-kicker">{activeExpedition?.name ?? "Current Expedition"}</p>
-                <h2>{dashboardMetrics.totalKm.toFixed(1)} km completed</h2>
-                <p>{dashboardMetrics.completionPct.toFixed(1)}% of {ROUTE_TOTAL_KM.toLocaleString()} km route</p>
+                <h2 className="hero-progress-number">{dashboardMetrics.totalKm.toFixed(1)} km</h2>
+                <p>{completionLabel} of {ROUTE_TOTAL_KM.toLocaleString()} km route</p>
                 <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km to {dashboardMetrics.nextLandmark.name}</p>
+                <p className="hero-message">{journeyMessage}</p>
                 <div className="hero-meta-row">
                   <span>+{dashboardMetrics.weeklyKm.toFixed(1)} km this week</span>
                   <span>{dashboardMetrics.activeToday} members active today</span>
@@ -737,7 +748,7 @@ export default function App() {
                 <p>View your latest movement and consistency in Feed and Stats.</p>
                 <Button variant="text" onClick={() => setTab("feed")}>Open Activity Feed</Button>
               </Paper>
-              <Paper className="dashboard-card" variant="outlined">
+              <Paper className="dashboard-card milestone-card" variant="outlined">
                 <h3>Next Milestone</h3>
                 <p>{dashboardMetrics.nextLandmark.name}</p>
                 <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km remaining</p>
@@ -747,6 +758,9 @@ export default function App() {
             <section className="dashboard-lower">
               <Paper className="dashboard-feed" variant="outlined">
                 <h3>Activity Feed</h3>
+                {scopedActivity.length <= 1 && (
+                  <p className="low-activity-note">Low activity so far — each new log will make the team journey feel more alive here.</p>
+                )}
                 <ActivityFeed activeExpeditionId={activeExpeditionId} />
               </Paper>
               <aside className="dashboard-insights">
@@ -787,6 +801,14 @@ export default function App() {
         {tab === "feed" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="feed-shell">
+              {scopedActivity.length <= 1 && (
+                <Paper className="low-activity-note-card" variant="outlined">
+                  <h3>Team Feed</h3>
+                  <p>
+                    This timeline gets richer as more members log activities. Start with quick notes and reactions to build momentum.
+                  </p>
+                </Paper>
+              )}
               <ActivityFeed activeExpeditionId={activeExpeditionId} />
             </div>
           </div>
@@ -795,7 +817,6 @@ export default function App() {
         {tab === "stats" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="stats-shell">
-              <KpiDashboard />
               <SummaryStats activeExpeditionId={activeExpeditionId} />
               <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
               <PersonBreakdown activeExpeditionId={activeExpeditionId} />
@@ -806,21 +827,25 @@ export default function App() {
 
         {tab === "members" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
-            <MembersPanel activeExpeditionId={activeExpeditionId} />
+            <div className="members-shell">
+              <MembersPanel activeExpeditionId={activeExpeditionId} />
+            </div>
           </div>
         )}
         {tab === "settings" && !expeditionLoading && (
           <div className="content-shell">
-            <SettingsPanel
-              theme={theme}
-              onThemeChange={setTheme}
-              mapMode={mapMode}
-              onMapModeChange={setMapMode}
-              activeExpedition={activeExpedition}
-              onCreateExpedition={handleCreateExpedition}
-              isCreatingExpedition={isCreatingExpedition}
-              expeditionCreateError={expeditionCreateError}
-            />
+            <div className="settings-shell">
+              <SettingsPanel
+                theme={theme}
+                onThemeChange={setTheme}
+                mapMode={mapMode}
+                onMapModeChange={setMapMode}
+                activeExpedition={activeExpedition}
+                onCreateExpedition={handleCreateExpedition}
+                isCreatingExpedition={isCreatingExpedition}
+                expeditionCreateError={expeditionCreateError}
+              />
+            </div>
           </div>
         )}
 
@@ -828,24 +853,87 @@ export default function App() {
 
         {showRightRail && (
           <aside className="context-rail">
-            <Paper className="rail-card" variant="outlined">
-              <h4>Next milestone</h4>
-              <p>{dashboardMetrics.nextLandmark.name}</p>
-              <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km away</p>
-            </Paper>
+            {tab === "dashboard" && (
+              <>
+                <Paper className="rail-card" variant="outlined">
+                  <h4>Next milestone</h4>
+                  <p>{dashboardMetrics.nextLandmark.name}</p>
+                  <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km away</p>
+                </Paper>
 
-            <Paper className="rail-card coach-card" variant="outlined">
-              <h4>AI Coach</h4>
-              <p>
-                Shared consistency is building. Keep short sessions flowing and the frontier keeps moving.
-              </p>
-            </Paper>
+                <Paper className="rail-card coach-card" variant="outlined">
+                  <h4>AI Coach</h4>
+                  <p>
+                    {dashboardMetrics.activeToday > 0
+                      ? "Momentum is active today. Keep contributions flowing to reach the next landmark sooner."
+                      : "No logs yet today. One short session can restart the team’s visible momentum."}
+                  </p>
+                </Paper>
 
-            {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
-              <Paper className="rail-card" variant="outlined">
-                <h4>Quick Log</h4>
-                <LogForm activeExpeditionId={activeExpeditionId} />
-              </Paper>
+                {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+                  <Paper className="rail-card" variant="outlined">
+                    <h4>Quick Log</h4>
+                    <LogForm activeExpeditionId={activeExpeditionId} />
+                  </Paper>
+                )}
+              </>
+            )}
+
+            {tab === "feed" && (
+              <>
+                <Paper className="rail-card" variant="outlined">
+                  <h4>Recent Activity</h4>
+                  <p>{scopedActivity.length} total logs</p>
+                  <p>Latest: {latestActivityAt}</p>
+                </Paper>
+
+                <Paper className="rail-card coach-card" variant="outlined">
+                  <h4>Feed Insight</h4>
+                  <p>
+                    Encourage comments and reactions after each log to keep the team experience social, not just statistical.
+                  </p>
+                </Paper>
+
+                {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+                  <Paper className="rail-card" variant="outlined">
+                    <h4>Quick Log</h4>
+                    <LogForm activeExpeditionId={activeExpeditionId} />
+                  </Paper>
+                )}
+              </>
+            )}
+
+            {tab === "stats" && (
+              <>
+                <Paper className="rail-card" variant="outlined">
+                  <h4>Pacing Snapshot</h4>
+                  <p>{dashboardMetrics.weeklyKm.toFixed(1)} km this week</p>
+                  <p>{dashboardMetrics.activeWeek} members active this week</p>
+                </Paper>
+
+                <Paper className="rail-card coach-card" variant="outlined">
+                  <h4>Stats Insight</h4>
+                  <p>
+                    Keep weekly activity distributed across members to build a steadier route pace toward landmarks.
+                  </p>
+                </Paper>
+              </>
+            )}
+
+            {tab === "members" && (
+              <>
+                <Paper className="rail-card" variant="outlined">
+                  <h4>Team Activity</h4>
+                  <p>{dashboardMetrics.activeToday} active today</p>
+                  <p>{dashboardMetrics.activeWeek} active this week</p>
+                </Paper>
+
+                <Paper className="rail-card" variant="outlined">
+                  <h4>Member Actions</h4>
+                  <p>Invite and role tools are available in Settings.</p>
+                  <Button variant="outlined" onClick={() => setTab("settings")}>Open Settings</Button>
+                </Paper>
+              </>
             )}
           </aside>
         )}

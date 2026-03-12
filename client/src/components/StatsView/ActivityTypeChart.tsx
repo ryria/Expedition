@@ -2,7 +2,7 @@ import { useActivityLog } from "../../hooks/useActivityLog";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
 
 const COLORS: Record<string, string> = {
-  run: "#c0392b", row: "#2980b9", walk: "#27ae60", cycle: "#f39c12",
+  run: "#2563EB", row: "#14B8A6", walk: "#60A5FA", cycle: "#F59E0B",
 };
 
 interface ActivityTypeChartProps {

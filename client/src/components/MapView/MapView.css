@@ -11,6 +11,53 @@
   position: relative;
 }
 
+.map-overlay-chips {
+  position: absolute;
+  top: 3.1rem;
+  left: 0.8rem;
+  display: grid;
+  gap: 0.5rem;
+  z-index: 320;
+  pointer-events: none;
+}
+
+.map-overlay-chip {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.62rem;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.map-overlay-chip strong {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.map-overlay-chip span {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.map-overlay-chip.progress {
+  border-color: var(--accent-border);
+}
+
+.map-overlay-chip.milestone {
+  border-color: var(--milestone-border);
+  background: var(--milestone-bg);
+}
+
+.map-overlay-chip.activity {
+  border-color: var(--active-border);
+}
+
 /* ============================================================
    Stats bar (top)
    ============================================================ */
@@ -163,6 +210,25 @@
 .landmark-popup p { margin: 0.3rem 0 0; font-style: italic; font-size: 0.78rem; color: var(--text-muted); }
 .landmark-popup span { display: block; margin-top: 0.2rem; font-size: 0.72rem; color: var(--text-dim); }
 
+.frontier-pulse {
+  animation: frontierPulse 1.8s ease-out infinite;
+}
+
+@keyframes frontierPulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.95);
+  }
+  70% {
+    opacity: 0.12;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
 /* ============================================================
    Responsive
    ============================================================ */
@@ -170,6 +236,16 @@
 @media (max-width: 600px) {
   .map-controls { padding: 0.45rem 0.65rem; }
   .map-stats-bar { padding: 0.45rem 0.65rem; font-size: 0.8rem; gap: 0.75rem; }
+  .map-overlay-chips {
+    top: 2.8rem;
+    left: 0.55rem;
+    right: 0.55rem;
+  }
+  .map-overlay-chip {
+    min-width: 0;
+    width: fit-content;
+    max-width: 92%;
+  }
   .mode-toggle button { padding: 0.28rem 0.65rem; font-size: 0.78rem; }
   .legend-name { font-size: 0.76rem; }
   .person-legend { justify-content: center; }

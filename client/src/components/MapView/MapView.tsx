@@ -6,6 +6,7 @@ import { useActivityLog } from "../../hooks/useActivityLog";
 import { useMembers } from "../../hooks/useMembers";
 import { getTrailSegments } from "../../data/route";
 import { useRoadRoute } from "../../hooks/useRoadRoute";
+import { LANDMARKS } from "../../data/route";
 import "./MapView.css";
 
 type ViewMode = "asRan" | "contribution";
@@ -38,13 +39,33 @@ export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId
     [entries],
   );
   const segments = useMemo(() => getTrailSegments(orderedForTrail, members, mode), [orderedForTrail, members, mode]);
+  const nextLandmark = useMemo(
+    () => LANDMARKS.find((landmark) => landmark.km > totalKm) ?? LANDMARKS[LANDMARKS.length - 1],
+    [totalKm],
+  );
+  const completionLabel =
+    percentComplete > 0 && percentComplete < 0.1 ? "<0.1% complete" : `${percentComplete.toFixed(1)}% complete`;
 
   return (
     <div className="map-view">
       <div className="map-stats-bar">
         <span>{totalKm.toFixed(1)} km logged</span>
-        <span>{percentComplete.toFixed(1)}% complete</span>
+        <span>{completionLabel}</span>
         <span>{Math.max(routeTotalKm - totalKm, 0).toFixed(1)} km remaining</span>
+      </div>
+      <div className="map-overlay-chips">
+        <div className="map-overlay-chip progress">
+          <strong>{totalKm.toFixed(1)} / {routeTotalKm.toFixed(0)} km</strong>
+          <span>{completionLabel}</span>
+        </div>
+        <div className="map-overlay-chip milestone">
+          <strong>Next: {nextLandmark.name}</strong>
+          <span>{Math.max(nextLandmark.km - totalKm, 0).toFixed(1)} km away</span>
+        </div>
+        <div className="map-overlay-chip activity">
+          <strong>{entries.length} total activities</strong>
+          <span>{members.length} contributors</span>
+        </div>
       </div>
       <MapLeaflet
         segments={segments}
