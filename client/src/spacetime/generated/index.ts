@@ -40,13 +40,17 @@ import AddMemberReducer from "./add_member_reducer";
 import AddReactionReducer from "./add_reaction_reducer";
 import ArchiveExpeditionReducer from "./archive_expedition_reducer";
 import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
+import CloseChallengeStandingsReducer from "./close_challenge_standings_reducer";
 import CreateExpeditionReducer from "./create_expedition_reducer";
 import CreateInviteReducer from "./create_invite_reducer";
+import CreatePublicChallengeReducer from "./create_public_challenge_reducer";
 import DeleteExpeditionReducer from "./delete_expedition_reducer";
 import JoinExpeditionReducer from "./join_expedition_reducer";
+import JoinPublicChallengeReducer from "./join_public_challenge_reducer";
 import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
 import MarkNotificationReadReducer from "./mark_notification_read_reducer";
+import ModerateIntegrityEventReducer from "./moderate_integrity_event_reducer";
 import OpsBackfillLegacyExpeditionReducer from "./ops_backfill_legacy_expedition_reducer";
 import RemoveMemberReducer from "./remove_member_reducer";
 import ReportActivityAbuseReducer from "./report_activity_abuse_reducer";
@@ -56,6 +60,7 @@ import RevokeInviteReducer from "./revoke_invite_reducer";
 import SetConfigReducer from "./set_config_reducer";
 import SetExpeditionVisibilityReducer from "./set_expedition_visibility_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
+import SubmitChallengeActivityReducer from "./submit_challenge_activity_reducer";
 import TrackProductEventReducer from "./track_product_event_reducer";
 import TransferExpeditionOwnershipReducer from "./transfer_expedition_ownership_reducer";
 import UpsertEntitlementReducer from "./upsert_entitlement_reducer";
@@ -74,6 +79,8 @@ import * as SyncMyStravaActivitiesProcedure from "./sync_my_strava_activities_pr
 // Import all table schema definitions
 import AbuseReportRow from "./abuse_report_table";
 import ActivityLogRow from "./activity_log_table";
+import ChallengeActivityLogRow from "./challenge_activity_log_table";
+import ChallengeIntegrityEventRow from "./challenge_integrity_event_table";
 import CommentRow from "./comment_table";
 import EntitlementRow from "./entitlement_table";
 import ExpeditionRow from "./expedition_table";
@@ -84,6 +91,8 @@ import ModerationAuditRow from "./moderation_audit_table";
 import NotificationRow from "./notification_table";
 import OperationalCounterRow from "./operational_counter_table";
 import PlanSubscriptionRow from "./plan_subscription_table";
+import PublicChallengeRow from "./public_challenge_table";
+import PublicChallengeParticipantRow from "./public_challenge_participant_table";
 import ReactionRow from "./reaction_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -112,6 +121,28 @@ const tablesSchema = __schema({
       { name: 'activity_log_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ActivityLogRow),
+  challenge_activity_log: __table({
+    name: 'challenge_activity_log',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'challenge_activity_log_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ChallengeActivityLogRow),
+  challenge_integrity_event: __table({
+    name: 'challenge_integrity_event',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'challenge_integrity_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ChallengeIntegrityEventRow),
   comment: __table({
     name: 'comment',
     indexes: [
@@ -250,6 +281,36 @@ const tablesSchema = __schema({
       { name: 'plan_subscription_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, PlanSubscriptionRow),
+  public_challenge: __table({
+    name: 'public_challenge',
+    indexes: [
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { name: 'slug', algorithm: 'btree', columns: [
+        'slug',
+      ] },
+    ],
+    constraints: [
+      { name: 'public_challenge_id_key', constraint: 'unique', columns: ['id'] },
+      { name: 'public_challenge_slug_key', constraint: 'unique', columns: ['slug'] },
+    ],
+  }, PublicChallengeRow),
+  public_challenge_participant: __table({
+    name: 'public_challenge_participant',
+    indexes: [
+      { name: 'challenge_member_key', algorithm: 'btree', columns: [
+        'challengeMemberKey',
+      ] },
+      { name: 'id', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'public_challenge_participant_challenge_member_key_key', constraint: 'unique', columns: ['challengeMemberKey'] },
+      { name: 'public_challenge_participant_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PublicChallengeParticipantRow),
   reaction: __table({
     name: 'reaction',
     indexes: [
@@ -271,13 +332,17 @@ const reducersSchema = __reducers(
   __reducerSchema("add_reaction", AddReactionReducer),
   __reducerSchema("archive_expedition", ArchiveExpeditionReducer),
   __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
+  __reducerSchema("close_challenge_standings", CloseChallengeStandingsReducer),
   __reducerSchema("create_expedition", CreateExpeditionReducer),
   __reducerSchema("create_invite", CreateInviteReducer),
+  __reducerSchema("create_public_challenge", CreatePublicChallengeReducer),
   __reducerSchema("delete_expedition", DeleteExpeditionReducer),
   __reducerSchema("join_expedition", JoinExpeditionReducer),
+  __reducerSchema("join_public_challenge", JoinPublicChallengeReducer),
   __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),
   __reducerSchema("mark_notification_read", MarkNotificationReadReducer),
+  __reducerSchema("moderate_integrity_event", ModerateIntegrityEventReducer),
   __reducerSchema("ops_backfill_legacy_expedition", OpsBackfillLegacyExpeditionReducer),
   __reducerSchema("remove_member", RemoveMemberReducer),
   __reducerSchema("report_activity_abuse", ReportActivityAbuseReducer),
@@ -287,6 +352,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_config", SetConfigReducer),
   __reducerSchema("set_expedition_visibility", SetExpeditionVisibilityReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
+  __reducerSchema("submit_challenge_activity", SubmitChallengeActivityReducer),
   __reducerSchema("track_product_event", TrackProductEventReducer),
   __reducerSchema("transfer_expedition_ownership", TransferExpeditionOwnershipReducer),
   __reducerSchema("upsert_entitlement", UpsertEntitlementReducer),

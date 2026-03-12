@@ -19,11 +19,11 @@ export function SummaryStats({ activeExpeditionId, distanceUnit = "km" }: Summar
   const remainingToNext = next ? formatDistance(next.km - totalKm, distanceUnit) : "0.0";
   const unit = distanceUnitLabel(distanceUnit);
   return (
-    <div className="summary-stats">
+    <div className={`summary-stats ${next ? "summary-stats--four" : ""}`}>
       <div className="stat"><span className="stat-value">{formatDistance(totalKm, distanceUnit)}</span><span className="stat-label">{unit} logged</span></div>
       <div className="stat"><span className="stat-value">{pct}%</span><span className="stat-label">complete</span></div>
       {next && <div className="stat"><span className="stat-value">{remainingToNext}</span><span className="stat-label">{unit} to {next.name}</span></div>}
-      {next && <div className="stat"><span className="stat-value">{next.name}</span><span className="stat-label">next landmark</span></div>}
+      {next && <div className="stat"><span className="stat-value stat-value--landmark" title={next.name}>{next.name}</span><span className="stat-label">next landmark</span></div>}
     </div>
   );
 }

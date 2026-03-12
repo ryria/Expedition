@@ -60,6 +60,19 @@ const PRODUCT_EVENT_NAME_MAX_LEN: usize = 80;
 const PRODUCT_EVENT_PAYLOAD_MAX_LEN: usize = 4096;
 const OPERATION_STATUS_SUCCESS: &str = "success";
 const OPERATION_STATUS_FAILURE: &str = "failure";
+const CHALLENGE_STATUS_SCHEDULED: &str = "scheduled";
+const CHALLENGE_STATUS_ACTIVE: &str = "active";
+const CHALLENGE_STATUS_CLOSED: &str = "closed";
+const CHALLENGE_ACTIVITY_STATUS_ACCEPTED: &str = "accepted";
+const CHALLENGE_ACTIVITY_STATUS_FLAGGED: &str = "flagged";
+const CHALLENGE_ACTIVITY_STATUS_EXCLUDED: &str = "excluded";
+const CHALLENGE_ACTIVITY_STATUS_CONFIRMED: &str = "confirmed";
+const CHALLENGE_PARTICIPATION_JOINED: &str = "joined";
+const CHALLENGE_PARTICIPATION_COMPLETED: &str = "completed";
+const CHALLENGE_INTEGRITY_ACTION_AUTO_FLAG: &str = "auto_flag";
+const CHALLENGE_INTEGRITY_ACTION_CONFIRM: &str = "confirm";
+const CHALLENGE_INTEGRITY_ACTION_EXCLUDE: &str = "exclude";
+const CHALLENGE_INTEGRITY_ACTION_REQUEST_EVIDENCE: &str = "request_evidence";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -830,6 +843,76 @@ pub struct OperationalCounter {
     pub updated_at: Timestamp,
 }
 
+#[spacetimedb::table(accessor = public_challenge, public)]
+pub struct PublicChallenge {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[unique]
+    pub slug: String,
+    pub title: String,
+    pub route_target_km: f64,
+    pub capacity: u32,
+    pub start_epoch: i64,
+    pub end_epoch: i64,
+    pub registration_closes_epoch: i64,
+    pub status: String,
+    pub created_by_member_id: u64,
+    pub created_at: Timestamp,
+    pub closed_at: Option<Timestamp>,
+}
+
+#[spacetimedb::table(accessor = public_challenge_participant, public)]
+pub struct PublicChallengeParticipant {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub challenge_id: u64,
+    pub member_id: u64,
+    pub joined_at: Timestamp,
+    pub completion_state: String,
+    pub total_distance_km: f64,
+    pub flag_count: u32,
+    pub is_disqualified: bool,
+    #[unique]
+    pub challenge_member_key: String,
+}
+
+#[spacetimedb::table(accessor = challenge_activity_log, public)]
+pub struct ChallengeActivityLog {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub challenge_id: u64,
+    pub member_id: u64,
+    pub participant_id: u64,
+    pub activity_type: String,
+    pub distance_km: f64,
+    pub duration_minutes: f64,
+    pub occurred_at_epoch: i64,
+    pub status: String,
+    pub risk_score: u32,
+    pub flags_csv: String,
+    pub note: String,
+    pub submitted_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = challenge_integrity_event, public)]
+pub struct ChallengeIntegrityEvent {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub challenge_id: u64,
+    pub challenge_activity_log_id: u64,
+    pub member_id: u64,
+    pub risk_score: u32,
+    pub flags_csv: String,
+    pub action: String,
+    pub reason_enum: String,
+    pub created_at: Timestamp,
+    pub moderator_member_id: Option<u64>,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -948,6 +1031,153 @@ fn is_valid_subscription_status(status: &str) -> bool {
 
 fn now_epoch_seconds(ctx: &ReducerContext) -> i64 {
     (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64
+}
+
+fn require_challenge(ctx: &ReducerContext, challenge_id: u64) -> Result<PublicChallenge, String> {
+    ctx.db
+        .public_challenge()
+        .id()
+        .find(challenge_id)
+        .ok_or("public challenge not found".to_string())
+}
+
+fn challenge_member_key(challenge_id: u64, member_id: u64) -> String {
+    format!("{}:{}", challenge_id, member_id)
+}
+
+fn find_challenge_participant(
+    ctx: &ReducerContext,
+    challenge_id: u64,
+    member_id: u64,
+) -> Option<PublicChallengeParticipant> {
+    ctx.db
+        .public_challenge_participant()
+        .challenge_member_key()
+        .find(challenge_member_key(challenge_id, member_id))
+}
+
+fn has_challenge_admin_scope(ctx: &ReducerContext, member_id: u64) -> bool {
+    ctx.db.membership().iter().any(|membership| {
+        membership.member_id == member_id
+            && membership.status == "active"
+            && membership.left_at.is_none()
+            && (membership.role == MEMBERSHIP_ROLE_OWNER || membership.role == MEMBERSHIP_ROLE_ADMIN)
+    })
+}
+
+fn infer_challenge_status(now_epoch: i64, challenge: &PublicChallenge) -> String {
+    if challenge.closed_at.is_some() || challenge.status == CHALLENGE_STATUS_CLOSED {
+        CHALLENGE_STATUS_CLOSED.to_string()
+    } else if now_epoch >= challenge.start_epoch && now_epoch <= challenge.end_epoch {
+        CHALLENGE_STATUS_ACTIVE.to_string()
+    } else {
+        CHALLENGE_STATUS_SCHEDULED.to_string()
+    }
+}
+
+fn is_valid_challenge_activity_type(activity_type: &str) -> bool {
+    activity_type == "run" || activity_type == "walk" || activity_type == "cycle" || activity_type == "row"
+}
+
+fn pace_flag_for_activity(activity_type: &str, pace_min_per_km: f64) -> Option<&'static str> {
+    if activity_type == "run" && pace_min_per_km < 2.75 {
+        return Some("pace_outlier_run");
+    }
+    if activity_type == "walk" && pace_min_per_km < 5.0 {
+        return Some("pace_outlier_walk");
+    }
+    if activity_type == "cycle" && pace_min_per_km < 1.0 {
+        return Some("pace_outlier_cycle");
+    }
+    if activity_type == "row" && pace_min_per_km < 1.25 {
+        return Some("pace_outlier_row");
+    }
+
+    None
+}
+
+fn compute_trailing_median_daily_distance(
+    ctx: &ReducerContext,
+    member_id: u64,
+    now_epoch: i64,
+) -> Option<f64> {
+    let current_day = now_epoch / 86_400;
+    let mut daily_totals: Vec<f64> = (0..14)
+        .map(|day_offset| {
+            let day = current_day - day_offset;
+            let start = day * 86_400;
+            let end = start + 86_400;
+            ctx.db
+                .challenge_activity_log()
+                .iter()
+                .filter(|row| {
+                    row.member_id == member_id
+                        && row.occurred_at_epoch >= start
+                        && row.occurred_at_epoch < end
+                        && row.status != CHALLENGE_ACTIVITY_STATUS_EXCLUDED
+                })
+                .map(|row| row.distance_km)
+                .sum::<f64>()
+        })
+        .collect();
+
+    let has_any = daily_totals.iter().any(|value| *value > 0.0);
+    if !has_any {
+        return None;
+    }
+
+    daily_totals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mid = daily_totals.len() / 2;
+    if daily_totals.len() % 2 == 0 {
+        Some((daily_totals[mid - 1] + daily_totals[mid]) / 2.0)
+    } else {
+        Some(daily_totals[mid])
+    }
+}
+
+fn count_near_identical_logs_in_24h(
+    ctx: &ReducerContext,
+    challenge_id: u64,
+    member_id: u64,
+    distance_km: f64,
+    duration_minutes: f64,
+    occurred_at_epoch: i64,
+) -> usize {
+    let from_epoch = occurred_at_epoch - (24 * 60 * 60);
+    ctx.db
+        .challenge_activity_log()
+        .iter()
+        .filter(|row| {
+            row.challenge_id == challenge_id
+                && row.member_id == member_id
+                && row.occurred_at_epoch >= from_epoch
+                && row.occurred_at_epoch <= occurred_at_epoch
+                && row.status != CHALLENGE_ACTIVITY_STATUS_EXCLUDED
+        })
+        .filter(|row| {
+            let distance_delta = (row.distance_km - distance_km).abs();
+            let distance_ratio = if distance_km <= f64::EPSILON {
+                0.0
+            } else {
+                distance_delta / distance_km
+            };
+
+            let duration_delta = (row.duration_minutes - duration_minutes).abs();
+            let duration_ratio = if duration_minutes <= f64::EPSILON {
+                0.0
+            } else {
+                duration_delta / duration_minutes
+            };
+
+            distance_ratio <= 0.01 && duration_ratio <= 0.02
+        })
+        .count()
+}
+
+fn is_valid_challenge_integrity_action(action: &str) -> bool {
+    action == CHALLENGE_INTEGRITY_ACTION_CONFIRM
+        || action == CHALLENGE_INTEGRITY_ACTION_EXCLUDE
+        || action == CHALLENGE_INTEGRITY_ACTION_REQUEST_EVIDENCE
 }
 
 fn subscription_is_access_granting(status: &str) -> bool {
@@ -2596,6 +2826,519 @@ pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64
                 ctx.db.reaction().id().update(reaction);
             }
         }
+    }
+}
+
+#[spacetimedb::reducer]
+pub fn create_public_challenge(
+    ctx: &ReducerContext,
+    slug: String,
+    title: String,
+    route_target_km: f64,
+    capacity: u32,
+    start_epoch: i64,
+    end_epoch: i64,
+    registration_closes_epoch: i64,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("create_public_challenge: {}", err);
+            return;
+        }
+    };
+
+    if !has_challenge_admin_scope(ctx, me.id) {
+        log::error!("create_public_challenge: admin scope required");
+        return;
+    }
+
+    let slug = slug.trim().to_string();
+    if !is_valid_slug(&slug) {
+        log::error!("create_public_challenge: invalid slug");
+        return;
+    }
+
+    let title = title.trim().to_string();
+    if title.is_empty() {
+        log::error!("create_public_challenge: title cannot be empty");
+        return;
+    }
+
+    if route_target_km <= 0.0 {
+        log::error!("create_public_challenge: route_target_km must be > 0");
+        return;
+    }
+
+    if capacity == 0 {
+        log::error!("create_public_challenge: capacity must be > 0");
+        return;
+    }
+
+    if start_epoch >= end_epoch {
+        log::error!("create_public_challenge: invalid time window");
+        return;
+    }
+
+    if registration_closes_epoch > start_epoch {
+        log::error!("create_public_challenge: registration must close before start");
+        return;
+    }
+
+    if ctx.db.public_challenge().slug().find(slug.clone()).is_some() {
+        log::error!("create_public_challenge: slug already exists");
+        return;
+    }
+
+    ctx.db.public_challenge().insert(PublicChallenge {
+        id: 0,
+        slug,
+        title,
+        route_target_km,
+        capacity,
+        start_epoch,
+        end_epoch,
+        registration_closes_epoch,
+        status: CHALLENGE_STATUS_SCHEDULED.to_string(),
+        created_by_member_id: me.id,
+        created_at: ctx.timestamp,
+        closed_at: None,
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn join_public_challenge(ctx: &ReducerContext, challenge_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("join_public_challenge: {}", err);
+            return;
+        }
+    };
+
+    let mut challenge = match require_challenge(ctx, challenge_id) {
+        Ok(challenge) => challenge,
+        Err(err) => {
+            log::error!("join_public_challenge: {}", err);
+            return;
+        }
+    };
+
+    let now_epoch = now_epoch_seconds(ctx);
+    challenge.status = infer_challenge_status(now_epoch, &challenge);
+    if challenge.status == CHALLENGE_STATUS_CLOSED {
+        log::error!("join_public_challenge: challenge closed");
+        return;
+    }
+
+    if now_epoch > challenge.registration_closes_epoch {
+        log::error!("join_public_challenge: registration closed");
+        return;
+    }
+
+    if find_challenge_participant(ctx, challenge.id, me.id).is_some() {
+        return;
+    }
+
+    let participant_count = ctx
+        .db
+        .public_challenge_participant()
+        .iter()
+        .filter(|row| row.challenge_id == challenge.id)
+        .count() as u32;
+
+    if participant_count >= challenge.capacity {
+        log::error!("join_public_challenge: challenge is full");
+        return;
+    }
+
+    ctx.db
+        .public_challenge_participant()
+        .insert(PublicChallengeParticipant {
+            id: 0,
+            challenge_id: challenge.id,
+            member_id: me.id,
+            joined_at: ctx.timestamp,
+            completion_state: CHALLENGE_PARTICIPATION_JOINED.to_string(),
+            total_distance_km: 0.0,
+            flag_count: 0,
+            is_disqualified: false,
+            challenge_member_key: challenge_member_key(challenge.id, me.id),
+        });
+}
+
+#[spacetimedb::reducer]
+pub fn submit_challenge_activity(
+    ctx: &ReducerContext,
+    challenge_id: u64,
+    activity_type: String,
+    distance_km: f64,
+    duration_minutes: f64,
+    occurred_at_epoch: i64,
+    note: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("submit_challenge_activity: {}", err);
+            return;
+        }
+    };
+
+    let mut challenge = match require_challenge(ctx, challenge_id) {
+        Ok(challenge) => challenge,
+        Err(err) => {
+            log::error!("submit_challenge_activity: {}", err);
+            return;
+        }
+    };
+
+    let mut participant = match find_challenge_participant(ctx, challenge.id, me.id) {
+        Some(participant) => participant,
+        None => {
+            log::error!("submit_challenge_activity: challenge participant required");
+            return;
+        }
+    };
+
+    if participant.is_disqualified {
+        log::error!("submit_challenge_activity: participant disqualified");
+        return;
+    }
+
+    let normalized_activity_type = activity_type.trim().to_lowercase();
+    if !is_valid_challenge_activity_type(&normalized_activity_type) {
+        log::error!("submit_challenge_activity: invalid activity type");
+        return;
+    }
+
+    if distance_km <= 0.0 || duration_minutes <= 0.0 {
+        log::error!("submit_challenge_activity: distance and duration must be > 0");
+        return;
+    }
+
+    if occurred_at_epoch < challenge.start_epoch || occurred_at_epoch > challenge.end_epoch {
+        log::error!("submit_challenge_activity: occurred time outside challenge window");
+        return;
+    }
+
+    let now_epoch = now_epoch_seconds(ctx);
+    challenge.status = infer_challenge_status(now_epoch, &challenge);
+    if challenge.status == CHALLENGE_STATUS_CLOSED {
+        log::error!("submit_challenge_activity: challenge closed");
+        return;
+    }
+
+    let has_duplicate = ctx
+        .db
+        .challenge_activity_log()
+        .iter()
+        .any(|row| {
+            row.challenge_id == challenge.id
+                && row.member_id == me.id
+                && row.activity_type == normalized_activity_type
+                && (row.distance_km - distance_km).abs() < 0.001
+                && (row.duration_minutes - duration_minutes).abs() < 0.1
+                && (row.occurred_at_epoch - occurred_at_epoch).abs() <= 600
+        });
+    if has_duplicate {
+        log::error!("submit_challenge_activity: duplicate submission fingerprint");
+        return;
+    }
+
+    let pace_min_per_km = duration_minutes / distance_km;
+    let mut flags: Vec<String> = Vec::new();
+    let mut risk_score: u32 = 0;
+
+    if let Some(pace_flag) = pace_flag_for_activity(&normalized_activity_type, pace_min_per_km) {
+        flags.push(pace_flag.to_string());
+        risk_score = risk_score.saturating_add(40);
+    }
+
+    if challenge.route_target_km > 0.0 && distance_km > (challenge.route_target_km * 0.35) {
+        flags.push("distance_jump".to_string());
+        risk_score = risk_score.saturating_add(25);
+    }
+
+    let occurred_day = occurred_at_epoch / 86_400;
+    let occurred_day_start = occurred_day * 86_400;
+    let occurred_day_end = occurred_day_start + 86_400;
+    let today_distance_total = ctx
+        .db
+        .challenge_activity_log()
+        .iter()
+        .filter(|row| {
+            row.member_id == me.id
+                && row.occurred_at_epoch >= occurred_day_start
+                && row.occurred_at_epoch < occurred_day_end
+                && row.status != CHALLENGE_ACTIVITY_STATUS_EXCLUDED
+        })
+        .map(|row| row.distance_km)
+        .sum::<f64>()
+        + distance_km;
+
+    if let Some(median) = compute_trailing_median_daily_distance(ctx, me.id, occurred_at_epoch) {
+        if median > 0.0 && today_distance_total > (median * 4.0) {
+            flags.push("daily_spike".to_string());
+            risk_score = risk_score.saturating_add(25);
+        }
+    } else if today_distance_total > 120.0 {
+        flags.push("daily_spike".to_string());
+        risk_score = risk_score.saturating_add(25);
+    }
+
+    let near_identical_count = count_near_identical_logs_in_24h(
+        ctx,
+        challenge.id,
+        me.id,
+        distance_km,
+        duration_minutes,
+        occurred_at_epoch,
+    );
+    if near_identical_count >= 2 {
+        flags.push("pattern_anomaly".to_string());
+        risk_score = risk_score.saturating_add(20);
+    }
+
+    let status = if flags.is_empty() {
+        CHALLENGE_ACTIVITY_STATUS_ACCEPTED.to_string()
+    } else {
+        CHALLENGE_ACTIVITY_STATUS_FLAGGED.to_string()
+    };
+    let flags_csv = flags.join(",");
+
+    ctx.db.challenge_activity_log().insert(ChallengeActivityLog {
+        id: 0,
+        challenge_id: challenge.id,
+        member_id: me.id,
+        participant_id: participant.id,
+        activity_type: normalized_activity_type,
+        distance_km,
+        duration_minutes,
+        occurred_at_epoch,
+        status: status.clone(),
+        risk_score,
+        flags_csv: flags_csv.clone(),
+        note: note.trim().to_string(),
+        submitted_at: ctx.timestamp,
+    });
+
+    let inserted_log_id = ctx
+        .db
+        .challenge_activity_log()
+        .iter()
+        .filter(|row| {
+            row.challenge_id == challenge.id
+                && row.member_id == me.id
+                && row.participant_id == participant.id
+                && row.occurred_at_epoch == occurred_at_epoch
+        })
+        .map(|row| row.id)
+        .max()
+        .unwrap_or(0);
+
+    if !flags.is_empty() {
+        ctx.db.challenge_integrity_event().insert(ChallengeIntegrityEvent {
+            id: 0,
+            challenge_id: challenge.id,
+            challenge_activity_log_id: inserted_log_id,
+            member_id: me.id,
+            risk_score,
+            flags_csv,
+            action: CHALLENGE_INTEGRITY_ACTION_AUTO_FLAG.to_string(),
+            reason_enum: "heuristic_triggered".to_string(),
+            created_at: ctx.timestamp,
+            moderator_member_id: None,
+        });
+        participant.flag_count = participant.flag_count.saturating_add(1);
+    }
+
+    participant.total_distance_km += distance_km;
+    if participant.total_distance_km >= challenge.route_target_km {
+        participant.completion_state = CHALLENGE_PARTICIPATION_COMPLETED.to_string();
+    }
+
+    ctx.db
+        .public_challenge_participant()
+        .id()
+        .update(participant);
+}
+
+#[spacetimedb::reducer]
+pub fn moderate_integrity_event(
+    ctx: &ReducerContext,
+    integrity_event_id: u64,
+    action: String,
+    reason_enum: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("moderate_integrity_event: {}", err);
+            return;
+        }
+    };
+
+    if !has_challenge_admin_scope(ctx, me.id) {
+        log::error!("moderate_integrity_event: admin scope required");
+        return;
+    }
+
+    let event = match ctx.db.challenge_integrity_event().id().find(integrity_event_id) {
+        Some(event) => event,
+        None => {
+            log::error!("moderate_integrity_event: integrity event not found");
+            return;
+        }
+    };
+
+    let mut activity = match ctx
+        .db
+        .challenge_activity_log()
+        .id()
+        .find(event.challenge_activity_log_id)
+    {
+        Some(activity) => activity,
+        None => {
+            log::error!("moderate_integrity_event: challenge activity log missing");
+            return;
+        }
+    };
+
+    let normalized_action = action.trim().to_lowercase();
+    if !is_valid_challenge_integrity_action(&normalized_action) {
+        log::error!("moderate_integrity_event: invalid action");
+        return;
+    }
+
+    let mut participant = match ctx
+        .db
+        .public_challenge_participant()
+        .id()
+        .find(activity.participant_id)
+    {
+        Some(participant) => participant,
+        None => {
+            log::error!("moderate_integrity_event: participant missing");
+            return;
+        }
+    };
+
+    if normalized_action == CHALLENGE_INTEGRITY_ACTION_CONFIRM {
+        activity.status = CHALLENGE_ACTIVITY_STATUS_CONFIRMED.to_string();
+    }
+
+    if normalized_action == CHALLENGE_INTEGRITY_ACTION_EXCLUDE {
+        if activity.status != CHALLENGE_ACTIVITY_STATUS_EXCLUDED {
+            if participant.total_distance_km >= activity.distance_km {
+                participant.total_distance_km -= activity.distance_km;
+            } else {
+                participant.total_distance_km = 0.0;
+            }
+            activity.status = CHALLENGE_ACTIVITY_STATUS_EXCLUDED.to_string();
+        }
+    }
+
+    if normalized_action == CHALLENGE_INTEGRITY_ACTION_REQUEST_EVIDENCE {
+        activity.status = CHALLENGE_ACTIVITY_STATUS_FLAGGED.to_string();
+    }
+
+    let activity_challenge_id = activity.challenge_id;
+    ctx.db.challenge_activity_log().id().update(activity);
+
+    let challenge_route_target = ctx
+        .db
+        .public_challenge()
+        .id()
+        .find(activity_challenge_id)
+        .map(|challenge| challenge.route_target_km)
+        .unwrap_or(f64::MAX);
+
+    if participant.total_distance_km >= challenge_route_target {
+        participant.completion_state = CHALLENGE_PARTICIPATION_COMPLETED.to_string();
+    } else {
+        participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
+    }
+
+    ctx.db
+        .public_challenge_participant()
+        .id()
+        .update(participant);
+
+    ctx.db.challenge_integrity_event().insert(ChallengeIntegrityEvent {
+        id: 0,
+        challenge_id: event.challenge_id,
+        challenge_activity_log_id: event.challenge_activity_log_id,
+        member_id: event.member_id,
+        risk_score: event.risk_score,
+        flags_csv: event.flags_csv,
+        action: normalized_action,
+        reason_enum: reason_enum.trim().to_string(),
+        created_at: ctx.timestamp,
+        moderator_member_id: Some(me.id),
+    });
+}
+
+#[spacetimedb::reducer]
+pub fn close_challenge_standings(ctx: &ReducerContext, challenge_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("close_challenge_standings: {}", err);
+            return;
+        }
+    };
+
+    if !has_challenge_admin_scope(ctx, me.id) {
+        log::error!("close_challenge_standings: admin scope required");
+        return;
+    }
+
+    let mut challenge = match require_challenge(ctx, challenge_id) {
+        Ok(challenge) => challenge,
+        Err(err) => {
+            log::error!("close_challenge_standings: {}", err);
+            return;
+        }
+    };
+
+    let now_epoch = now_epoch_seconds(ctx);
+    if now_epoch < challenge.end_epoch + (24 * 60 * 60) {
+        log::error!("close_challenge_standings: challenge closeout window not reached");
+        return;
+    }
+
+    challenge.status = CHALLENGE_STATUS_CLOSED.to_string();
+    challenge.closed_at = Some(ctx.timestamp);
+    let challenge_id_value = challenge.id;
+    let challenge_route_target = challenge.route_target_km;
+    ctx.db.public_challenge().id().update(challenge);
+
+    let participant_ids: Vec<u64> = ctx
+        .db
+        .public_challenge_participant()
+        .iter()
+        .filter(|row| row.challenge_id == challenge_id_value)
+        .map(|row| row.id)
+        .collect();
+
+    for participant_id in participant_ids {
+        let Some(mut participant) = ctx.db.public_challenge_participant().id().find(participant_id) else {
+            continue;
+        };
+
+        if participant.is_disqualified {
+            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
+        } else if participant.total_distance_km >= challenge_route_target {
+            participant.completion_state = CHALLENGE_PARTICIPATION_COMPLETED.to_string();
+        } else {
+            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
+        }
+
+        ctx.db
+            .public_challenge_participant()
+            .id()
+            .update(participant);
     }
 }
 

@@ -53,6 +53,37 @@ export const BillingWebhookEvent = __t.object("BillingWebhookEvent", {
 });
 export type BillingWebhookEvent = __Infer<typeof BillingWebhookEvent>;
 
+export const ChallengeActivityLog = __t.object("ChallengeActivityLog", {
+  id: __t.u64(),
+  challengeId: __t.u64(),
+  memberId: __t.u64(),
+  participantId: __t.u64(),
+  activityType: __t.string(),
+  distanceKm: __t.f64(),
+  durationMinutes: __t.f64(),
+  occurredAtEpoch: __t.i64(),
+  status: __t.string(),
+  riskScore: __t.u32(),
+  flagsCsv: __t.string(),
+  note: __t.string(),
+  submittedAt: __t.timestamp(),
+});
+export type ChallengeActivityLog = __Infer<typeof ChallengeActivityLog>;
+
+export const ChallengeIntegrityEvent = __t.object("ChallengeIntegrityEvent", {
+  id: __t.u64(),
+  challengeId: __t.u64(),
+  challengeActivityLogId: __t.u64(),
+  memberId: __t.u64(),
+  riskScore: __t.u32(),
+  flagsCsv: __t.string(),
+  action: __t.string(),
+  reasonEnum: __t.string(),
+  createdAt: __t.timestamp(),
+  moderatorMemberId: __t.option(__t.u64()),
+});
+export type ChallengeIntegrityEvent = __Infer<typeof ChallengeIntegrityEvent>;
+
 export const Comment = __t.object("Comment", {
   id: __t.u64(),
   logId: __t.u64(),
@@ -198,6 +229,35 @@ export const ProductAnalyticsEvent = __t.object("ProductAnalyticsEvent", {
   createdAt: __t.timestamp(),
 });
 export type ProductAnalyticsEvent = __Infer<typeof ProductAnalyticsEvent>;
+
+export const PublicChallenge = __t.object("PublicChallenge", {
+  id: __t.u64(),
+  slug: __t.string(),
+  title: __t.string(),
+  routeTargetKm: __t.f64(),
+  capacity: __t.u32(),
+  startEpoch: __t.i64(),
+  endEpoch: __t.i64(),
+  registrationClosesEpoch: __t.i64(),
+  status: __t.string(),
+  createdByMemberId: __t.u64(),
+  createdAt: __t.timestamp(),
+  closedAt: __t.option(__t.timestamp()),
+});
+export type PublicChallenge = __Infer<typeof PublicChallenge>;
+
+export const PublicChallengeParticipant = __t.object("PublicChallengeParticipant", {
+  id: __t.u64(),
+  challengeId: __t.u64(),
+  memberId: __t.u64(),
+  joinedAt: __t.timestamp(),
+  completionState: __t.string(),
+  totalDistanceKm: __t.f64(),
+  flagCount: __t.u32(),
+  isDisqualified: __t.bool(),
+  challengeMemberKey: __t.string(),
+});
+export type PublicChallengeParticipant = __Infer<typeof PublicChallengeParticipant>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),

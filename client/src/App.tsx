@@ -7,6 +7,7 @@ import { MembersPanel } from "./components/MembersPanel/MembersPanel";
 import { SettingsPanel } from "./components/SettingsPanel/SettingsPanel";
 import { ActivityFeed } from "./components/LogView/ActivityFeed";
 import { LogForm } from "./components/LogView/LogForm";
+import { PublicChallengesPanel } from "./components/ChallengesPanel/PublicChallengesPanel";
 import { SummaryStats } from "./components/StatsView/SummaryStats";
 import { ActivityTypeChart } from "./components/StatsView/ActivityTypeChart";
 import { PersonBreakdown } from "./components/StatsView/PersonBreakdown";
@@ -45,7 +46,7 @@ import {
 } from "@mui/material";
 import "./App.css";
 
-type AppTab = "dashboard" | "map" | "feed" | "stats" | "members" | "settings";
+type AppTab = "dashboard" | "map" | "feed" | "stats" | "challenges" | "members" | "settings";
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
 
@@ -263,8 +264,8 @@ export default function App() {
     isSnapped: createRouteIsSnapped,
   } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
-  const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
-  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
+  const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
+  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
@@ -341,6 +342,8 @@ export default function App() {
         return "Activity Feed";
       case "stats":
         return "Stats";
+      case "challenges":
+        return "Challenges";
       case "members":
         return "Members";
       case "settings":
@@ -1240,6 +1243,10 @@ export default function App() {
               <LandmarksPassed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
             </div>
           </div>
+        )}
+
+        {tab === "challenges" && !showOnboardingFlow && !expeditionLoading && (
+          <PublicChallengesPanel linkedMemberId={linkedMember?.id ?? null} />
         )}
 
         {tab === "members" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
