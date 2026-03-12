@@ -98,7 +98,7 @@
 
 .mode-toggle button.active {
   background: var(--accent);
-  color: #0d1626;
+  color: #ffffff;
   box-shadow: var(--shadow-xs);
 }
 
@@ -152,7 +152,7 @@
 .landmark-popup .leaflet-popup-content-wrapper {
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text);
   box-shadow: var(--shadow-md);
   padding: 0.75rem 0.85rem;

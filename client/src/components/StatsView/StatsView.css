@@ -17,11 +17,11 @@
 .landmarks-passed h3,
 .kpi-dashboard h3 {
   margin: 0 0 0.6rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 .kpi-dashboard .summary-stats {
@@ -73,7 +73,7 @@
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-dim);
   font-family: ui-monospace, 'JetBrains Mono', monospace;
   line-height: 1.15;
   padding-top: 0.06em;
@@ -169,10 +169,10 @@
    ============================================================ */
 
 .landmark-item {
-  border-left: 2px solid var(--accent-border);
+  border-left: 2px solid var(--milestone-border);
   padding: 0.45rem 0.65rem;
   margin-bottom: 0.4rem;
-  background: var(--accent-bg);
+  background: var(--milestone-bg);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   animation: fadeSlideUp 0.24s ease both;
 }
@@ -181,9 +181,9 @@
 
 .km-badge {
   display: inline-block;
-  background: var(--accent-bg-hover);
-  color: var(--accent-text);
-  border: 1px solid var(--accent-border);
+  background: var(--milestone-bg);
+  color: var(--milestone);
+  border: 1px solid var(--milestone-border);
   border-radius: var(--radius-pill);
   padding: 0.05rem 0.45rem;
   font-size: 0.76rem;

@@ -34,11 +34,11 @@
 .settings-group:hover { border-color: var(--border-bright); }
 
 .settings-group h3 {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0.01em;
   margin-bottom: 0.65rem;
 }
 
@@ -94,7 +94,7 @@
 
 .theme-toggle button.active {
   background: var(--accent);
-  color: #0d1626;
+  color: #ffffff;
   box-shadow: var(--shadow-xs);
 }
 
@@ -148,7 +148,7 @@
 .strava-actions button {
   padding: 0.42rem 1rem;
   background: var(--accent);
-  color: #0d1626;
+  color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -160,7 +160,7 @@
 }
 
 .add-member button:hover,
-.strava-actions button:hover { background: var(--accent-text); }
+.strava-actions button:hover { background: var(--accent-dim); }
 .add-member button:active,
 .strava-actions button:active { transform: translateY(1px); }
 

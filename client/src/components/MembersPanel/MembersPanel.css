@@ -5,7 +5,7 @@
 .members-panel {
   width: min(640px, 100%);
   padding: 1.25rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--panel-bg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -57,7 +57,7 @@
   height: 28px !important;
   font-size: 0.8rem !important;
   flex-shrink: 0;
-  border-radius: var(--radius-xs) !important;
+  border-radius: 999px !important;
 }
 
 .member-name {

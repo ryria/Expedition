@@ -29,7 +29,7 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background: linear-gradient(90deg, transparent, var(--active), transparent);
   opacity: 0.6;
 }
 
@@ -66,17 +66,13 @@
 
 .app-title {
   font-family: 'Inter', sans-serif !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   font-size: 1rem !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase;
-  color: var(--accent) !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none;
+  color: var(--text) !important;
   line-height: 1.15 !important;
   white-space: nowrap;
-  background: linear-gradient(135deg, var(--accent), var(--accent-text));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* ============================================================
@@ -156,7 +152,7 @@
 }
 
 .toolbar-right .Mui-selected {
-  color: var(--bg) !important;
+  color: #ffffff !important;
   background: var(--accent) !important;
 }
 
@@ -210,7 +206,7 @@
   margin: var(--space-6) auto;
   margin-left: var(--space-5);
   padding: var(--space-6);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--panel-bg) !important;
   border: 1px solid var(--border) !important;
   max-width: 520px;
@@ -239,7 +235,7 @@
 
 .empty-state .MuiButton-contained {
   background: var(--accent) !important;
-  color: #0d1626 !important;
+  color: #ffffff !important;
   font-weight: 700;
   border-radius: var(--radius-sm) !important;
   text-transform: none;
