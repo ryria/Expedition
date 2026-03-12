@@ -17,6 +17,13 @@ import { DbConnection, tables } from "./spacetime/generated";
 import { emitExpeditionEvent } from "./hooks/expeditionEvents";
 import { OBS_EVENT_NAME, getSessionTraceId } from "./observability/telemetry";
 import { ROUTE_TEMPLATES, getRouteTemplate, type RouteTemplateKey } from "./data/routeTemplates";
+import { useRoadRoute } from "./hooks/useRoadRoute";
+import {
+  DISTANCE_UNIT_STORAGE_KEY,
+  distanceUnitLabel,
+  formatDistance,
+  type DistanceUnit,
+} from "./config";
 import {
   Alert,
   Avatar,
@@ -150,10 +157,20 @@ function loadInitialMapMode(): MapMode {
   return "asRan";
 }
 
+function loadInitialDistanceUnit(): DistanceUnit {
+  const stored = localStorage.getItem(DISTANCE_UNIT_STORAGE_KEY);
+  if (stored === "km" || stored === "mi") {
+    return stored;
+  }
+
+  return "km";
+}
+
 export default function App() {
   const [tab, setTab] = useState<AppTab>("dashboard");
   const [theme, setTheme] = useState<Theme>(loadInitialTheme);
   const [mapMode, setMapMode] = useState<MapMode>(loadInitialMapMode);
+  const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>(loadInitialDistanceUnit);
   const [activeExpeditionId, setActiveExpeditionId] = useState<bigint | null>(null);
   const [activeResolved, setActiveResolved] = useState(false);
   const [newExpeditionName, setNewExpeditionName] = useState("");
@@ -221,6 +238,10 @@ export default function App() {
     () => getRouteTemplate(activeExpedition?.routeTemplateKey),
     [activeExpedition?.routeTemplateKey],
   );
+  const { routeTotalKm: activeRouteTotalKm } = useRoadRoute(
+    activeRouteTemplate.waypoints,
+    activeRouteTemplate.key,
+  );
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
   const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
@@ -273,7 +294,7 @@ export default function App() {
         .map((row) => row.memberId.toString()),
     ).size;
 
-    const routeTotalKm = activeRouteTemplate.waypoints[activeRouteTemplate.waypoints.length - 1]?.[2] ?? 14500;
+    const routeTotalKm = activeRouteTotalKm;
     const completionPct = Math.min((totalKm / routeTotalKm) * 100, 100);
     const nextLandmark = activeRouteTemplate.landmarks.find((landmark) => landmark.km > totalKm) ?? activeRouteTemplate.landmarks[activeRouteTemplate.landmarks.length - 1];
     const remainingToLandmark = Math.max(nextLandmark.km - totalKm, 0);
@@ -288,7 +309,7 @@ export default function App() {
       nextLandmark,
       remainingToLandmark,
     };
-  }, [activeRouteTemplate, scopedActivity]);
+  }, [activeRouteTemplate, activeRouteTotalKm, scopedActivity]);
 
   function tabLabel(value: AppTab): string {
     switch (value) {
@@ -471,6 +492,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
   }, [mapMode]);
+
+  useEffect(() => {
+    localStorage.setItem(DISTANCE_UNIT_STORAGE_KEY, distanceUnit);
+  }, [distanceUnit]);
 
   useEffect(() => {
     const trackedEvents = [
@@ -701,6 +726,7 @@ export default function App() {
     dashboardMetrics.totalKm < 5
       ? "First steps on the route — your team has started the journey together."
       : "Every session keeps the team moving forward on the shared route.";
+  const distanceLabel = distanceUnitLabel(distanceUnit);
 
   return (
     <div className="app">
@@ -828,12 +854,12 @@ export default function App() {
             <section className="dashboard-hero">
               <div className="dashboard-hero-copy">
                 <p className="hero-kicker">{activeExpedition?.name ?? "Current Expedition"}</p>
-                <h2 className="hero-progress-number">{dashboardMetrics.totalKm.toFixed(1)} km</h2>
-                <p>{completionLabel} of {dashboardMetrics.routeTotalKm.toLocaleString()} km route</p>
-                <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km to {dashboardMetrics.nextLandmark.name}</p>
+                <h2 className="hero-progress-number">{formatDistance(dashboardMetrics.totalKm, distanceUnit)} {distanceLabel}</h2>
+                <p>{completionLabel} of {formatDistance(dashboardMetrics.routeTotalKm, distanceUnit, 0)} {distanceLabel} route</p>
+                <p>{formatDistance(dashboardMetrics.remainingToLandmark, distanceUnit)} {distanceLabel} to {dashboardMetrics.nextLandmark.name}</p>
                 <p className="hero-message">{journeyMessage}</p>
                 <div className="hero-meta-row">
-                  <span>+{dashboardMetrics.weeklyKm.toFixed(1)} km this week</span>
+                  <span>+{formatDistance(dashboardMetrics.weeklyKm, distanceUnit)} {distanceLabel} this week</span>
                   <span>{dashboardMetrics.activeToday} members active today</span>
                 </div>
               </div>
@@ -844,6 +870,7 @@ export default function App() {
                   onModeChange={setMapMode}
                   hubOpen={false}
                   activeExpeditionId={activeExpeditionId}
+                  distanceUnit={distanceUnit}
                 />
               </div>
             </section>
@@ -851,7 +878,7 @@ export default function App() {
             <section className="dashboard-cards-row">
               <Paper className="dashboard-card" variant="outlined">
                 <h3>Team Momentum</h3>
-                <p>{dashboardMetrics.weeklyKm.toFixed(1)} km this week</p>
+                <p>{formatDistance(dashboardMetrics.weeklyKm, distanceUnit)} {distanceLabel} this week</p>
                 <p>{dashboardMetrics.activeWeek} members active in the last 7 days</p>
               </Paper>
               <Paper className="dashboard-card" variant="outlined">
@@ -862,7 +889,7 @@ export default function App() {
               <Paper className="dashboard-card milestone-card" variant="outlined">
                 <h3>Next Milestone</h3>
                 <p>{dashboardMetrics.nextLandmark.name}</p>
-                <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km remaining</p>
+                <p>{formatDistance(dashboardMetrics.remainingToLandmark, distanceUnit)} {distanceLabel} remaining</p>
               </Paper>
             </section>
 
@@ -872,7 +899,7 @@ export default function App() {
                 {scopedActivity.length <= 1 && (
                   <p className="low-activity-note">Low activity so far — each new log will make the team journey feel more alive here.</p>
                 )}
-                <ActivityFeed activeExpeditionId={activeExpeditionId} />
+                <ActivityFeed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
               </Paper>
               <aside className="dashboard-insights">
                 <Paper className="coach-card" variant="outlined">
@@ -898,6 +925,7 @@ export default function App() {
             mapMode={mapMode}
             onMapModeChange={setMapMode}
             activeExpeditionId={activeExpeditionId}
+            distanceUnit={distanceUnit}
           />
         )}
 
@@ -912,7 +940,7 @@ export default function App() {
                   </p>
                 </Paper>
               )}
-              <ActivityFeed activeExpeditionId={activeExpeditionId} />
+              <ActivityFeed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
             </div>
           </div>
         )}
@@ -920,10 +948,10 @@ export default function App() {
         {tab === "stats" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="stats-shell">
-              <SummaryStats activeExpeditionId={activeExpeditionId} />
-              <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
-              <PersonBreakdown activeExpeditionId={activeExpeditionId} />
-              <LandmarksPassed activeExpeditionId={activeExpeditionId} />
+              <SummaryStats activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
+              <ActivityTypeChart activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
+              <PersonBreakdown activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
+              <LandmarksPassed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
             </div>
           </div>
         )}
@@ -943,6 +971,8 @@ export default function App() {
                 onThemeChange={setTheme}
                 mapMode={mapMode}
                 onMapModeChange={setMapMode}
+                distanceUnit={distanceUnit}
+                onDistanceUnitChange={setDistanceUnit}
                 activeExpedition={activeExpedition}
               />
             </div>
@@ -1026,7 +1056,7 @@ export default function App() {
         <DialogTitle>Log activity</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
           {activeExpeditionId != null && !expeditionLoading && !hasNoMembership ? (
-            <LogForm activeExpeditionId={activeExpeditionId} />
+            <LogForm activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
           ) : (
             <Typography variant="body2" className="page-subtitle">
               Select or create an expedition first.

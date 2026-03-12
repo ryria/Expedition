@@ -3,7 +3,7 @@ import { useAuth } from "react-oidc-context";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
 import { DbConnection, tables } from "../../spacetime/generated";
-import { DEFAULT_COLORS, STRAVA_CLIENT_ID } from "../../config";
+import { DEFAULT_COLORS, STRAVA_CLIENT_ID, type DistanceUnit } from "../../config";
 import "./SettingsPanel.css";
 
 type Theme = "dark" | "light";
@@ -92,6 +92,8 @@ interface SettingsPanelProps {
   onThemeChange: (theme: Theme) => void;
   mapMode: MapMode;
   onMapModeChange: (mode: MapMode) => void;
+  distanceUnit?: DistanceUnit;
+  onDistanceUnitChange?: (unit: DistanceUnit) => void;
   activeExpedition: {
     id: bigint;
     name: string;
@@ -104,6 +106,8 @@ export function SettingsPanel({
   onThemeChange,
   mapMode,
   onMapModeChange,
+  distanceUnit = "km",
+  onDistanceUnitChange = () => {},
   activeExpedition,
 }: SettingsPanelProps) {
   const auth = useAuth();
@@ -840,6 +844,26 @@ export function SettingsPanel({
               type="button"
             >
               Contribution
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Distance Units</h4>
+          <div className="theme-toggle" role="group" aria-label="Distance Units">
+            <button
+              className={distanceUnit === "km" ? "active" : ""}
+              onClick={() => onDistanceUnitChange("km")}
+              type="button"
+            >
+              Kilometers
+            </button>
+            <button
+              className={distanceUnit === "mi" ? "active" : ""}
+              onClick={() => onDistanceUnitChange("mi")}
+              type="button"
+            >
+              Miles
             </button>
           </div>
         </div>

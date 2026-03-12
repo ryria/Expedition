@@ -1,5 +1,5 @@
 import { useActivityLog } from "../../hooks/useActivityLog";
-import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
+import { ACTIVITY_TYPES, ACTIVITY_ICONS, distanceUnitLabel, formatDistance, type DistanceUnit } from "../../config";
 
 const COLORS: Record<string, string> = {
   run: "#2563EB", row: "#14B8A6", walk: "#60A5FA", cycle: "#F59E0B",
@@ -7,9 +7,10 @@ const COLORS: Record<string, string> = {
 
 interface ActivityTypeChartProps {
   activeExpeditionId?: bigint;
+  distanceUnit?: DistanceUnit;
 }
 
-export function ActivityTypeChart({ activeExpeditionId }: ActivityTypeChartProps) {
+export function ActivityTypeChart({ activeExpeditionId, distanceUnit = "km" }: ActivityTypeChartProps) {
   const { entries } = useActivityLog(activeExpeditionId);
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
   if (totalKm === 0) return <p>No data yet.</p>;
@@ -23,7 +24,7 @@ export function ActivityTypeChart({ activeExpeditionId }: ActivityTypeChartProps
           if (km === 0) return null;
           return (
             <div key={t} className="bar-segment" style={{ width: `${pct}%`, background: COLORS[t] }}
-              title={`${ACTIVITY_ICONS[t]} ${t}: ${km.toFixed(1)} km (${pct}%)`} />
+              title={`${ACTIVITY_ICONS[t]} ${t}: ${formatDistance(km, distanceUnit)} ${distanceUnitLabel(distanceUnit)} (${pct}%)`} />
           );
         })}
       </div>
@@ -34,7 +35,7 @@ export function ActivityTypeChart({ activeExpeditionId }: ActivityTypeChartProps
           return (
             <span key={t} className="act-legend-item">
               <span className="act-dot" style={{ background: COLORS[t] }} />
-              {ACTIVITY_ICONS[t]} {t}: {km.toFixed(1)} km
+              {ACTIVITY_ICONS[t]} {t}: {formatDistance(km, distanceUnit)} {distanceUnitLabel(distanceUnit)}
             </span>
           );
         })}

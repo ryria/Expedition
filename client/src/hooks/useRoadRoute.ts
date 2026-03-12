@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ROUTE_TOTAL_KM } from "../config";
 import {
-  WAYPOINTS,
   buildDistanceWaypointsFromPath,
   type RouteWaypoint,
 } from "../data/route";
@@ -90,7 +88,7 @@ function storeCachedPath(cacheKey: string, path: [number, number][]) {
 }
 
 export function useRoadRoute(
-  anchorWaypoints: RouteWaypoint[] = WAYPOINTS,
+  anchorWaypoints: RouteWaypoint[],
   cacheKeySuffix = "classic_trail",
 ): UseRoadRouteResult {
   const [waypoints, setWaypoints] = useState<RouteWaypoint[]>(anchorWaypoints);
@@ -101,7 +99,7 @@ export function useRoadRoute(
     const cacheKey = `${CACHE_KEY}:${cacheKeySuffix}`;
 
     if (anchorWaypoints.length < 2) {
-      setWaypoints(WAYPOINTS);
+      setWaypoints(anchorWaypoints);
       setIsSnapped(false);
       return;
     }
@@ -149,9 +147,12 @@ export function useRoadRoute(
   }, [anchorWaypoints, cacheKeySuffix]);
 
   const routeTotalKm = useMemo(() => {
-    if (waypoints.length === 0) return ROUTE_TOTAL_KM;
-    return waypoints[waypoints.length - 1][2] || ROUTE_TOTAL_KM;
-  }, [waypoints]);
+    if (waypoints.length === 0) {
+      return anchorWaypoints[anchorWaypoints.length - 1]?.[2] ?? 0;
+    }
+
+    return waypoints[waypoints.length - 1][2] || anchorWaypoints[anchorWaypoints.length - 1]?.[2] || 0;
+  }, [waypoints, anchorWaypoints]);
 
   return { waypoints, routeTotalKm, isSnapped };
 }

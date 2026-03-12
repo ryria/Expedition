@@ -1,10 +1,12 @@
 import { CircleMarker, Polyline, Tooltip } from "react-leaflet";
 import { buildSegmentLatLngs, interpolatePositionOnRoute, type RouteWaypoint, type TrailSegment } from "../../data/route";
+import { distanceUnitLabel, formatDistance, type DistanceUnit } from "../../config";
 
 interface Props {
   segments: TrailSegment[];
   totalKm: number;
   waypoints: RouteWaypoint[];
+  distanceUnit: DistanceUnit;
 }
 
 function getActivityPathOptions(seg: TrailSegment) {
@@ -33,7 +35,7 @@ function getActivityPathOptions(seg: TrailSegment) {
   return { color: seg.color, weight: 3, opacity: 0.95 };
 }
 
-export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
+export function TrailsPolyline({ segments, totalKm, waypoints, distanceUnit }: Props) {
   const fullRoute = waypoints.map(([lat, lng]): [number, number] => [lat, lng]);
 
   if (fullRoute.length < 2 && totalKm <= 0) return null;
@@ -58,7 +60,7 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
         const positions = buildSegmentLatLngs(seg.fromKm, seg.toKm, waypoints);
         if (positions.length < 2) return null;
         const pathOptions = getActivityPathOptions(seg);
-        const distKm = (seg.toKm - seg.fromKm).toFixed(1);
+        const distanceText = formatDistance(seg.toKm - seg.fromKm, distanceUnit);
         const dateStr = seg.date
           ? seg.date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
           : null;
@@ -67,7 +69,7 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
             <Tooltip sticky>
               <strong>{seg.person}</strong>
               <br />
-              {distKm} km
+              {distanceText} {distanceUnitLabel(distanceUnit)}
               {dateStr && <><br />{dateStr}</>}
             </Tooltip>
           </Polyline>
@@ -101,7 +103,7 @@ export function TrailsPolyline({ segments, totalKm, waypoints }: Props) {
               <Tooltip direction="top" offset={[0, -8]}>
                 <strong>Current frontier</strong>
                 <br />
-                {totalKm.toFixed(1)} km logged
+                {formatDistance(totalKm, distanceUnit)} {distanceUnitLabel(distanceUnit)} logged
               </Tooltip>
             </CircleMarker>
           </>

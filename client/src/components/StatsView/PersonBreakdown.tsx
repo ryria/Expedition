@@ -1,12 +1,13 @@
 import { useMembers } from "../../hooks/useMembers";
 import { useActivityLog } from "../../hooks/useActivityLog";
-import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
+import { ACTIVITY_TYPES, ACTIVITY_ICONS, distanceUnitLabel, formatDistance, type DistanceUnit } from "../../config";
 
 interface PersonBreakdownProps {
   activeExpeditionId?: bigint;
+  distanceUnit?: DistanceUnit;
 }
 
-export function PersonBreakdown({ activeExpeditionId }: PersonBreakdownProps) {
+export function PersonBreakdown({ activeExpeditionId, distanceUnit = "km" }: PersonBreakdownProps) {
   const { members } = useMembers(activeExpeditionId);
   const { entries } = useActivityLog(activeExpeditionId);
   return (
@@ -20,13 +21,13 @@ export function PersonBreakdown({ activeExpeditionId }: PersonBreakdownProps) {
             <div className="person-stat-header">
               <span className="swatch" style={{ background: m.colorHex }} />
               <strong>{m.name}</strong>
-              <span>{totalKm.toFixed(1)} km · {myEntries.length} activities</span>
+              <span>{formatDistance(totalKm, distanceUnit)} {distanceUnitLabel(distanceUnit)} · {myEntries.length} activities</span>
             </div>
             <div className="act-breakdown">
               {ACTIVITY_TYPES.map((t) => {
                 const km = myEntries.filter((e) => e.activityType === t).reduce((s, e) => s + e.distanceKm, 0);
                 if (km === 0) return null;
-                return <span key={t}>{ACTIVITY_ICONS[t]} {km.toFixed(1)} km</span>;
+                return <span key={t}>{ACTIVITY_ICONS[t]} {formatDistance(km, distanceUnit)} {distanceUnitLabel(distanceUnit)}</span>;
               })}
             </div>
           </div>

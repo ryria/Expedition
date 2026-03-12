@@ -178,6 +178,37 @@ describe("SettingsPanel invite/role security", () => {
     expect(reminderCadenceSelect.value).toBe("daily");
   });
 
+  it("updates display distance units", () => {
+    const onDistanceUnitChange = vi.fn();
+
+    mocks.useTableMock.mockImplementation((table) => {
+      if (table === tables.invite) return [[], true];
+      if (table === tables.expedition) {
+        return [[{ id: 10n, name: "Alpha", slug: "alpha", inviteOnly: false, isArchived: false }], true];
+      }
+      if (table === tables.membership) {
+        return [[{ id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null }], true];
+      }
+      if (table === tables.notification) return [[], true];
+      return [[], true];
+    });
+
+    render(
+      <SettingsPanel
+        theme="dark"
+        onThemeChange={() => {}}
+        mapMode="asRan"
+        onMapModeChange={() => {}}
+        distanceUnit="km"
+        onDistanceUnitChange={onDistanceUnitChange}
+        activeExpedition={{ id: 10n, name: "Alpha", slug: "alpha" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Miles" }));
+    expect(onDistanceUnitChange).toHaveBeenCalledWith("mi");
+  });
+
   it("allows owner to set expedition visibility to invite-only", () => {
     renderPanel([
       { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },

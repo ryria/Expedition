@@ -7,12 +7,16 @@ import { ACTIVITY_ICONS } from "../../config";
 import { useAuth } from "react-oidc-context";
 import { useSpacetimeDB } from "spacetimedb/react";
 import { DbConnection } from "../../spacetime/generated";
+import { distanceUnitLabel, formatDistance, type DistanceUnit } from "../../config";
 
 const EMOJIS = ["🔥", "💪", "🌊", "🎉", "😮", "❤️"];
 
-interface Props { entry: ActivityEntry; }
+interface Props {
+  entry: ActivityEntry;
+  distanceUnit: DistanceUnit;
+}
 
-export function ActivityCard({ entry }: Props) {
+export function ActivityCard({ entry, distanceUnit }: Props) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
   const { members } = useMembers(entry.expeditionId);
@@ -52,7 +56,7 @@ export function ActivityCard({ entry }: Props) {
           {ACTIVITY_ICONS[entry.activityType as keyof typeof ACTIVITY_ICONS] ?? "🏅"}
         </span>
         <strong>{displayName}</strong>
-        <span className="km">{entry.distanceKm.toFixed(1)} km</span>
+        <span className="km">{formatDistance(entry.distanceKm, distanceUnit)} {distanceUnitLabel(distanceUnit)}</span>
         <span className="ts">{entry.timestamp.toDate().toLocaleString()}</span>
       </div>
       {entry.note && <p className="note">{entry.note}</p>}

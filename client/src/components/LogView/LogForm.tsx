@@ -3,7 +3,14 @@ import { useAuth } from "react-oidc-context";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
 import { DbConnection, tables } from "../../spacetime/generated";
-import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
+import {
+  ACTIVITY_TYPES,
+  ACTIVITY_ICONS,
+  distanceUnitLabel,
+  formatDistance,
+  toStoredDistance,
+  type DistanceUnit,
+} from "../../config";
 
 type ActivityLogInsertRow = { id: bigint; memberId: bigint; expeditionId: bigint };
 type ExpeditionProcedures = {
@@ -22,9 +29,10 @@ const PENDING_SUBMISSION_TTL_MS = 5000;
 
 interface LogFormProps {
   activeExpeditionId?: bigint;
+  distanceUnit?: DistanceUnit;
 }
 
-export function LogForm({ activeExpeditionId }: LogFormProps) {
+export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProps) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
   const { members } = useMembers(activeExpeditionId);
@@ -36,6 +44,7 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const pendingSubmission = useRef<{ memberId: bigint; expeditionId: bigint; submittedAtMs: number } | null>(null);
   const sub = auth.user?.profile?.sub as string | undefined;
+  const maxDisplayDistance = Number(formatDistance(500, distanceUnit, 1)).toString();
 
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
 
@@ -71,7 +80,8 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
       setError("Select or create an expedition first (top bar).");
       return;
     }
-    const km = parseFloat(dist);
+    const enteredDistance = parseFloat(dist);
+    const km = toStoredDistance(enteredDistance, distanceUnit);
     const pending = pendingSubmission.current;
     if (pending) {
       if (Date.now() - pending.submittedAtMs < PENDING_SUBMISSION_TTL_MS) {
@@ -94,8 +104,8 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
       setError("You can only log activity for your linked member profile");
       return;
     }
-    if (!dist || isNaN(km) || km <= 0 || km > 500) {
-      setError("Distance must be 0.1–500 km"); return;
+    if (!dist || isNaN(km) || isNaN(enteredDistance) || enteredDistance <= 0 || km > 500) {
+      setError(`Distance must be 0.1–${maxDisplayDistance} ${distanceUnitLabel(distanceUnit)}`); return;
     }
     setSubmitting(true);
     try {
@@ -155,7 +165,7 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
 
       <input
         type="number" value={dist} onChange={(e) => setDist(e.target.value)}
-        placeholder="Distance (km)" min="0.1" max="500" step="0.1" required
+        placeholder={`Distance (${distanceUnitLabel(distanceUnit)})`} min="0.1" max={maxDisplayDistance} step="0.1" required
       />
 
       <textarea

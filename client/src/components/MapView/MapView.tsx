@@ -7,6 +7,7 @@ import { useMembers } from "../../hooks/useMembers";
 import { getTrailSegments } from "../../data/route";
 import { useRoadRoute } from "../../hooks/useRoadRoute";
 import { useExpeditionRouteTemplate } from "../../hooks/useExpeditionRouteTemplate";
+import { distanceUnitLabel, formatDistance, type DistanceUnit } from "../../config";
 import "./MapView.css";
 
 type ViewMode = "asRan" | "contribution";
@@ -18,6 +19,7 @@ interface MapViewProps {
   onModeChange: (mode: ViewMode) => void;
   hubOpen: boolean;
   activeExpeditionId: bigint;
+  distanceUnit: DistanceUnit;
 }
 
 export function completionPercent(totalKm: number, routeTotalKm: number): number {
@@ -27,7 +29,7 @@ export function completionPercent(totalKm: number, routeTotalKm: number): number
   return Math.min(raw, 100);
 }
 
-export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId }: MapViewProps) {
+export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId, distanceUnit }: MapViewProps) {
   const { entries } = useActivityLog(activeExpeditionId);
   const { members } = useMembers(activeExpeditionId);
   const routeTemplate = useExpeditionRouteTemplate(activeExpeditionId);
@@ -46,22 +48,23 @@ export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId
   );
   const completionLabel =
     percentComplete > 0 && percentComplete < 0.1 ? "<0.1% complete" : `${percentComplete.toFixed(1)}% complete`;
+  const unit = distanceUnitLabel(distanceUnit);
 
   return (
     <div className="map-view">
       <div className="map-stats-bar">
-        <span>{totalKm.toFixed(1)} km logged</span>
+        <span>{formatDistance(totalKm, distanceUnit)} {unit} logged</span>
         <span>{completionLabel}</span>
-        <span>{Math.max(routeTotalKm - totalKm, 0).toFixed(1)} km remaining</span>
+        <span>{formatDistance(Math.max(routeTotalKm - totalKm, 0), distanceUnit)} {unit} remaining</span>
       </div>
       <div className="map-overlay-chips">
         <div className="map-overlay-chip progress">
-          <strong>{totalKm.toFixed(1)} / {routeTotalKm.toFixed(0)} km</strong>
+          <strong>{formatDistance(totalKm, distanceUnit)} / {formatDistance(routeTotalKm, distanceUnit, 0)} {unit}</strong>
           <span>{completionLabel}</span>
         </div>
         <div className="map-overlay-chip milestone">
           <strong>Next: {nextLandmark.name}</strong>
-          <span>{Math.max(nextLandmark.km - totalKm, 0).toFixed(1)} km away</span>
+          <span>{formatDistance(Math.max(nextLandmark.km - totalKm, 0), distanceUnit)} {unit} away</span>
         </div>
         <div className="map-overlay-chip activity">
           <strong>{entries.length} total activities</strong>
@@ -73,12 +76,13 @@ export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId
         totalKm={totalKm}
         waypoints={waypoints}
         landmarks={routeTemplate.landmarks}
+        distanceUnit={distanceUnit}
         theme={theme}
         hubOpen={hubOpen}
       />
       <div className="map-controls">
         <ModeToggle mode={mode} onChange={onModeChange} />
-        <PersonLegend activeExpeditionId={activeExpeditionId} />
+        <PersonLegend activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
       </div>
     </div>
   );

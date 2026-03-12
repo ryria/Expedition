@@ -6,6 +6,7 @@ import { SummaryStats } from "../StatsView/SummaryStats";
 import { ActivityTypeChart } from "../StatsView/ActivityTypeChart";
 import { PersonBreakdown } from "../StatsView/PersonBreakdown";
 import { LandmarksPassed } from "../StatsView/LandmarksPassed";
+import { type DistanceUnit } from "../../config";
 import "../LogView/LogView.css";
 import "../StatsView/StatsView.css";
 import "./MapJournalView.css";
@@ -20,9 +21,10 @@ interface MapJournalViewProps {
   mapMode: MapMode;
   onMapModeChange: (mode: MapMode) => void;
   activeExpeditionId: bigint;
+  distanceUnit: DistanceUnit;
 }
 
-export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpeditionId }: MapJournalViewProps) {
+export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpeditionId, distanceUnit }: MapJournalViewProps) {
   const [progressMode, setProgressMode] = useState<ProgressMode>("progress");
   const [hubTab, setHubTab] = useState<HubTab>("progress");
 
@@ -35,6 +37,7 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
           onModeChange={onMapModeChange}
           hubOpen={true}
           activeExpeditionId={activeExpeditionId}
+          distanceUnit={distanceUnit}
         />
       </div>
 
@@ -82,13 +85,13 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
               <div className="accordion-body">
                 {progressMode === "progress" ? (
                   <>
-                    <SummaryStats activeExpeditionId={activeExpeditionId} />
-                    <LandmarksPassed activeExpeditionId={activeExpeditionId} />
+                    <SummaryStats activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
+                    <LandmarksPassed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
                   </>
                 ) : (
                   <>
-                    <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
-                    <PersonBreakdown activeExpeditionId={activeExpeditionId} />
+                    <ActivityTypeChart activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
+                    <PersonBreakdown activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
                   </>
                 )}
               </div>
@@ -102,7 +105,7 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
                 <p>Log distance and notes to move the expedition forward.</p>
               </div>
               <div className="accordion-body">
-                <LogForm activeExpeditionId={activeExpeditionId} />
+                <LogForm activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
               </div>
             </section>
           )}
@@ -114,7 +117,7 @@ export function MapJournalView({ theme, mapMode, onMapModeChange, activeExpediti
                 <p>See team updates, reactions, and comments in one place.</p>
               </div>
               <div className="accordion-body">
-                <ActivityFeed activeExpeditionId={activeExpeditionId} />
+                <ActivityFeed activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
               </div>
             </section>
           )}
