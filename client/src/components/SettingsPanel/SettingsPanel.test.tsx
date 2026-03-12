@@ -365,43 +365,46 @@ describe("SettingsPanel invite/role security", () => {
     });
   });
 
-  it("requires support intake metadata and creates triage ticket", () => {
+  it("shows bug-report popup guidance in support intake section", () => {
     renderPanel([
       { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
       { id: 2n, expeditionId: 10n, memberId: 2n, role: "member", status: "active", leftAt: null },
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Submit support ticket" }));
-    expect(screen.getByText("Issue summary is required.")).toBeTruthy();
-
-    fireEvent.change(screen.getByLabelText("Issue summary"), { target: { value: "Cannot join expedition" } });
-    fireEvent.change(screen.getByLabelText("Repro steps"), { target: { value: "Open invite link and submit token" } });
-    fireEvent.click(screen.getByRole("button", { name: "Submit support ticket" }));
-    expect(screen.getByText("Next action is required.")).toBeTruthy();
-
-    fireEvent.change(screen.getByLabelText("Next action"), { target: { value: "Assign BE owner for invite validation" } });
-    fireEvent.change(screen.getByLabelText("Support severity"), { target: { value: "blocker" } });
-    fireEvent.click(screen.getByRole("button", { name: "Submit support ticket" }));
-
-    expect(screen.getByText("Support ticket created and queued for triage.")).toBeTruthy();
-    expect(screen.getByText("Cannot join expedition")).toBeTruthy();
-    expect(mocks.trackProductEvent).toHaveBeenCalledWith({
-      eventName: "beta_support_ticket_submitted",
-      expeditionId: 10n,
-      payloadJson: expect.stringContaining("blocker"),
-    });
+    expect(screen.getByText(/Use the global/i)).toBeTruthy();
+    expect(screen.getByText("Report bug")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Submit support ticket" })).toBeNull();
   });
 
   it("updates ticket status through triage workflow and tracks KPI events", () => {
+    localStorage.setItem(
+      "expedition-beta-support-tickets:1:10",
+      JSON.stringify([
+        {
+          id: "ticket-1",
+          summary: "Sync stuck",
+          category: "performance",
+          source: "in_app",
+          impact: "high",
+          frequency: "single",
+          reproSteps: "Click sync and wait",
+          severity: "high",
+          status: "new",
+          owner: "unassigned",
+          nextAction: "Route to ops for sync diagnostics",
+          feedbackTag: "beta-feedback:performance:high",
+          createdAtIso: new Date().toISOString(),
+          triagedAtIso: null,
+          firstResponseAtIso: null,
+          closedAtIso: null,
+        },
+      ]),
+    );
+
     renderPanel([
       { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
       { id: 2n, expeditionId: 10n, memberId: 2n, role: "member", status: "active", leftAt: null },
     ]);
-
-    fireEvent.change(screen.getByLabelText("Issue summary"), { target: { value: "Sync stuck" } });
-    fireEvent.change(screen.getByLabelText("Repro steps"), { target: { value: "Click sync and wait" } });
-    fireEvent.change(screen.getByLabelText("Next action"), { target: { value: "Route to ops for sync diagnostics" } });
-    fireEvent.click(screen.getByRole("button", { name: "Submit support ticket" }));
 
     fireEvent.change(screen.getByLabelText("Status for Sync stuck"), { target: { value: "triaged" } });
     fireEvent.change(screen.getByLabelText("Owner for Sync stuck"), { target: { value: "Member" } });

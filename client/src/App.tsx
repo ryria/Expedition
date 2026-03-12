@@ -25,6 +25,10 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -42,6 +46,7 @@ type MapMode = "asRan" | "contribution";
 const THEME_STORAGE_KEY = "expedition-theme";
 const MAP_MODE_STORAGE_KEY = "expedition-map-mode";
 const ACTIVE_EXPEDITION_STORAGE_KEY = "expedition-active-id";
+const BETA_SUPPORT_TICKETS_STORAGE_KEY = "expedition-beta-support-tickets";
 
 interface ExpeditionRow {
   id: bigint;
@@ -64,6 +69,27 @@ interface ActivityLogRow {
   memberId: bigint;
   distanceKm: number;
   timestamp: { toDate: () => Date };
+}
+
+type BugSeverity = "low" | "medium" | "high" | "blocker";
+
+interface SupportTicketDraft {
+  id: string;
+  summary: string;
+  category: string;
+  source: string;
+  impact: string;
+  frequency: string;
+  reproSteps: string;
+  severity: BugSeverity;
+  status: "new";
+  owner: string;
+  nextAction: string;
+  feedbackTag: string;
+  createdAtIso: string;
+  triagedAtIso: string | null;
+  firstResponseAtIso: string | null;
+  closedAtIso: string | null;
 }
 
 interface AnalyticsReducers {
@@ -120,6 +146,13 @@ export default function App() {
   const [isCreatingExpedition, setIsCreatingExpedition] = useState(false);
   const [expeditionCreateError, setExpeditionCreateError] = useState("");
   const [pendingCreatedSlug, setPendingCreatedSlug] = useState<string | null>(null);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
+  const [bugSummary, setBugSummary] = useState("");
+  const [bugReproSteps, setBugReproSteps] = useState("");
+  const [bugNextAction, setBugNextAction] = useState("");
+  const [bugCategory, setBugCategory] = useState("bug");
+  const [bugSeverity, setBugSeverity] = useState<BugSeverity>("medium");
+  const [bugStatus, setBugStatus] = useState("");
   const auth = useAuth();
   const { members } = useMembers();
   const connectionState = useSpacetimeDB();
@@ -230,6 +263,96 @@ export default function App() {
       default:
         return value;
     }
+  }
+
+  function openBugReport() {
+    setBugStatus("");
+    setIsBugReportOpen(true);
+  }
+
+  function closeBugReport() {
+    setIsBugReportOpen(false);
+    setBugStatus("");
+  }
+
+  function handleSubmitBugReport(e: FormEvent) {
+    e.preventDefault();
+    setBugStatus("");
+
+    if (!activeExpedition || !linkedMember) {
+      setBugStatus("Select an active expedition and linked profile first.");
+      return;
+    }
+
+    if (!bugSummary.trim()) {
+      setBugStatus("Issue summary is required.");
+      return;
+    }
+
+    if (!bugReproSteps.trim()) {
+      setBugStatus("Repro steps are required.");
+      return;
+    }
+
+    if (!bugNextAction.trim()) {
+      setBugStatus("Next action is required.");
+      return;
+    }
+
+    const key = `${BETA_SUPPORT_TICKETS_STORAGE_KEY}:${linkedMember.id.toString()}:${activeExpedition.id.toString()}`;
+    const now = new Date().toISOString();
+    const feedbackTag = `beta-feedback:${bugCategory}:${bugSeverity}`;
+
+    const nextTicket: SupportTicketDraft = {
+      id: crypto.randomUUID(),
+      summary: bugSummary.trim(),
+      category: bugCategory,
+      source: "in_app",
+      impact: bugSeverity === "blocker" || bugSeverity === "high" ? "high" : "medium",
+      frequency: "single",
+      reproSteps: bugReproSteps.trim(),
+      severity: bugSeverity,
+      status: "new",
+      owner: "unassigned",
+      nextAction: bugNextAction.trim(),
+      feedbackTag,
+      createdAtIso: now,
+      triagedAtIso: null,
+      firstResponseAtIso: null,
+      closedAtIso: null,
+    };
+
+    let existingTickets: SupportTicketDraft[] = [];
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          existingTickets = parsed as SupportTicketDraft[];
+        }
+      }
+    } catch {
+      existingTickets = [];
+    }
+
+    localStorage.setItem(key, JSON.stringify([nextTicket, ...existingTickets]));
+    trackProductEvent(
+      "beta_support_ticket_submitted",
+      {
+        ticketId: nextTicket.id,
+        severity: nextTicket.severity,
+        category: nextTicket.category,
+      },
+      activeExpedition.id,
+    );
+
+    setBugSummary("");
+    setBugReproSteps("");
+    setBugNextAction("");
+    setBugCategory("bug");
+    setBugSeverity("medium");
+    setBugStatus("Bug report submitted.");
+    window.setTimeout(() => setIsBugReportOpen(false), 400);
   }
 
   function trackProductEvent(
@@ -519,6 +642,7 @@ export default function App() {
                 <p className="sidebar-user-subtle">Strava status in Settings</p>
               </div>
             </div>
+            <Button variant="outlined" onClick={openBugReport}>Report bug</Button>
             <Button variant="text" color="inherit" onClick={() => auth.signoutRedirect()}>
               Sign out
             </Button>
@@ -536,6 +660,7 @@ export default function App() {
             <div className="page-actions">
               <Button variant="contained" onClick={() => setTab("log")}>Log Activity</Button>
               <Button variant="outlined" onClick={() => setTab("members")}>Invite Members</Button>
+              <Button variant="outlined" onClick={openBugReport}>Report bug</Button>
             </div>
           </div>
 
@@ -738,6 +863,79 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      <Dialog open={isBugReportOpen} onClose={closeBugReport} fullWidth maxWidth="sm">
+        <DialogTitle>Report a bug</DialogTitle>
+        <Box component="form" onSubmit={handleSubmitBugReport}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
+            <TextField
+              label="Issue summary"
+              value={bugSummary}
+              onChange={(e) => setBugSummary(e.target.value)}
+              inputProps={{ maxLength: 120 }}
+              required
+              fullWidth
+            />
+
+            <FormControl fullWidth>
+              <InputLabel id="bug-category-label">Category</InputLabel>
+              <Select
+                labelId="bug-category-label"
+                value={bugCategory}
+                label="Category"
+                onChange={(e) => setBugCategory(e.target.value)}
+              >
+                <MenuItem value="bug">Bug</MenuItem>
+                <MenuItem value="onboarding">Onboarding</MenuItem>
+                <MenuItem value="collaboration">Collaboration</MenuItem>
+                <MenuItem value="performance">Performance</MenuItem>
+                <MenuItem value="billing">Billing</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel id="bug-severity-label">Severity</InputLabel>
+              <Select
+                labelId="bug-severity-label"
+                value={bugSeverity}
+                label="Severity"
+                onChange={(e) => setBugSeverity(e.target.value as BugSeverity)}
+              >
+                <MenuItem value="low">Low</MenuItem>
+                <MenuItem value="medium">Medium</MenuItem>
+                <MenuItem value="high">High</MenuItem>
+                <MenuItem value="blocker">Blocker</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Repro steps"
+              value={bugReproSteps}
+              onChange={(e) => setBugReproSteps(e.target.value)}
+              multiline
+              minRows={3}
+              required
+              fullWidth
+            />
+
+            <TextField
+              label="Suggested next action"
+              value={bugNextAction}
+              onChange={(e) => setBugNextAction(e.target.value)}
+              inputProps={{ maxLength: 140 }}
+              required
+              fullWidth
+            />
+
+            {bugStatus && <Typography className="field-error">{bugStatus}</Typography>}
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={closeBugReport}>Cancel</Button>
+            <Button type="submit" variant="contained">Submit report</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </div>
   );
 }
