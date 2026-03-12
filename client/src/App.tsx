@@ -265,7 +265,7 @@ export default function App() {
   } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
-  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges"];
+  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
@@ -956,6 +956,51 @@ export default function App() {
               <Button variant="outlined" onClick={() => setTab("members")} disabled={showOnboardingFlow}>Invite Members</Button>
               <Button variant="outlined" onClick={openBugReport}>Report bug</Button>
             </div>
+          </div>
+
+          {isRegistered && (
+            <div className="mobile-expedition-controls">
+              <FormControl size="small" sx={{ minWidth: 220 }}>
+                <InputLabel id="mobile-active-expedition-select-label">Expedition</InputLabel>
+                <Select
+                  labelId="mobile-active-expedition-select-label"
+                  value={activeExpeditionId?.toString() ?? ""}
+                  label="Expedition"
+                  onChange={(e) => handleSwitchExpedition(e.target.value)}
+                  disabled={!availableExpeditions.length}
+                >
+                  {!availableExpeditions.length && <MenuItem value="">No active expeditions</MenuItem>}
+                  {availableExpeditions.map((expedition) => (
+                    <MenuItem key={expedition.id.toString()} value={expedition.id.toString()}>
+                      {expedition.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button variant="outlined" onClick={openCreateExpedition} disabled={isCreatingExpedition}>
+                Create Expedition
+              </Button>
+            </div>
+          )}
+
+          <div className="mobile-quick-actions" aria-label="Mobile quick actions">
+            <Button
+              variant="outlined"
+              onClick={openNotifications}
+              disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
+            >
+              🔔 {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ""}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={openQuickLog}
+              disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
+            >
+              Log
+            </Button>
+            <Button variant="outlined" onClick={() => setTab("members")} disabled={showOnboardingFlow}>Invite</Button>
+            <Button variant="outlined" onClick={openBugReport}>Report</Button>
+            <Button variant="text" color="inherit" onClick={() => auth.signoutRedirect()}>Sign out</Button>
           </div>
 
         {expeditionLoading && (

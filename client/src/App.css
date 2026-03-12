@@ -540,6 +540,11 @@
   display: none;
 }
 
+.mobile-expedition-controls,
+.mobile-quick-actions {
+  display: none;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 230px minmax(0, 1fr);
@@ -569,11 +574,36 @@
   }
 
   .main-page-head {
+    flex-direction: column;
+    align-items: flex-start;
     margin-bottom: 0.7rem;
   }
 
   .page-actions {
     display: none;
+  }
+
+  .mobile-expedition-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .mobile-expedition-controls .MuiFormControl-root,
+  .mobile-expedition-controls .MuiButton-root {
+    width: 100%;
+  }
+
+  .mobile-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .mobile-quick-actions .MuiButton-root {
+    width: 100%;
   }
 
   .dashboard-hero {
@@ -597,8 +627,9 @@
   }
 
   .mobile-bottom-nav {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
     position: fixed;
     left: 0;
     right: 0;
@@ -609,9 +640,16 @@
     -webkit-backdrop-filter: var(--glass-blur);
     z-index: 240;
     padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+    scrollbar-width: none;
+  }
+
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .mobile-bottom-nav button {
+    flex: 1 0 auto;
+    min-width: 92px;
     border: none;
     border-radius: 0;
     background: transparent;
