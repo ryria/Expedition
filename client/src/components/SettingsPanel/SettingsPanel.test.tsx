@@ -205,6 +205,21 @@ describe("SettingsPanel invite/role security", () => {
     expect(mocks.acceptInvite).toHaveBeenCalledWith({ token: "expired-token" });
   });
 
+  it("creates invite with automatic max duration and usage limits", () => {
+    renderPanel([
+      { id: 1n, expeditionId: 10n, memberId: 1n, role: "owner", status: "active", leftAt: null },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate invite code" }));
+
+    expect(mocks.createInvite).toHaveBeenCalledWith({
+      expeditionId: 10n,
+      ttlMinutes: 43200,
+      maxUses: 10000,
+    });
+    expect(screen.getByText("Invite created. Share token from the active invites list.")).toBeTruthy();
+  });
+
   it("surfaces reducer rejection for forged role escalation", () => {
     mocks.setMembershipRole.mockImplementation(() => {
       throw new Error("set_membership_role: allowed roles are owner");

@@ -75,7 +75,8 @@
   font-weight: 700;
   color: var(--accent);
   font-family: ui-monospace, 'JetBrains Mono', monospace;
-  line-height: 1;
+  line-height: 1.15;
+  padding-top: 0.06em;
   margin-bottom: 0.2rem;
 }
 

@@ -188,6 +188,8 @@ const NOTIFICATION_PREFERENCES_STORAGE_KEY = "expedition-notification-preference
 const BETA_ONBOARDING_STORAGE_KEY = "expedition-beta-onboarding";
 const BETA_SUPPORT_TICKETS_STORAGE_KEY = "expedition-beta-support-tickets";
 const STRAVA_PENDING_CALLBACK_STORAGE_KEY = "expedition-strava-oauth-callback-pending";
+const AUTO_INVITE_TTL_MINUTES = 43_200;
+const AUTO_INVITE_MAX_USES = 10_000;
 
 const DEFAULT_BETA_ONBOARDING_STATUS: BetaOnboardingStatus = {
   inviteAccepted: false,
@@ -239,8 +241,6 @@ export function SettingsPanel({
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
   const [newExpeditionName, setNewExpeditionName] = useState("");
   const [inviteTokenInput, setInviteTokenInput] = useState("");
-  const [inviteTtlMinutes, setInviteTtlMinutes] = useState("1440");
-  const [inviteMaxUses, setInviteMaxUses] = useState("1");
   const [inviteStatus, setInviteStatus] = useState("");
   const [roleStatus, setRoleStatus] = useState("");
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
@@ -796,23 +796,12 @@ export function SettingsPanel({
       return;
     }
 
-    const ttl = Number(inviteTtlMinutes);
-    const maxUses = Number(inviteMaxUses);
-    if (!Number.isInteger(ttl) || ttl < 1 || ttl > 43200) {
-      setInviteStatus("TTL must be between 1 and 43200 minutes.");
-      return;
-    }
-    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) {
-      setInviteStatus("Max uses must be between 1 and 10000.");
-      return;
-    }
-
     try {
       setIsCreatingInvite(true);
       conn.reducers.createInvite({
         expeditionId: activeExpedition.id,
-        ttlMinutes: ttl,
-        maxUses,
+        ttlMinutes: AUTO_INVITE_TTL_MINUTES,
+        maxUses: AUTO_INVITE_MAX_USES,
       });
       setInviteStatus("Invite created. Share token from the active invites list.");
     } catch (err) {
@@ -1287,30 +1276,13 @@ export function SettingsPanel({
 
       <section className="settings-group">
         <h3>Team Invites</h3>
-        <p>Create, revoke, and redeem invitation tokens for this expedition.</p>
+        <p>Create, revoke, and redeem invitation tokens for this expedition. New codes are auto-configured for max duration and usage limits.</p>
         <div className="strava-actions">
-          <input
-            type="number"
-            min={1}
-            max={43200}
-            value={inviteTtlMinutes}
-            onChange={(e) => setInviteTtlMinutes(e.target.value)}
-            placeholder="TTL (minutes)"
-            className="invite-input"
-          />
-          <input
-            type="number"
-            min={1}
-            max={10000}
-            value={inviteMaxUses}
-            onChange={(e) => setInviteMaxUses(e.target.value)}
-            placeholder="Max uses"
-            className="invite-input"
-          />
           <button type="button" onClick={handleCreateInvite} disabled={!canManageInvites || isCreatingInvite}>
-            {isCreatingInvite ? "Creating…" : "Create invite"}
+            {isCreatingInvite ? "Creating…" : "Generate invite code"}
           </button>
         </div>
+        <p>Current system limits: expires in 30 days, up to 10,000 uses per code.</p>
 
         {!canManageInvites && (
           <p>Owner/admin membership is required to create and revoke invites for the active expedition.</p>
