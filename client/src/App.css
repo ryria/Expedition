@@ -245,6 +245,40 @@
   color: var(--text-muted);
 }
 
+.create-route-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--panel-bg);
+}
+
+.create-route-preview-map {
+  height: 220px;
+}
+
+.create-route-preview-map .map-leaflet {
+  height: 100%;
+  min-height: 220px;
+}
+
+.create-route-preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.create-route-preview-metric {
+  color: var(--text);
+  font-size: 0.83rem;
+}
+
+.create-route-preview-note {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
 /* ============================================================
    Dashboard layout
    ============================================================ */

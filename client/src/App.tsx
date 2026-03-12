@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { MapJournalView } from "./components/MapView/MapJournalView";
 import { MapView } from "./components/MapView/MapView";
+import { MapLeaflet } from "./components/MapView/MapLeaflet";
 import { MembersPanel } from "./components/MembersPanel/MembersPanel";
 import { SettingsPanel } from "./components/SettingsPanel/SettingsPanel";
 import { ActivityFeed } from "./components/LogView/ActivityFeed";
@@ -242,6 +243,15 @@ export default function App() {
     activeRouteTemplate.waypoints,
     activeRouteTemplate.key,
   );
+  const createRouteTemplate = useMemo(
+    () => getRouteTemplate(newExpeditionRouteTemplateKey),
+    [newExpeditionRouteTemplateKey],
+  );
+  const {
+    waypoints: createRoutePreviewWaypoints,
+    routeTotalKm: createRouteTotalKm,
+    isSnapped: createRouteIsSnapped,
+  } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
   const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
@@ -1038,8 +1048,38 @@ export default function App() {
             </FormControl>
 
             <Typography variant="body2" className="page-subtitle">
-              {ROUTE_TEMPLATES.find((template) => template.key === newExpeditionRouteTemplateKey)?.description}
+              {createRouteTemplate.description}
             </Typography>
+
+            <Box className="create-route-preview" aria-label="Route preview">
+              <Box className="create-route-preview-map">
+                <MapLeaflet
+                  segments={[]}
+                  totalKm={0}
+                  waypoints={createRoutePreviewWaypoints}
+                  landmarks={createRouteTemplate.landmarks}
+                  distanceUnit={distanceUnit}
+                  theme={theme}
+                  hubOpen={false}
+                />
+              </Box>
+              <Box className="create-route-preview-meta">
+                <Typography variant="body2" className="create-route-preview-metric">
+                  Distance required: {formatDistance(createRouteTotalKm, distanceUnit)} {distanceLabel}
+                </Typography>
+                <Typography variant="body2" className="create-route-preview-metric">
+                  Route points: {createRoutePreviewWaypoints.length}
+                </Typography>
+                <Typography variant="body2" className="create-route-preview-metric">
+                  Start: {createRouteTemplate.landmarks[0]?.name ?? "Start"} · Finish: {createRouteTemplate.landmarks[createRouteTemplate.landmarks.length - 1]?.name ?? "Finish"}
+                </Typography>
+                <Typography variant="caption" className="create-route-preview-note">
+                  {createRouteIsSnapped
+                    ? "Distance shown is road-snapped for this route."
+                    : "Distance shown is estimated from route waypoints while road snapping loads."}
+                </Typography>
+              </Box>
+            </Box>
 
             {expeditionCreateError && <Alert severity="error">{expeditionCreateError}</Alert>}
           </DialogContent>
