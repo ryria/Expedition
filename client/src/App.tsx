@@ -38,7 +38,7 @@ import {
 } from "@mui/material";
 import "./App.css";
 
-type AppTab = "dashboard" | "map" | "log" | "feed" | "stats" | "members" | "settings";
+type AppTab = "dashboard" | "map" | "feed" | "stats" | "members" | "settings";
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
 
@@ -68,6 +68,21 @@ interface ActivityLogRow {
   memberId: bigint;
   distanceKm: number;
   timestamp: { toDate: () => Date };
+}
+
+interface NotificationRow {
+  id: bigint;
+  recipientMemberId: bigint;
+  actorMemberId: bigint;
+  expeditionId: bigint;
+  eventKind: string;
+  title: string;
+  body: string;
+  entityType: string;
+  entityId: bigint;
+  isRead: boolean;
+  createdAt: { toDate: () => Date };
+  readAt: unknown;
 }
 
 type BugSeverity = "low" | "medium" | "high" | "blocker";
@@ -146,6 +161,7 @@ export default function App() {
   const [expeditionCreateError, setExpeditionCreateError] = useState("");
   const [pendingCreatedSlug, setPendingCreatedSlug] = useState<string | null>(null);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugSummary, setBugSummary] = useState("");
   const [bugReproSteps, setBugReproSteps] = useState("");
@@ -153,12 +169,15 @@ export default function App() {
   const [bugCategory, setBugCategory] = useState("bug");
   const [bugSeverity, setBugSeverity] = useState<BugSeverity>("medium");
   const [bugStatus, setBugStatus] = useState("");
+  const [markingNotificationId, setMarkingNotificationId] = useState<bigint | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState("");
   const auth = useAuth();
   const { members } = useMembers();
   const connectionState = useSpacetimeDB();
   const [expeditionRows] = useTable(tables.expedition);
   const [membershipRows] = useTable(tables.membership);
   const [activityLogRows] = useTable(tables.activity_log);
+  const [notificationRows] = useTable(tables.notification);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const isRegistered = members.some((m) => sub != null && m.ownerSub === sub);
@@ -197,7 +216,7 @@ export default function App() {
   );
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
-  const mobileNavTabs: AppTab[] = ["dashboard", "map", "log", "feed", "stats"];
+  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
@@ -205,6 +224,24 @@ export default function App() {
       .filter((row) => row.expeditionId === activeExpeditionId)
       .sort((a, b) => a.timestamp.toDate().getTime() - b.timestamp.toDate().getTime());
   }, [activityLogRows, activeExpeditionId]);
+
+  const visibleNotifications = useMemo(() => {
+    if (!activeExpeditionId || !linkedMember) return [] as NotificationRow[];
+
+    return [...(notificationRows as readonly NotificationRow[])]
+      .filter(
+        (row) =>
+          row.expeditionId === activeExpeditionId &&
+          row.recipientMemberId === linkedMember.id,
+      )
+      .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime())
+      .slice(0, 20);
+  }, [activeExpeditionId, linkedMember, notificationRows]);
+
+  const unreadNotificationCount = useMemo(
+    () => visibleNotifications.filter((notification) => !notification.isRead).length,
+    [visibleNotifications],
+  );
 
   const dashboardMetrics = useMemo(() => {
     const now = Date.now();
@@ -250,8 +287,6 @@ export default function App() {
         return "Dashboard";
       case "map":
         return "Map";
-      case "log":
-        return "Log";
       case "feed":
         return "Activity Feed";
       case "stats":
@@ -278,9 +313,36 @@ export default function App() {
     setIsQuickLogOpen(false);
   }
 
+  function openNotifications() {
+    setNotificationStatus("");
+    setIsNotificationsOpen(true);
+  }
+
+  function closeNotifications() {
+    setIsNotificationsOpen(false);
+    setNotificationStatus("");
+  }
+
   function closeBugReport() {
     setIsBugReportOpen(false);
     setBugStatus("");
+  }
+
+  function handleMarkNotificationRead(notificationId: bigint) {
+    setNotificationStatus("");
+    if (!connectionState.getConnection()) {
+      setNotificationStatus("SpacetimeDB not connected");
+      return;
+    }
+
+    try {
+      setMarkingNotificationId(notificationId);
+      connectionState.getConnection()?.reducers.markNotificationRead({ notificationId });
+    } catch (err) {
+      setNotificationStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMarkingNotificationId(null);
+    }
   }
 
   function handleSubmitBugReport(e: FormEvent) {
@@ -674,6 +736,13 @@ export default function App() {
             </div>
             <div className="page-actions">
               <Button
+                variant="outlined"
+                onClick={openNotifications}
+                disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
+              >
+                🔔 {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ""}
+              </Button>
+              <Button
                 variant="contained"
                 onClick={openQuickLog}
                 disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
@@ -801,14 +870,6 @@ export default function App() {
           />
         )}
 
-        {tab === "log" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
-          <div className="content-shell">
-            <div className="log-only-panel">
-              <LogForm activeExpeditionId={activeExpeditionId} />
-            </div>
-          </div>
-        )}
-
         {tab === "feed" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="feed-shell">
@@ -889,6 +950,55 @@ export default function App() {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeQuickLog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={isNotificationsOpen} onClose={closeNotifications} fullWidth maxWidth="sm">
+        <DialogTitle>
+          Notifications {unreadNotificationCount > 0 ? `(Unread: ${unreadNotificationCount})` : ""}
+        </DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
+          {!activeExpeditionId || !linkedMember ? (
+            <Typography variant="body2" className="page-subtitle">
+              Select an active expedition to view notifications.
+            </Typography>
+          ) : visibleNotifications.length === 0 ? (
+            <Typography variant="body2" className="page-subtitle">
+              No notifications yet for this expedition.
+            </Typography>
+          ) : (
+            <div className="notification-modal-list">
+              {visibleNotifications.map((notification) => (
+                <div
+                  key={notification.id.toString()}
+                  className={`notification-modal-row ${notification.isRead ? "" : "unread"}`}
+                >
+                  <div className="notification-modal-copy">
+                    <span className="notification-modal-title">{notification.title}</span>
+                    <span className="notification-modal-meta">
+                      {notification.body} · {notification.createdAt.toDate().toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleMarkNotificationRead(notification.id)}
+                    disabled={notification.isRead || markingNotificationId === notification.id}
+                  >
+                    {notification.isRead
+                      ? "Read"
+                      : markingNotificationId === notification.id
+                        ? "Marking…"
+                        : "Mark read"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {notificationStatus && <Typography className="field-error">{notificationStatus}</Typography>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeNotifications}>Close</Button>
         </DialogActions>
       </Dialog>
 

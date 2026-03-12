@@ -194,6 +194,46 @@
   font-size: 0.84rem;
 }
 
+.notification-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.notification-modal-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.notification-modal-row.unread {
+  border-color: var(--active-border);
+  background: var(--active-bg);
+}
+
+.notification-modal-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.notification-modal-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.notification-modal-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 /* ============================================================
    Dashboard layout
    ============================================================ */
@@ -446,7 +486,7 @@
 
   .mobile-bottom-nav {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     position: fixed;
     left: 0;
     right: 0;
