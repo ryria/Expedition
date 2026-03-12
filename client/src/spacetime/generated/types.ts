@@ -246,6 +246,13 @@ export const PublicChallenge = __t.object("PublicChallenge", {
 });
 export type PublicChallenge = __Infer<typeof PublicChallenge>;
 
+export const PublicChallengeMonitorSchedule = __t.object("PublicChallengeMonitorSchedule", {
+  id: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  jobName: __t.string(),
+});
+export type PublicChallengeMonitorSchedule = __Infer<typeof PublicChallengeMonitorSchedule>;
+
 export const PublicChallengeParticipant = __t.object("PublicChallengeParticipant", {
   id: __t.u64(),
   challengeId: __t.u64(),

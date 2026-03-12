@@ -29,6 +29,7 @@ import ReportActivityAbuseReducer from "../report_activity_abuse_reducer";
 import ReportCommentAbuseReducer from "../report_comment_abuse_reducer";
 import ReviewAbuseReportReducer from "../review_abuse_report_reducer";
 import RevokeInviteReducer from "../revoke_invite_reducer";
+import RunPublicChallengeMonitorNowReducer from "../run_public_challenge_monitor_now_reducer";
 import SetConfigReducer from "../set_config_reducer";
 import SetExpeditionVisibilityReducer from "../set_expedition_visibility_reducer";
 import SetMembershipRoleReducer from "../set_membership_role_reducer";
@@ -61,6 +62,7 @@ export type ReportActivityAbuseParams = __Infer<typeof ReportActivityAbuseReduce
 export type ReportCommentAbuseParams = __Infer<typeof ReportCommentAbuseReducer>;
 export type ReviewAbuseReportParams = __Infer<typeof ReviewAbuseReportReducer>;
 export type RevokeInviteParams = __Infer<typeof RevokeInviteReducer>;
+export type RunPublicChallengeMonitorNowParams = __Infer<typeof RunPublicChallengeMonitorNowReducer>;
 export type SetConfigParams = __Infer<typeof SetConfigReducer>;
 export type SetExpeditionVisibilityParams = __Infer<typeof SetExpeditionVisibilityReducer>;
 export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;

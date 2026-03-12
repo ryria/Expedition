@@ -57,6 +57,7 @@ import ReportActivityAbuseReducer from "./report_activity_abuse_reducer";
 import ReportCommentAbuseReducer from "./report_comment_abuse_reducer";
 import ReviewAbuseReportReducer from "./review_abuse_report_reducer";
 import RevokeInviteReducer from "./revoke_invite_reducer";
+import RunPublicChallengeMonitorNowReducer from "./run_public_challenge_monitor_now_reducer";
 import SetConfigReducer from "./set_config_reducer";
 import SetExpeditionVisibilityReducer from "./set_expedition_visibility_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
@@ -349,6 +350,7 @@ const reducersSchema = __reducers(
   __reducerSchema("report_comment_abuse", ReportCommentAbuseReducer),
   __reducerSchema("review_abuse_report", ReviewAbuseReportReducer),
   __reducerSchema("revoke_invite", RevokeInviteReducer),
+  __reducerSchema("run_public_challenge_monitor_now", RunPublicChallengeMonitorNowReducer),
   __reducerSchema("set_config", SetConfigReducer),
   __reducerSchema("set_expedition_visibility", SetExpeditionVisibilityReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),

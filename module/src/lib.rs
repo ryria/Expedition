@@ -1,7 +1,8 @@
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
-use spacetimedb::{ProcedureContext, ReducerContext, Table, Timestamp};
+use spacetimedb::{ProcedureContext, ReducerContext, ScheduleAt, Table, Timestamp};
+use std::time::Duration;
 
 const STDB_AUTH_ISSUER: &str = "https://auth.spacetimedb.com/oidc";
 const CONFIG_OWNER_SUB_KEY: &str = "_config_owner_sub";
@@ -73,6 +74,13 @@ const CHALLENGE_INTEGRITY_ACTION_AUTO_FLAG: &str = "auto_flag";
 const CHALLENGE_INTEGRITY_ACTION_CONFIRM: &str = "confirm";
 const CHALLENGE_INTEGRITY_ACTION_EXCLUDE: &str = "exclude";
 const CHALLENGE_INTEGRITY_ACTION_REQUEST_EVIDENCE: &str = "request_evidence";
+const PUBLIC_CHALLENGE_MONITOR_SCHEDULE_ID: u64 = 1;
+const PUBLIC_CHALLENGE_MONITOR_INTERVAL_SECONDS: u64 = 15 * 60;
+const AUTO_CHALLENGE_DEFAULT_ROUTE_KM: f64 = 145.0;
+const AUTO_CHALLENGE_DEFAULT_CAPACITY: u32 = 50;
+const AUTO_CHALLENGE_DURATION_SECONDS: i64 = 28 * 24 * 60 * 60;
+const AUTO_CHALLENGE_START_DELAY_SECONDS: i64 = 24 * 60 * 60;
+const AUTO_CHALLENGE_REGISTRATION_LEAD_SECONDS: i64 = 24 * 60 * 60;
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -572,6 +580,52 @@ pub fn init(ctx: &ReducerContext) {
             ctx.db.expedition().id().update(expedition);
         }
     }
+
+    if ctx
+        .db
+        .public_challenge_monitor_schedule()
+        .id()
+        .find(PUBLIC_CHALLENGE_MONITOR_SCHEDULE_ID)
+        .is_none()
+    {
+        ctx.db
+            .public_challenge_monitor_schedule()
+            .insert(PublicChallengeMonitorSchedule {
+                id: PUBLIC_CHALLENGE_MONITOR_SCHEDULE_ID,
+                scheduled_at: ScheduleAt::Interval(
+                    Duration::from_secs(PUBLIC_CHALLENGE_MONITOR_INTERVAL_SECONDS).into(),
+                ),
+                job_name: "public_challenge_monitor".to_string(),
+            });
+    }
+
+    run_public_challenge_monitor_core(ctx);
+}
+
+#[spacetimedb::reducer]
+pub fn run_public_challenge_monitor(
+    ctx: &ReducerContext,
+    _job: PublicChallengeMonitorSchedule,
+) {
+    run_public_challenge_monitor_core(ctx);
+}
+
+#[spacetimedb::reducer]
+pub fn run_public_challenge_monitor_now(ctx: &ReducerContext) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("run_public_challenge_monitor_now: {}", err);
+            return;
+        }
+    };
+
+    if !has_challenge_admin_scope(ctx, me.id) {
+        log::error!("run_public_challenge_monitor_now: admin scope required");
+        return;
+    }
+
+    run_public_challenge_monitor_core(ctx);
 }
 
 #[spacetimedb::reducer(client_connected)]
@@ -913,6 +967,14 @@ pub struct ChallengeIntegrityEvent {
     pub moderator_member_id: Option<u64>,
 }
 
+#[spacetimedb::table(accessor = public_challenge_monitor_schedule, scheduled(run_public_challenge_monitor))]
+pub struct PublicChallengeMonitorSchedule {
+    #[primary_key]
+    pub id: u64,
+    pub scheduled_at: ScheduleAt,
+    pub job_name: String,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -1178,6 +1240,210 @@ fn is_valid_challenge_integrity_action(action: &str) -> bool {
     action == CHALLENGE_INTEGRITY_ACTION_CONFIRM
         || action == CHALLENGE_INTEGRITY_ACTION_EXCLUDE
         || action == CHALLENGE_INTEGRITY_ACTION_REQUEST_EVIDENCE
+}
+
+fn should_auto_close_challenge_values(
+    closed_at_is_some: bool,
+    end_epoch: i64,
+    now_epoch: i64,
+) -> bool {
+    !closed_at_is_some && now_epoch >= end_epoch + (24 * 60 * 60)
+}
+
+fn should_auto_close_challenge(challenge: &PublicChallenge, now_epoch: i64) -> bool {
+    should_auto_close_challenge_values(challenge.closed_at.is_some(), challenge.end_epoch, now_epoch)
+}
+
+fn has_open_or_upcoming_challenge_values(
+    closed_at_is_some: bool,
+    status: &str,
+    end_epoch: i64,
+    now_epoch: i64,
+) -> bool {
+    !closed_at_is_some && status != CHALLENGE_STATUS_CLOSED && end_epoch >= now_epoch
+}
+
+fn has_open_or_upcoming_challenge(challenge: &PublicChallenge, now_epoch: i64) -> bool {
+    has_open_or_upcoming_challenge_values(
+        challenge.closed_at.is_some(),
+        &challenge.status,
+        challenge.end_epoch,
+        now_epoch,
+    )
+}
+
+fn compute_auto_challenge_window(now_epoch: i64) -> (i64, i64, i64) {
+    let start_epoch = now_epoch + AUTO_CHALLENGE_START_DELAY_SECONDS;
+    let end_epoch = start_epoch + AUTO_CHALLENGE_DURATION_SECONDS;
+    let registration_closes_epoch = start_epoch - AUTO_CHALLENGE_REGISTRATION_LEAD_SECONDS;
+    (start_epoch, end_epoch, registration_closes_epoch)
+}
+
+#[derive(Default)]
+struct PublicChallengeStatusChanges {
+    activated_count: u64,
+    scheduled_count: u64,
+    closed_count: u64,
+}
+
+fn apply_challenge_closeout(ctx: &ReducerContext, challenge: &PublicChallenge) {
+    let participant_ids: Vec<u64> = ctx
+        .db
+        .public_challenge_participant()
+        .iter()
+        .filter(|row| row.challenge_id == challenge.id)
+        .map(|row| row.id)
+        .collect();
+
+    for participant_id in participant_ids {
+        let Some(mut participant) = ctx.db.public_challenge_participant().id().find(participant_id) else {
+            continue;
+        };
+
+        if participant.is_disqualified {
+            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
+        } else if participant.total_distance_km >= challenge.route_target_km {
+            participant.completion_state = CHALLENGE_PARTICIPATION_COMPLETED.to_string();
+        } else {
+            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
+        }
+
+        ctx.db
+            .public_challenge_participant()
+            .id()
+            .update(participant);
+    }
+}
+
+fn upsert_public_challenge_statuses(
+    ctx: &ReducerContext,
+    now_epoch: i64,
+) -> PublicChallengeStatusChanges {
+    let mut changes = PublicChallengeStatusChanges::default();
+    let challenge_ids: Vec<u64> = ctx.db.public_challenge().iter().map(|row| row.id).collect();
+
+    for challenge_id in challenge_ids {
+        let Some(mut challenge) = ctx.db.public_challenge().id().find(challenge_id) else {
+            continue;
+        };
+
+        if should_auto_close_challenge(&challenge, now_epoch) {
+            challenge.status = CHALLENGE_STATUS_CLOSED.to_string();
+            challenge.closed_at = Some(ctx.timestamp);
+            let challenge_snapshot = PublicChallenge {
+                id: challenge.id,
+                slug: challenge.slug.clone(),
+                title: challenge.title.clone(),
+                route_target_km: challenge.route_target_km,
+                capacity: challenge.capacity,
+                start_epoch: challenge.start_epoch,
+                end_epoch: challenge.end_epoch,
+                registration_closes_epoch: challenge.registration_closes_epoch,
+                status: challenge.status.clone(),
+                created_by_member_id: challenge.created_by_member_id,
+                created_at: challenge.created_at,
+                closed_at: challenge.closed_at,
+            };
+            ctx.db.public_challenge().id().update(challenge);
+            apply_challenge_closeout(ctx, &challenge_snapshot);
+            changes.closed_count = changes.closed_count.saturating_add(1);
+            continue;
+        }
+
+        let inferred = infer_challenge_status(now_epoch, &challenge);
+        if challenge.status != inferred {
+            if inferred == CHALLENGE_STATUS_ACTIVE {
+                changes.activated_count = changes.activated_count.saturating_add(1);
+            }
+            if inferred == CHALLENGE_STATUS_SCHEDULED {
+                changes.scheduled_count = changes.scheduled_count.saturating_add(1);
+            }
+            challenge.status = inferred;
+            ctx.db.public_challenge().id().update(challenge);
+        }
+    }
+
+    changes
+}
+
+fn ensure_recurring_public_challenge(ctx: &ReducerContext, now_epoch: i64) -> bool {
+    let has_open_or_upcoming = ctx
+        .db
+        .public_challenge()
+        .iter()
+        .any(|challenge| has_open_or_upcoming_challenge(&challenge, now_epoch));
+    if has_open_or_upcoming {
+        return false;
+    }
+
+    let (start_epoch, end_epoch, registration_closes_epoch) =
+        compute_auto_challenge_window(now_epoch);
+
+    let mut slug = format!("auto-public-{}", start_epoch);
+    let mut collision_counter: u64 = 1;
+    while ctx.db.public_challenge().slug().find(slug.clone()).is_some() {
+        slug = format!("auto-public-{}-{}", start_epoch, collision_counter);
+        collision_counter = collision_counter.saturating_add(1);
+    }
+
+    let title = format!("Public Challenge {}", start_epoch);
+
+    ctx.db.public_challenge().insert(PublicChallenge {
+        id: 0,
+        slug,
+        title,
+        route_target_km: AUTO_CHALLENGE_DEFAULT_ROUTE_KM,
+        capacity: AUTO_CHALLENGE_DEFAULT_CAPACITY,
+        start_epoch,
+        end_epoch,
+        registration_closes_epoch,
+        status: CHALLENGE_STATUS_SCHEDULED.to_string(),
+        created_by_member_id: 0,
+        created_at: ctx.timestamp,
+        closed_at: None,
+    });
+
+    true
+}
+
+fn run_public_challenge_monitor_core(ctx: &ReducerContext) {
+    let now_epoch = now_epoch_seconds(ctx);
+    let changes = upsert_public_challenge_statuses(ctx, now_epoch);
+    let created = ensure_recurring_public_challenge(ctx, now_epoch);
+
+    bump_operational_counter(ctx, "public_challenge_monitor_run", OPERATION_STATUS_SUCCESS, "");
+    if changes.activated_count > 0 {
+        bump_operational_counter(
+            ctx,
+            "public_challenge_monitor_transition_active",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
+    }
+    if changes.scheduled_count > 0 {
+        bump_operational_counter(
+            ctx,
+            "public_challenge_monitor_transition_scheduled",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
+    }
+    if changes.closed_count > 0 {
+        bump_operational_counter(
+            ctx,
+            "public_challenge_monitor_closed",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
+    }
+    if created {
+        bump_operational_counter(
+            ctx,
+            "public_challenge_monitor_auto_created",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
+    }
 }
 
 fn subscription_is_access_granting(status: &str) -> bool {
@@ -3310,36 +3576,22 @@ pub fn close_challenge_standings(ctx: &ReducerContext, challenge_id: u64) {
 
     challenge.status = CHALLENGE_STATUS_CLOSED.to_string();
     challenge.closed_at = Some(ctx.timestamp);
-    let challenge_id_value = challenge.id;
-    let challenge_route_target = challenge.route_target_km;
+    let challenge_snapshot = PublicChallenge {
+        id: challenge.id,
+        slug: challenge.slug.clone(),
+        title: challenge.title.clone(),
+        route_target_km: challenge.route_target_km,
+        capacity: challenge.capacity,
+        start_epoch: challenge.start_epoch,
+        end_epoch: challenge.end_epoch,
+        registration_closes_epoch: challenge.registration_closes_epoch,
+        status: challenge.status.clone(),
+        created_by_member_id: challenge.created_by_member_id,
+        created_at: challenge.created_at,
+        closed_at: challenge.closed_at,
+    };
     ctx.db.public_challenge().id().update(challenge);
-
-    let participant_ids: Vec<u64> = ctx
-        .db
-        .public_challenge_participant()
-        .iter()
-        .filter(|row| row.challenge_id == challenge_id_value)
-        .map(|row| row.id)
-        .collect();
-
-    for participant_id in participant_ids {
-        let Some(mut participant) = ctx.db.public_challenge_participant().id().find(participant_id) else {
-            continue;
-        };
-
-        if participant.is_disqualified {
-            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
-        } else if participant.total_distance_km >= challenge_route_target {
-            participant.completion_state = CHALLENGE_PARTICIPATION_COMPLETED.to_string();
-        } else {
-            participant.completion_state = CHALLENGE_PARTICIPATION_JOINED.to_string();
-        }
-
-        ctx.db
-            .public_challenge_participant()
-            .id()
-            .update(participant);
-    }
+    apply_challenge_closeout(ctx, &challenge_snapshot);
 }
 
 #[spacetimedb::table(accessor = member, public)]
@@ -4684,5 +4936,62 @@ mod tests {
         assert!(is_valid_product_event_name("expedition_switch_success"));
         assert!(!is_valid_product_event_name("   "));
         assert!(!is_valid_product_event_name(&"x".repeat(PRODUCT_EVENT_NAME_MAX_LEN + 1)));
+    }
+
+    #[test]
+    fn monitor_closeout_gate_requires_24h_after_end() {
+        let end_epoch = 1_000_000;
+        let before_gate = end_epoch + (24 * 60 * 60) - 1;
+        let at_gate = end_epoch + (24 * 60 * 60);
+
+        assert!(!should_auto_close_challenge_values(false, end_epoch, before_gate));
+        assert!(should_auto_close_challenge_values(false, end_epoch, at_gate));
+        assert!(!should_auto_close_challenge_values(true, end_epoch, at_gate));
+    }
+
+    #[test]
+    fn monitor_detects_open_or_upcoming_correctly() {
+        let now_epoch = 1_500_000;
+        assert!(has_open_or_upcoming_challenge_values(
+            false,
+            CHALLENGE_STATUS_SCHEDULED,
+            now_epoch + 10,
+            now_epoch
+        ));
+        assert!(has_open_or_upcoming_challenge_values(
+            false,
+            CHALLENGE_STATUS_ACTIVE,
+            now_epoch,
+            now_epoch
+        ));
+        assert!(!has_open_or_upcoming_challenge_values(
+            false,
+            CHALLENGE_STATUS_CLOSED,
+            now_epoch + 10,
+            now_epoch
+        ));
+        assert!(!has_open_or_upcoming_challenge_values(
+            true,
+            CHALLENGE_STATUS_ACTIVE,
+            now_epoch + 10,
+            now_epoch
+        ));
+        assert!(!has_open_or_upcoming_challenge_values(
+            false,
+            CHALLENGE_STATUS_ACTIVE,
+            now_epoch - 1,
+            now_epoch
+        ));
+    }
+
+    #[test]
+    fn monitor_auto_window_is_28_days_with_registration_lead() {
+        let now_epoch = 2_000_000;
+        let (start_epoch, end_epoch, registration_closes_epoch) =
+            compute_auto_challenge_window(now_epoch);
+
+        assert_eq!(start_epoch, now_epoch + AUTO_CHALLENGE_START_DELAY_SECONDS);
+        assert_eq!(end_epoch - start_epoch, AUTO_CHALLENGE_DURATION_SECONDS);
+        assert_eq!(start_epoch - registration_closes_epoch, AUTO_CHALLENGE_REGISTRATION_LEAD_SECONDS);
     }
 }
