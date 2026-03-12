@@ -123,6 +123,8 @@ export function SettingsPanel({
   const [billingStatus, setBillingStatus] = useState("");
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [visibilityStatus, setVisibilityStatus] = useState("");
+  const [deleteStatus, setDeleteStatus] = useState("");
+  const [isDeletingExpedition, setIsDeletingExpedition] = useState(false);
   const [markingNotificationId, setMarkingNotificationId] = useState<bigint | null>(null);
   const [notificationStatus, setNotificationStatus] = useState("");
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
@@ -560,6 +562,47 @@ export function SettingsPanel({
     }
   }
 
+  function handleDeleteExpedition() {
+    setDeleteStatus("");
+    if (!conn) {
+      setDeleteStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setDeleteStatus("Select an active expedition first.");
+      return;
+    }
+    if (!isOwner) {
+      setDeleteStatus("Only the expedition owner can delete this expedition.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete expedition \"${activeExpedition.name}\" permanently? This cannot be undone.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsDeletingExpedition(true);
+      const reducers = conn.reducers as {
+        deleteExpedition?: (args: { expeditionId: bigint }) => void;
+      };
+      if (!reducers.deleteExpedition) {
+        setDeleteStatus("Delete expedition unavailable until client bindings are regenerated.");
+        return;
+      }
+
+      reducers.deleteExpedition({ expeditionId: activeExpedition.id });
+      setDeleteStatus("Expedition delete requested.");
+    } catch (err) {
+      setDeleteStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDeletingExpedition(false);
+    }
+  }
+
   function updateNotificationPrefs(
     patch: Partial<NotificationPreferences>,
   ) {
@@ -625,6 +668,17 @@ export function SettingsPanel({
         </div>
         {!isOwner && activeExpedition && <p>Only the current owner can change expedition visibility.</p>}
         {visibilityStatus && <p className="field-error">{visibilityStatus}</p>}
+        <div className="strava-actions">
+          <button
+            type="button"
+            onClick={handleDeleteExpedition}
+            disabled={!activeExpedition || !isOwner || isDeletingExpedition}
+          >
+            {isDeletingExpedition ? "Deleting…" : "Delete expedition"}
+          </button>
+        </div>
+        {!isOwner && activeExpedition && <p>Only the current owner can delete this expedition.</p>}
+        {deleteStatus && <p className="field-error">{deleteStatus}</p>}
       </section>
 
       <section className="settings-group">

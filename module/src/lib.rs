@@ -1411,6 +1411,178 @@ pub fn archive_expedition(ctx: &ReducerContext, expedition_id: u64) {
 }
 
 #[spacetimedb::reducer]
+pub fn delete_expedition(ctx: &ReducerContext, expedition_id: u64) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("delete_expedition: {}", err);
+            bump_operational_counter(
+                ctx,
+                "delete_expedition",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
+            return;
+        }
+    };
+
+    let expedition = match require_expedition(ctx, expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("delete_expedition: {}", err);
+            bump_operational_counter(
+                ctx,
+                "delete_expedition",
+                OPERATION_STATUS_FAILURE,
+                "expedition.missing",
+            );
+            return;
+        }
+    };
+
+    if let Err(err) = require_owner_membership_for_archive(ctx, expedition.id, me.id) {
+        log::error!("delete_expedition: {}", err);
+        bump_operational_counter(
+            ctx,
+            "delete_expedition",
+            OPERATION_STATUS_FAILURE,
+            "authz.owner_required",
+        );
+        return;
+    }
+
+    let membership_ids: Vec<u64> = ctx
+        .db
+        .membership()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in membership_ids {
+        ctx.db.membership().id().delete(id);
+    }
+
+    let invite_ids: Vec<u64> = ctx
+        .db
+        .invite()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in invite_ids {
+        ctx.db.invite().id().delete(id);
+    }
+
+    let plan_subscription_ids: Vec<u64> = ctx
+        .db
+        .plan_subscription()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in plan_subscription_ids {
+        ctx.db.plan_subscription().id().delete(id);
+    }
+
+    let entitlement_ids: Vec<u64> = ctx
+        .db
+        .entitlement()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in entitlement_ids {
+        ctx.db.entitlement().id().delete(id);
+    }
+
+    let notification_ids: Vec<u64> = ctx
+        .db
+        .notification()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in notification_ids {
+        ctx.db.notification().id().delete(id);
+    }
+
+    let abuse_report_ids: Vec<u64> = ctx
+        .db
+        .abuse_report()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in abuse_report_ids {
+        ctx.db.abuse_report().id().delete(id);
+    }
+
+    let moderation_audit_ids: Vec<u64> = ctx
+        .db
+        .moderation_audit()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in moderation_audit_ids {
+        ctx.db.moderation_audit().id().delete(id);
+    }
+
+    let analytics_ids: Vec<u64> = ctx
+        .db
+        .product_analytics_event()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in analytics_ids {
+        ctx.db.product_analytics_event().id().delete(id);
+    }
+
+    let reaction_ids: Vec<u64> = ctx
+        .db
+        .reaction()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in reaction_ids {
+        ctx.db.reaction().id().delete(id);
+    }
+
+    let comment_ids: Vec<u64> = ctx
+        .db
+        .comment()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in comment_ids {
+        ctx.db.comment().id().delete(id);
+    }
+
+    let activity_ids: Vec<u64> = ctx
+        .db
+        .activity_log()
+        .iter()
+        .filter(|row| row.expedition_id == expedition_id)
+        .map(|row| row.id)
+        .collect();
+    for id in activity_ids {
+        ctx.db.activity_log().id().delete(id);
+    }
+
+    ctx.db.expedition().id().delete(expedition_id);
+
+    bump_operational_counter(
+        ctx,
+        "delete_expedition",
+        OPERATION_STATUS_SUCCESS,
+        "",
+    );
+}
+
+#[spacetimedb::reducer]
 pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
     let me = match require_authenticated_member(ctx) {
         Ok(member) => member,
@@ -2550,7 +2722,6 @@ pub struct ActivityLog {
 #[spacetimedb::reducer]
 pub fn log_activity(
     ctx: &ReducerContext,
-    expedition_id: u64,
     member_id: u64,
     activity_type: String,
     distance_km: f64,
@@ -2614,57 +2785,69 @@ pub fn log_activity(
         return;
     }
 
-    if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
-        log::error!("log_activity: {}", err);
-        bump_operational_counter(
-            ctx,
-            "log_activity",
-            OPERATION_STATUS_FAILURE,
-            "expedition.invalid",
-        );
-        return;
-    }
+    let target_expedition_ids: Vec<u64> = ctx
+        .db
+        .membership()
+        .iter()
+        .filter(|membership| {
+            membership.member_id == me.id
+                && membership.status == "active"
+                && membership.left_at.is_none()
+                && membership.joined_at <= ctx.timestamp
+        })
+        .filter_map(|membership| {
+            ctx.db
+                .expedition()
+                .id()
+                .find(membership.expedition_id)
+                .filter(|expedition| !expedition.is_archived)
+                .map(|expedition| expedition.id)
+        })
+        .collect();
 
-    if let Err(err) = require_active_membership(ctx, expedition_id, me.id) {
-        log::error!("log_activity: {}", err);
+    if target_expedition_ids.is_empty() {
+        log::error!("log_activity: no active expedition memberships available for this member");
         bump_operational_counter(
             ctx,
             "log_activity",
             OPERATION_STATUS_FAILURE,
-            "authz.membership_required",
+            "authz.no_active_expeditions",
         );
         return;
     }
 
     let actor_name = me.name.clone();
     let milestone_activity_type = activity_type.clone();
+    let note = note.trim().to_string();
 
-    ctx.db.activity_log().insert(ActivityLog {
-        id: 0,
-        expedition_id,
-        member_id,
-        person_name: actor_name.clone(),
-        activity_type,
-        distance_km,
-        note: note.trim().to_string(),
-        timestamp: ctx.timestamp,
-        ai_response: String::new(),
-    });
+    for expedition_id in target_expedition_ids {
+        ctx.db.activity_log().insert(ActivityLog {
+            id: 0,
+            expedition_id,
+            member_id,
+            person_name: actor_name.clone(),
+            activity_type: activity_type.clone(),
+            distance_km,
+            note: note.clone(),
+            timestamp: ctx.timestamp,
+            ai_response: String::new(),
+        });
 
-    if let Some(label) = milestone_label(distance_km) {
-        notify_active_members_except(
-            ctx,
-            expedition_id,
-            me.id,
-            NOTIFICATION_EVENT_ACTIVITY_MILESTONE,
-            "New activity milestone".to_string(),
-            format!(
-                "{} logged a {} {} activity.",
-                actor_name, label, milestone_activity_type
-            ),
-            "expedition",
-            expedition_id,
-        );
+        if let Some(label) = milestone_label(distance_km) {
+            notify_active_members_except(
+                ctx,
+                expedition_id,
+                me.id,
+                NOTIFICATION_EVENT_ACTIVITY_MILESTONE,
+                "New activity milestone".to_string(),
+                format!(
+                    "{} logged a {} {} activity.",
+                    actor_name, label, milestone_activity_type
+                ),
+                "expedition",
+                expedition_id,
+            );
+        }
     }
 
     bump_operational_counter(ctx, "log_activity", OPERATION_STATUS_SUCCESS, "");

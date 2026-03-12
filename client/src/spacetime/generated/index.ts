@@ -42,6 +42,7 @@ import ArchiveExpeditionReducer from "./archive_expedition_reducer";
 import BindAuthIdentityReducer from "./bind_auth_identity_reducer";
 import CreateExpeditionReducer from "./create_expedition_reducer";
 import CreateInviteReducer from "./create_invite_reducer";
+import DeleteExpeditionReducer from "./delete_expedition_reducer";
 import JoinExpeditionReducer from "./join_expedition_reducer";
 import LeaveExpeditionReducer from "./leave_expedition_reducer";
 import LogActivityReducer from "./log_activity_reducer";
@@ -272,6 +273,7 @@ const reducersSchema = __reducers(
   __reducerSchema("bind_auth_identity", BindAuthIdentityReducer),
   __reducerSchema("create_expedition", CreateExpeditionReducer),
   __reducerSchema("create_invite", CreateInviteReducer),
+  __reducerSchema("delete_expedition", DeleteExpeditionReducer),
   __reducerSchema("join_expedition", JoinExpeditionReducer),
   __reducerSchema("leave_expedition", LeaveExpeditionReducer),
   __reducerSchema("log_activity", LogActivityReducer),

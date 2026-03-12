@@ -59,7 +59,7 @@ describe("LogForm integration guards", () => {
     });
   });
 
-  it("blocks submission when no active expedition is selected", () => {
+  it("submits when no active expedition is selected", () => {
     mocks.useAuthMock.mockReturnValue({
       user: {
         profile: {
@@ -77,8 +77,20 @@ describe("LogForm integration guards", () => {
     fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Log it" }));
 
-    expect(screen.getByText("Select or create an expedition first (top bar).")).toBeTruthy();
-    expect(mocks.logActivity).not.toHaveBeenCalled();
+    expect(mocks.logActivity).toHaveBeenCalledWith({
+      memberId: 1n,
+      activityType: "run",
+      distanceKm: 5,
+      note: "",
+    });
+    expect(mocks.trackProductEvent).toHaveBeenCalledWith({
+      eventName: "activity_log_submitted",
+      expeditionId: 0n,
+      payloadJson: JSON.stringify({
+        activityType: "run",
+        distanceKm: 5,
+      }),
+    });
   });
 
   it("blocks authenticated users without a linked member profile", () => {
@@ -100,7 +112,7 @@ describe("LogForm integration guards", () => {
     expect(mocks.logActivity).not.toHaveBeenCalled();
   });
 
-  it("submits scoped log activity for linked member", () => {
+  it("submits user-level log activity for linked member", () => {
     mocks.useAuthMock.mockReturnValue({
       user: {
         profile: {
@@ -121,7 +133,6 @@ describe("LogForm integration guards", () => {
 
     expect(mocks.logActivity).toHaveBeenCalledTimes(1);
     expect(mocks.logActivity).toHaveBeenCalledWith({
-      expeditionId: 10n,
       memberId: 1n,
       activityType: "run",
       distanceKm: 6.5,
@@ -233,7 +244,7 @@ describe("LogForm integration guards", () => {
     expect(screen.getByText("Previous activity log is still processing. Please wait a moment.")).toBeTruthy();
   });
 
-  it("triggers AI coaching only for matching expedition/member insert", async () => {
+  it("triggers AI coaching only for matching member insert", async () => {
     mocks.logActivity.mockImplementation(() => {});
     mocks.useAuthMock.mockReturnValue({
       user: {
@@ -255,7 +266,7 @@ describe("LogForm integration guards", () => {
     const onInsert = mocks.getLatestOnInsert();
     expect(onInsert).toBeTypeOf("function");
 
-    onInsert?.({ id: 100n, memberId: 1n, expeditionId: 20n });
+    onInsert?.({ id: 100n, memberId: 2n, expeditionId: 20n });
     expect(mocks.requestAiCoaching).not.toHaveBeenCalled();
 
     onInsert?.({ id: 101n, memberId: 1n, expeditionId: 10n });

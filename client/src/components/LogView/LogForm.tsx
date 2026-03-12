@@ -12,7 +12,12 @@ import {
   type DistanceUnit,
 } from "../../config";
 
-type ActivityLogInsertRow = { id: bigint; memberId: bigint; expeditionId: bigint };
+type ActivityLogInsertRow = {
+  id: bigint;
+  memberId: bigint;
+  expeditionId: bigint;
+  timestamp: { toDate: () => Date };
+};
 type ExpeditionProcedures = {
   requestAiCoaching(args: { logId: bigint }): Promise<unknown>;
 };
@@ -35,14 +40,14 @@ interface LogFormProps {
 export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProps) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
-  const { members } = useMembers(activeExpeditionId);
+  const { members } = useMembers();
   const [personMemberId, setPersonMemberId] = useState("");
   const [actType, setActType] = useState<string>("run");
   const [dist, setDist] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const pendingSubmission = useRef<{ memberId: bigint; expeditionId: bigint; submittedAtMs: number } | null>(null);
+  const pendingSubmission = useRef<{ memberId: bigint; submittedAtMs: number } | null>(null);
   const sub = auth.user?.profile?.sub as string | undefined;
   const maxDisplayDistance = Number(formatDistance(500, distanceUnit, 1)).toString();
 
@@ -58,10 +63,11 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
     onInsert: (row) => {
       const inserted = row as ActivityLogInsertRow;
       const pending = pendingSubmission.current;
+      const insertedAtMs = inserted.timestamp?.toDate?.().getTime() ?? Date.now();
       if (
         pending != null &&
         inserted.memberId === pending.memberId &&
-        inserted.expeditionId === pending.expeditionId
+        insertedAtMs >= pending.submittedAtMs - 1000
       ) {
         pendingSubmission.current = null;
         const conn = connectionState.getConnection() as DbConnection | null;
@@ -76,10 +82,6 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (activeExpeditionId == null) {
-      setError("Select or create an expedition first (top bar).");
-      return;
-    }
     const enteredDistance = parseFloat(dist);
     const km = toStoredDistance(enteredDistance, distanceUnit);
     const pending = pendingSubmission.current;
@@ -113,11 +115,9 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
       if (!conn) throw new Error("SpacetimeDB not connected");
       pendingSubmission.current = {
         memberId: selectedMember.id,
-        expeditionId: activeExpeditionId,
         submittedAtMs: Date.now(),
       };
       conn.reducers.logActivity({
-        expeditionId: activeExpeditionId,
         memberId: selectedMember.id,
         activityType: actType,
         distanceKm: km,
@@ -126,7 +126,7 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
       const analytics = conn.reducers as AnalyticsReducers;
       analytics.trackProductEvent?.({
         eventName: "activity_log_submitted",
-        expeditionId: activeExpeditionId,
+        expeditionId: activeExpeditionId ?? 0n,
         payloadJson: JSON.stringify({
           activityType: actType,
           distanceKm: km,

@@ -59,6 +59,7 @@ interface ExpeditionRow {
   name: string;
   slug: string;
   isArchived: boolean;
+  inviteOnly: boolean;
   routeTemplateKey: string | null;
 }
 
@@ -192,6 +193,15 @@ export default function App() {
   const [bugStatus, setBugStatus] = useState("");
   const [markingNotificationId, setMarkingNotificationId] = useState<bigint | null>(null);
   const [notificationStatus, setNotificationStatus] = useState("");
+  const [onboardingName, setOnboardingName] = useState("");
+  const [onboardingColor, setOnboardingColor] = useState("#4F46E5");
+  const [onboardingError, setOnboardingError] = useState("");
+  const [onboardingStatus, setOnboardingStatus] = useState("");
+  const [isSavingOnboardingProfile, setIsSavingOnboardingProfile] = useState(false);
+  const [onboardingMode, setOnboardingMode] = useState<"create" | "join">("create");
+  const [onboardingInviteCode, setOnboardingInviteCode] = useState("");
+  const [isJoiningOnboardingInvite, setIsJoiningOnboardingInvite] = useState(false);
+  const [joiningPublicExpeditionId, setJoiningPublicExpeditionId] = useState<bigint | null>(null);
   const auth = useAuth();
   const { members } = useMembers();
   const connectionState = useSpacetimeDB();
@@ -727,6 +737,16 @@ export default function App() {
 
   const expeditionLoading = linkedMember != null && !activeResolved;
   const hasNoMembership = linkedMember != null && activeResolved && availableExpeditions.length === 0;
+  const needsProfileSetup = !isRegistered;
+  const needsExpeditionSetup = isRegistered && hasNoMembership;
+  const showOnboardingFlow = needsProfileSetup || needsExpeditionSetup;
+
+  const publicJoinableExpeditions = useMemo(() => {
+    const joinedIds = new Set(availableExpeditions.map((expedition) => expedition.id.toString()));
+    return expeditions.filter(
+      (expedition) => !expedition.inviteOnly && !joinedIds.has(expedition.id.toString()),
+    );
+  }, [availableExpeditions, expeditions]);
 
   const completionLabel =
     dashboardMetrics.completionPct > 0 && dashboardMetrics.completionPct < 0.1
@@ -737,6 +757,112 @@ export default function App() {
       ? "First steps on the route — your team has started the journey together."
       : "Every session keeps the team moving forward on the shared route.";
   const distanceLabel = distanceUnitLabel(distanceUnit);
+
+  const preferredProfileName =
+    (auth.user?.profile?.preferred_username as string | undefined) ??
+    (auth.user?.profile?.name as string | undefined) ??
+    "";
+
+  useEffect(() => {
+    if (linkedMember) {
+      setOnboardingName(linkedMember.name);
+      setOnboardingColor(linkedMember.colorHex);
+      return;
+    }
+
+    if (!onboardingName.trim() && preferredProfileName) {
+      setOnboardingName(preferredProfileName);
+    }
+  }, [linkedMember, onboardingName, preferredProfileName]);
+
+  function handleOnboardingSaveProfile(e: FormEvent) {
+    e.preventDefault();
+    setOnboardingError("");
+    setOnboardingStatus("");
+
+    if (isSavingOnboardingProfile) return;
+    if (!sub) {
+      setOnboardingError("Sign in required");
+      return;
+    }
+    if (!onboardingName.trim()) {
+      setOnboardingError("Name required");
+      return;
+    }
+
+    const normalized = onboardingName.trim().toLowerCase();
+    if (members.some((member) => member.name.toLowerCase() === normalized && member.ownerSub !== sub)) {
+      setOnboardingError("Name already taken");
+      return;
+    }
+
+    setIsSavingOnboardingProfile(true);
+    try {
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
+      conn.reducers.addMember({ name: onboardingName.trim(), colorHex: onboardingColor });
+      setOnboardingStatus("Profile saved. Continue to expedition setup.");
+    } catch (err) {
+      setOnboardingError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSavingOnboardingProfile(false);
+    }
+  }
+
+  function handleOnboardingJoinByCode() {
+    setOnboardingError("");
+    setOnboardingStatus("");
+    const token = onboardingInviteCode.trim();
+    if (!token) {
+      setOnboardingError("Invite code required");
+      return;
+    }
+
+    try {
+      setIsJoiningOnboardingInvite(true);
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
+      conn.reducers.acceptInvite({ token });
+      setOnboardingInviteCode("");
+      setOnboardingStatus("Invite accepted. Loading your expedition…");
+    } catch (err) {
+      setOnboardingError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsJoiningOnboardingInvite(false);
+    }
+  }
+
+  function handleOnboardingJoinPublic(expeditionId: bigint) {
+    setOnboardingError("");
+    setOnboardingStatus("");
+    try {
+      setJoiningPublicExpeditionId(expeditionId);
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) throw new Error("SpacetimeDB not connected");
+      conn.reducers.joinExpedition({ expeditionId });
+      setOnboardingStatus("Joined expedition. Loading dashboard…");
+    } catch (err) {
+      setOnboardingError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setJoiningPublicExpeditionId(null);
+    }
+  }
+
+  function handleOnboardingCreateExpeditionSubmit(e: FormEvent) {
+    e.preventDefault();
+    setOnboardingError("");
+    setOnboardingStatus("");
+    void (async () => {
+      const created = await handleCreateExpedition({
+        name: newExpeditionName,
+        visibility: newExpeditionVisibility,
+        routeTemplateKey: newExpeditionRouteTemplateKey,
+      });
+      if (created) {
+        setOnboardingStatus("Expedition created. Loading dashboard…");
+      }
+    })();
+  }
 
   return (
     <div className="app">
@@ -813,18 +939,18 @@ export default function App() {
               <Button
                 variant="outlined"
                 onClick={openNotifications}
-                disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
+                disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
               >
                 🔔 {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ""}
               </Button>
               <Button
                 variant="contained"
                 onClick={openQuickLog}
-                disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
+                disabled={showOnboardingFlow || activeExpeditionId == null || expeditionLoading || hasNoMembership}
               >
                 Log Activity
               </Button>
-              <Button variant="outlined" onClick={() => setTab("members")}>Invite Members</Button>
+              <Button variant="outlined" onClick={() => setTab("members")} disabled={showOnboardingFlow}>Invite Members</Button>
               <Button variant="outlined" onClick={openBugReport}>Report bug</Button>
             </div>
           </div>
@@ -835,31 +961,181 @@ export default function App() {
             <Typography variant="body2">Loading expeditions…</Typography>
           </Box>
         )}
-        {hasNoMembership && (
-          <Paper className="empty-state" variant="outlined">
-            <Typography variant="body1">You are not in an expedition yet. Create one to get started.</Typography>
-            <Box className="empty-state-create">
-              <Button type="button" variant="contained" onClick={openCreateExpedition} disabled={isCreatingExpedition}>
-                Create expedition
-              </Button>
-            </Box>
-          </Paper>
-        )}
-        {!isRegistered && (
+        {showOnboardingFlow && (
           <Alert
             severity="info"
             className="onboarding-alert"
             action={
-              <Button color="inherit" size="small" onClick={() => setTab("settings")}>
-                Open Settings
-              </Button>
+              <Typography variant="caption">
+                {needsProfileSetup ? "Step 1 of 2" : "Step 2 of 2"}
+              </Typography>
             }
           >
-            Complete onboarding in Settings: set your profile name and color, then create or join an expedition to unlock activity logging.
+            {needsProfileSetup
+              ? "Welcome to Expedition. Set up your profile to continue."
+              : "Create a new expedition, join with an invite code, or browse public expeditions."}
           </Alert>
         )}
 
-        {tab === "dashboard" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+        {showOnboardingFlow && (
+          <Paper className="onboarding-flow" variant="outlined">
+            {needsProfileSetup ? (
+              <Box component="form" onSubmit={handleOnboardingSaveProfile} className="onboarding-form">
+                <Typography variant="h6">Set up your profile</Typography>
+                <Typography variant="body2" className="page-subtitle">
+                  Choose your display name and color for expedition activity and maps.
+                </Typography>
+                <Box className="onboarding-profile-row">
+                  <TextField
+                    label="Display name"
+                    value={onboardingName}
+                    onChange={(e) => setOnboardingName(e.target.value)}
+                    inputProps={{ maxLength: 30 }}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    label="Color"
+                    type="color"
+                    value={onboardingColor}
+                    onChange={(e) => setOnboardingColor(e.target.value)}
+                    sx={{ width: 120 }}
+                  />
+                </Box>
+                <Box className="empty-state-create">
+                  <Button type="submit" variant="contained" disabled={isSavingOnboardingProfile}>
+                    {isSavingOnboardingProfile ? "Saving…" : "Save profile"}
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              <Box className="onboarding-form">
+                <Typography variant="h6">Create or join an expedition</Typography>
+                <Typography variant="body2" className="page-subtitle">
+                  Choose how you want to get started.
+                </Typography>
+                <Box className="onboarding-choice-row">
+                  <Button
+                    type="button"
+                    variant={onboardingMode === "create" ? "contained" : "outlined"}
+                    onClick={() => setOnboardingMode("create")}
+                  >
+                    Create expedition
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={onboardingMode === "join" ? "contained" : "outlined"}
+                    onClick={() => setOnboardingMode("join")}
+                  >
+                    Join expedition
+                  </Button>
+                </Box>
+
+                {onboardingMode === "create" ? (
+                  <Box component="form" onSubmit={handleOnboardingCreateExpeditionSubmit} className="onboarding-create-grid">
+                    <TextField
+                      label="Expedition name"
+                      value={newExpeditionName}
+                      onChange={(e) => setNewExpeditionName(e.target.value)}
+                      inputProps={{ maxLength: 64 }}
+                      required
+                      fullWidth
+                    />
+                    <FormControl fullWidth>
+                      <InputLabel id="onboarding-expedition-visibility-label">Visibility</InputLabel>
+                      <Select
+                        labelId="onboarding-expedition-visibility-label"
+                        value={newExpeditionVisibility}
+                        label="Visibility"
+                        onChange={(e) => setNewExpeditionVisibility(e.target.value as "public" | "invite_only")}
+                      >
+                        <MenuItem value="public">Public</MenuItem>
+                        <MenuItem value="invite_only">Invite-only</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth>
+                      <InputLabel id="onboarding-expedition-template-label">Route Template</InputLabel>
+                      <Select
+                        labelId="onboarding-expedition-template-label"
+                        value={newExpeditionRouteTemplateKey}
+                        label="Route Template"
+                        onChange={(e) => setNewExpeditionRouteTemplateKey(e.target.value as RouteTemplateKey)}
+                      >
+                        {ROUTE_TEMPLATES.map((template) => (
+                          <MenuItem key={template.key} value={template.key}>
+                            {template.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography variant="body2" className="page-subtitle">
+                      {createRouteTemplate.description}
+                    </Typography>
+                    <Button type="submit" variant="contained" disabled={isCreatingExpedition}>
+                      {isCreatingExpedition ? "Creating…" : "Create expedition"}
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box className="onboarding-join-grid">
+                    <Box className="onboarding-join-code-row">
+                      <TextField
+                        label="Invite code"
+                        value={onboardingInviteCode}
+                        onChange={(e) => setOnboardingInviteCode(e.target.value)}
+                        fullWidth
+                      />
+                      <Button
+                        type="button"
+                        variant="contained"
+                        onClick={handleOnboardingJoinByCode}
+                        disabled={isJoiningOnboardingInvite}
+                      >
+                        {isJoiningOnboardingInvite ? "Joining…" : "Join with code"}
+                      </Button>
+                    </Box>
+                    <Typography variant="body2" className="page-subtitle">
+                      Or join a public expedition:
+                    </Typography>
+                    <Box className="onboarding-public-list">
+                      {publicJoinableExpeditions.length === 0 ? (
+                        <Typography variant="body2" className="page-subtitle">
+                          No public expeditions available right now.
+                        </Typography>
+                      ) : (
+                        publicJoinableExpeditions.map((expedition) => (
+                          <Box key={expedition.id.toString()} className="onboarding-public-row">
+                            <Box>
+                              <Typography variant="body1">{expedition.name}</Typography>
+                              <Typography variant="caption" className="page-subtitle">
+                                {expedition.slug}
+                              </Typography>
+                            </Box>
+                            <Button
+                              type="button"
+                              variant="outlined"
+                              onClick={() => handleOnboardingJoinPublic(expedition.id)}
+                              disabled={joiningPublicExpeditionId === expedition.id}
+                            >
+                              {joiningPublicExpeditionId === expedition.id ? "Joining…" : "Join"}
+                            </Button>
+                          </Box>
+                        ))
+                      )}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+
+            {(onboardingError || onboardingStatus || expeditionCreateError) && (
+              <Alert severity={onboardingError || expeditionCreateError ? "error" : "success"}>
+                {onboardingError || expeditionCreateError || onboardingStatus}
+              </Alert>
+            )}
+          </Paper>
+        )}
+
+        {tab === "dashboard" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="dashboard-layout">
             <section className="dashboard-hero">
               <div className="dashboard-hero-copy">
@@ -929,7 +1205,7 @@ export default function App() {
           </div>
         )}
 
-        {tab === "map" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+        {tab === "map" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <MapJournalView
             theme={theme}
             mapMode={mapMode}
@@ -939,7 +1215,7 @@ export default function App() {
           />
         )}
 
-        {tab === "feed" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+        {tab === "feed" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="feed-shell">
               {scopedActivity.length <= 1 && (
@@ -955,7 +1231,7 @@ export default function App() {
           </div>
         )}
 
-        {tab === "stats" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+        {tab === "stats" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="stats-shell">
               <SummaryStats activeExpeditionId={activeExpeditionId} distanceUnit={distanceUnit} />
@@ -966,14 +1242,14 @@ export default function App() {
           </div>
         )}
 
-        {tab === "members" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+        {tab === "members" && !showOnboardingFlow && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <div className="members-shell">
               <MembersPanel activeExpeditionId={activeExpeditionId} />
             </div>
           </div>
         )}
-        {tab === "settings" && !expeditionLoading && (
+        {tab === "settings" && !showOnboardingFlow && !expeditionLoading && (
           <div className="content-shell">
             <div className="settings-shell">
               <SettingsPanel
