@@ -98,9 +98,10 @@ export function useRoadRoute(
     let active = true;
     const cacheKey = `${CACHE_KEY}:${cacheKeySuffix}`;
 
+    setWaypoints(anchorWaypoints);
+    setIsSnapped(false);
+
     if (anchorWaypoints.length < 2) {
-      setWaypoints(anchorWaypoints);
-      setIsSnapped(false);
       return;
     }
 
