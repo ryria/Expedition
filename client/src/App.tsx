@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { MapJournalView } from "./components/MapView/MapJournalView";
+import { MapView } from "./components/MapView/MapView";
 import { MembersPanel } from "./components/MembersPanel/MembersPanel";
 import { SettingsPanel } from "./components/SettingsPanel/SettingsPanel";
+import { ActivityFeed } from "./components/LogView/ActivityFeed";
+import { LogForm } from "./components/LogView/LogForm";
+import { KpiDashboard } from "./components/StatsView/KpiDashboard";
+import { SummaryStats } from "./components/StatsView/SummaryStats";
+import { ActivityTypeChart } from "./components/StatsView/ActivityTypeChart";
+import { PersonBreakdown } from "./components/StatsView/PersonBreakdown";
+import { LandmarksPassed } from "./components/StatsView/LandmarksPassed";
 import { useAuth } from "react-oidc-context";
 import { useMembers } from "./hooks/useMembers";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { DbConnection, tables } from "./spacetime/generated";
 import { emitExpeditionEvent } from "./hooks/expeditionEvents";
 import { OBS_EVENT_NAME, getSessionTraceId } from "./observability/telemetry";
+import { ROUTE_TOTAL_KM } from "./config";
+import { LANDMARKS } from "./data/route";
 import {
   Alert,
-  AppBar,
+  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -20,16 +30,12 @@ import {
   MenuItem,
   Paper,
   Select,
-  Stack,
-  Tab,
-  Tabs,
   TextField,
-  Toolbar,
   Typography,
 } from "@mui/material";
 import "./App.css";
 
-type AppTab = "expedition" | "members" | "settings";
+type AppTab = "dashboard" | "map" | "log" | "feed" | "stats" | "members" | "settings";
 type Theme = "dark" | "light";
 type MapMode = "asRan" | "contribution";
 
@@ -50,6 +56,14 @@ interface MembershipRow {
   memberId: bigint;
   status: string;
   leftAt: unknown;
+}
+
+interface ActivityLogRow {
+  id: bigint;
+  expeditionId: bigint;
+  memberId: bigint;
+  distanceKm: number;
+  timestamp: { toDate: () => Date };
 }
 
 interface AnalyticsReducers {
@@ -97,7 +111,7 @@ function loadInitialMapMode(): MapMode {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<AppTab>("expedition");
+  const [tab, setTab] = useState<AppTab>("dashboard");
   const [theme, setTheme] = useState<Theme>(loadInitialTheme);
   const [mapMode, setMapMode] = useState<MapMode>(loadInitialMapMode);
   const [activeExpeditionId, setActiveExpeditionId] = useState<bigint | null>(null);
@@ -111,6 +125,7 @@ export default function App() {
   const connectionState = useSpacetimeDB();
   const [expeditionRows] = useTable(tables.expedition);
   const [membershipRows] = useTable(tables.membership);
+  const [activityLogRows] = useTable(tables.activity_log);
 
   const sub = auth.user?.profile?.sub as string | undefined;
   const isRegistered = members.some((m) => sub != null && m.ownerSub === sub);
@@ -148,7 +163,74 @@ export default function App() {
     [availableExpeditions, activeExpeditionId],
   );
 
-  const visibleTabs: AppTab[] = ["expedition", "members", "settings"];
+  const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
+  const mobileNavTabs: AppTab[] = ["dashboard", "map", "log", "feed", "stats"];
+
+  const scopedActivity = useMemo(() => {
+    if (activeExpeditionId == null) return [];
+    return (activityLogRows as readonly ActivityLogRow[])
+      .filter((row) => row.expeditionId === activeExpeditionId)
+      .sort((a, b) => a.timestamp.toDate().getTime() - b.timestamp.toDate().getTime());
+  }, [activityLogRows, activeExpeditionId]);
+
+  const dashboardMetrics = useMemo(() => {
+    const now = Date.now();
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const weekStart = now - 7 * 24 * 60 * 60 * 1000;
+
+    const totalKm = scopedActivity.reduce((sum, row) => sum + row.distanceKm, 0);
+    const weeklyKm = scopedActivity
+      .filter((row) => row.timestamp.toDate().getTime() >= weekStart)
+      .reduce((sum, row) => sum + row.distanceKm, 0);
+
+    const activeToday = new Set(
+      scopedActivity
+        .filter((row) => row.timestamp.toDate().getTime() >= dayStart.getTime())
+        .map((row) => row.memberId.toString()),
+    ).size;
+
+    const activeWeek = new Set(
+      scopedActivity
+        .filter((row) => row.timestamp.toDate().getTime() >= weekStart)
+        .map((row) => row.memberId.toString()),
+    ).size;
+
+    const completionPct = Math.min((totalKm / ROUTE_TOTAL_KM) * 100, 100);
+    const nextLandmark = LANDMARKS.find((landmark) => landmark.km > totalKm) ?? LANDMARKS[LANDMARKS.length - 1];
+    const remainingToLandmark = Math.max(nextLandmark.km - totalKm, 0);
+
+    return {
+      totalKm,
+      weeklyKm,
+      activeToday,
+      activeWeek,
+      completionPct,
+      nextLandmark,
+      remainingToLandmark,
+    };
+  }, [scopedActivity]);
+
+  function tabLabel(value: AppTab): string {
+    switch (value) {
+      case "dashboard":
+        return "Dashboard";
+      case "map":
+        return "Map";
+      case "log":
+        return "Log";
+      case "feed":
+        return "Activity Feed";
+      case "stats":
+        return "Stats";
+      case "members":
+        return "Members";
+      case "settings":
+        return "Settings";
+      default:
+        return value;
+    }
+  }
 
   function trackProductEvent(
     eventName: string,
@@ -382,16 +464,18 @@ export default function App() {
   const expeditionLoading = linkedMember != null && !activeResolved;
   const hasNoMembership = linkedMember != null && activeResolved && availableExpeditions.length === 0;
 
+  const showRightRail = tab !== "map" && tab !== "settings" && tab !== "members";
+
   return (
     <div className="app">
-      <AppBar position="static" color="transparent" elevation={0} className="app-bar">
-        <Toolbar className="app-toolbar" disableGutters>
-          <Stack direction={{ xs: "column", lg: "row" }} spacing={1} className="toolbar-block toolbar-left">
+      <div className="app-shell">
+        <aside className="shell-sidebar">
+          <div className="sidebar-top">
             <Typography variant="h6" className="app-title">
-              The Expedition
+              Expedition
             </Typography>
             {isRegistered && (
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} className="expedition-controls">
+              <div className="expedition-controls sidebar-expedition-switcher">
                 <FormControl size="small" sx={{ minWidth: 220 }}>
                   <InputLabel id="active-expedition-select-label">Expedition</InputLabel>
                   <Select
@@ -410,27 +494,51 @@ export default function App() {
                     ))}
                   </Select>
                 </FormControl>
-              </Stack>
+              </div>
             )}
-          </Stack>
+          </div>
 
-          <Stack direction="row" spacing={1} alignItems="center" className="toolbar-block toolbar-right">
-            <Tabs value={tab} onChange={(_, value) => setTab(value as AppTab)} variant="scrollable" allowScrollButtonsMobile>
-              {visibleTabs.map((t) => (
-                <Tab
-                  key={t}
-                  value={t}
-                  label={t === "expedition" ? "Expedition" : t === "members" ? "Members" : "Settings"}
-                />
-              ))}
-            </Tabs>
+          <nav className="sidebar-nav" aria-label="Primary">
+            {desktopNavTabs.map((navTab) => (
+              <button
+                key={navTab}
+                type="button"
+                className={`sidebar-nav-item ${tab === navTab ? "active" : ""}`}
+                onClick={() => setTab(navTab)}
+              >
+                {tabLabel(navTab)}
+              </button>
+            ))}
+          </nav>
+
+          <div className="sidebar-bottom">
+            <div className="sidebar-user">
+              <Avatar>{(linkedMember?.name?.[0] ?? "U").toUpperCase()}</Avatar>
+              <div>
+                <p className="sidebar-user-name">{linkedMember?.name ?? "Your Profile"}</p>
+                <p className="sidebar-user-subtle">Strava status in Settings</p>
+              </div>
+            </div>
             <Button variant="text" color="inherit" onClick={() => auth.signoutRedirect()}>
               Sign out
             </Button>
-          </Stack>
-        </Toolbar>
-      </AppBar>
-      <main className={`app-main ${tab === "expedition" ? "expedition-main" : ""}`}>
+          </div>
+        </aside>
+
+        <main className={`app-main ${tab === "map" ? "expedition-main" : ""}`}>
+          <div className="main-page-head">
+            <div>
+              <Typography variant="h5" className="page-title">{tabLabel(tab)}</Typography>
+              <Typography variant="body2" className="page-subtitle">
+                {activeExpedition?.name ?? "Shared route and team momentum"}
+              </Typography>
+            </div>
+            <div className="page-actions">
+              <Button variant="contained" onClick={() => setTab("log")}>Log Activity</Button>
+              <Button variant="outlined" onClick={() => setTab("members")}>Invite Members</Button>
+            </div>
+          </div>
+
         {expeditionLoading && (
           <Box className="status-row">
             <CircularProgress size={18} />
@@ -468,7 +576,73 @@ export default function App() {
             Complete onboarding in Settings: set your profile name and color, then create or join an expedition to unlock activity logging.
           </Alert>
         )}
-        {tab === "expedition" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+
+        {tab === "dashboard" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+          <div className="dashboard-layout">
+            <section className="dashboard-hero">
+              <div className="dashboard-hero-copy">
+                <p className="hero-kicker">{activeExpedition?.name ?? "Current Expedition"}</p>
+                <h2>{dashboardMetrics.totalKm.toFixed(1)} km completed</h2>
+                <p>{dashboardMetrics.completionPct.toFixed(1)}% of {ROUTE_TOTAL_KM.toLocaleString()} km route</p>
+                <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km to {dashboardMetrics.nextLandmark.name}</p>
+                <div className="hero-meta-row">
+                  <span>+{dashboardMetrics.weeklyKm.toFixed(1)} km this week</span>
+                  <span>{dashboardMetrics.activeToday} members active today</span>
+                </div>
+              </div>
+              <div className="dashboard-map-preview">
+                <MapView
+                  theme={theme}
+                  mode={mapMode}
+                  onModeChange={setMapMode}
+                  hubOpen={false}
+                  activeExpeditionId={activeExpeditionId}
+                />
+              </div>
+            </section>
+
+            <section className="dashboard-cards-row">
+              <Paper className="dashboard-card" variant="outlined">
+                <h3>Team Momentum</h3>
+                <p>{dashboardMetrics.weeklyKm.toFixed(1)} km this week</p>
+                <p>{dashboardMetrics.activeWeek} members active in the last 7 days</p>
+              </Paper>
+              <Paper className="dashboard-card" variant="outlined">
+                <h3>Your Contribution</h3>
+                <p>View your latest movement and consistency in Feed and Stats.</p>
+                <Button variant="text" onClick={() => setTab("feed")}>Open Activity Feed</Button>
+              </Paper>
+              <Paper className="dashboard-card" variant="outlined">
+                <h3>Next Milestone</h3>
+                <p>{dashboardMetrics.nextLandmark.name}</p>
+                <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km remaining</p>
+              </Paper>
+            </section>
+
+            <section className="dashboard-lower">
+              <Paper className="dashboard-feed" variant="outlined">
+                <h3>Activity Feed</h3>
+                <ActivityFeed activeExpeditionId={activeExpeditionId} />
+              </Paper>
+              <aside className="dashboard-insights">
+                <Paper className="coach-card" variant="outlined">
+                  <h4>Coach</h4>
+                  <p>
+                    {dashboardMetrics.weeklyKm > 0
+                      ? "Great momentum this week. A mid-week push can bring the next landmark into reach faster."
+                      : "Start the route with one activity today. Every distance entry moves the whole team forward."}
+                  </p>
+                </Paper>
+                <Paper className="dashboard-chip-card" variant="outlined">
+                  <h4>Today</h4>
+                  <p>{dashboardMetrics.activeToday} contributors logged today</p>
+                </Paper>
+              </aside>
+            </section>
+          </div>
+        )}
+
+        {tab === "map" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <MapJournalView
             theme={theme}
             mapMode={mapMode}
@@ -476,6 +650,35 @@ export default function App() {
             activeExpeditionId={activeExpeditionId}
           />
         )}
+
+        {tab === "log" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+          <div className="content-shell">
+            <div className="log-only-panel">
+              <LogForm activeExpeditionId={activeExpeditionId} />
+            </div>
+          </div>
+        )}
+
+        {tab === "feed" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+          <div className="content-shell">
+            <div className="feed-shell">
+              <ActivityFeed activeExpeditionId={activeExpeditionId} />
+            </div>
+          </div>
+        )}
+
+        {tab === "stats" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+          <div className="content-shell">
+            <div className="stats-shell">
+              <KpiDashboard />
+              <SummaryStats activeExpeditionId={activeExpeditionId} />
+              <ActivityTypeChart activeExpeditionId={activeExpeditionId} />
+              <PersonBreakdown activeExpeditionId={activeExpeditionId} />
+              <LandmarksPassed activeExpeditionId={activeExpeditionId} />
+            </div>
+          </div>
+        )}
+
         {tab === "members" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
           <div className="content-shell">
             <MembersPanel activeExpeditionId={activeExpeditionId} />
@@ -495,7 +698,46 @@ export default function App() {
             />
           </div>
         )}
-      </main>
+
+        </main>
+
+        {showRightRail && (
+          <aside className="context-rail">
+            <Paper className="rail-card" variant="outlined">
+              <h4>Next milestone</h4>
+              <p>{dashboardMetrics.nextLandmark.name}</p>
+              <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km away</p>
+            </Paper>
+
+            <Paper className="rail-card coach-card" variant="outlined">
+              <h4>AI Coach</h4>
+              <p>
+                Shared consistency is building. Keep short sessions flowing and the frontier keeps moving.
+              </p>
+            </Paper>
+
+            {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
+              <Paper className="rail-card" variant="outlined">
+                <h4>Quick Log</h4>
+                <LogForm activeExpeditionId={activeExpeditionId} />
+              </Paper>
+            )}
+          </aside>
+        )}
+      </div>
+
+      <nav className="mobile-bottom-nav" aria-label="Mobile">
+        {mobileNavTabs.map((navTab) => (
+          <button
+            key={navTab}
+            type="button"
+            className={tab === navTab ? "active" : ""}
+            onClick={() => setTab(navTab)}
+          >
+            {navTab === "dashboard" ? "Home" : tabLabel(navTab)}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
