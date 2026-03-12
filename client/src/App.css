@@ -43,6 +43,17 @@
   width: 100%;
 }
 
+.sidebar-create-expedition {
+  margin-top: 0.6rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sidebar-create-expedition .MuiFormControl-root,
+.sidebar-create-expedition .MuiTextField-root {
+  flex: 1;
+}
+
 .expedition-controls .MuiOutlinedInput-root {
   background: var(--input-bg) !important;
   border-radius: var(--radius-sm) !important;

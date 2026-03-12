@@ -121,9 +121,6 @@ describe("SettingsPanel invite/role security", () => {
         mapMode="asRan"
         onMapModeChange={() => {}}
         activeExpedition={{ id: 10n, name: "Alpha", slug: "alpha" }}
-        onCreateExpedition={async () => true}
-        isCreatingExpedition={false}
-        expeditionCreateError=""
       />,
     );
   }
@@ -271,9 +268,6 @@ describe("SettingsPanel invite/role security", () => {
         mapMode="asRan"
         onMapModeChange={() => {}}
         activeExpedition={{ id: 10n, name: "Alpha", slug: "alpha" }}
-        onCreateExpedition={async () => true}
-        isCreatingExpedition={false}
-        expeditionCreateError=""
       />,
     );
 

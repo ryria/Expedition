@@ -694,6 +694,19 @@ export default function App() {
                     ))}
                   </Select>
                 </FormControl>
+                <Box className="sidebar-create-expedition" component="form" onSubmit={handleHeaderCreate}>
+                  <TextField
+                    size="small"
+                    value={newExpeditionName}
+                    onChange={(e) => setNewExpeditionName(e.target.value)}
+                    placeholder="New expedition"
+                    inputProps={{ maxLength: 64 }}
+                  />
+                  <Button type="submit" variant="outlined" disabled={isCreatingExpedition}>
+                    {isCreatingExpedition ? "Creating…" : "Create"}
+                  </Button>
+                </Box>
+                {expeditionCreateError && <Typography className="field-error">{expeditionCreateError}</Typography>}
               </div>
             )}
           </div>
@@ -913,9 +926,6 @@ export default function App() {
                 mapMode={mapMode}
                 onMapModeChange={setMapMode}
                 activeExpedition={activeExpedition}
-                onCreateExpedition={handleCreateExpedition}
-                isCreatingExpedition={isCreatingExpedition}
-                expeditionCreateError={expeditionCreateError}
               />
             </div>
           </div>

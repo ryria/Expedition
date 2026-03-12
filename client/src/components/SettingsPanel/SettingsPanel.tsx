@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
 import { useAuth } from "react-oidc-context";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { useMembers } from "../../hooks/useMembers";
@@ -98,9 +97,6 @@ interface SettingsPanelProps {
     name: string;
     slug: string;
   } | null;
-  onCreateExpedition: (name: string) => Promise<boolean>;
-  isCreatingExpedition: boolean;
-  expeditionCreateError: string;
 }
 
 export function SettingsPanel({
@@ -109,9 +105,6 @@ export function SettingsPanel({
   mapMode,
   onMapModeChange,
   activeExpedition,
-  onCreateExpedition,
-  isCreatingExpedition,
-  expeditionCreateError,
 }: SettingsPanelProps) {
   const auth = useAuth();
   const connectionState = useSpacetimeDB();
@@ -123,7 +116,6 @@ export function SettingsPanel({
   const [stravaStatus, setStravaStatus] = useState("");
   const [isLinkingStrava, setIsLinkingStrava] = useState(false);
   const [isSyncingStrava, setIsSyncingStrava] = useState(false);
-  const [newExpeditionName, setNewExpeditionName] = useState("");
   const [billingStatus, setBillingStatus] = useState("");
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [visibilityStatus, setVisibilityStatus] = useState("");
@@ -470,16 +462,6 @@ export function SettingsPanel({
     })();
   }
 
-  function handleCreateExpedition(e: FormEvent) {
-    e.preventDefault();
-    void (async () => {
-      const created = await onCreateExpedition(newExpeditionName);
-      if (created) {
-        setNewExpeditionName("");
-      }
-    })();
-  }
-
   function handleStartCheckout() {
     setBillingStatus("");
     if (!conn) {
@@ -621,18 +603,6 @@ export function SettingsPanel({
             Visibility: {activeExpeditionRow.inviteOnly ? "Invite-only" : "Public"}
           </p>
         )}
-        <form className="strava-actions" onSubmit={handleCreateExpedition}>
-          <input
-            type="text"
-            value={newExpeditionName}
-            onChange={(e) => setNewExpeditionName(e.target.value)}
-            placeholder="New expedition name"
-            maxLength={64}
-          />
-          <button type="submit" disabled={isCreatingExpedition}>
-            {isCreatingExpedition ? "Creating…" : "Create expedition"}
-          </button>
-        </form>
         <div className="strava-actions">
           <button
             type="button"
@@ -651,7 +621,6 @@ export function SettingsPanel({
         </div>
         {!isOwner && activeExpedition && <p>Only the current owner can change expedition visibility.</p>}
         {visibilityStatus && <p className="field-error">{visibilityStatus}</p>}
-        {expeditionCreateError && <p className="field-error">{expeditionCreateError}</p>}
       </section>
 
       <section className="settings-group">
