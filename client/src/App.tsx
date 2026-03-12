@@ -185,6 +185,7 @@ export default function App() {
   const [isCreateExpeditionOpen, setIsCreateExpeditionOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugSummary, setBugSummary] = useState("");
   const [bugReproSteps, setBugReproSteps] = useState("");
@@ -265,7 +266,8 @@ export default function App() {
   } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
-  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
+  const mobilePrimaryNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
+  const mobileSecondaryNavTabs: AppTab[] = ["challenges", "members", "settings"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
@@ -1309,7 +1311,7 @@ export default function App() {
       </div>
 
       <nav className="mobile-bottom-nav" aria-label="Mobile">
-        {mobileNavTabs.map((navTab) => (
+        {mobilePrimaryNavTabs.map((navTab) => (
           <button
             key={navTab}
             type="button"
@@ -1319,7 +1321,35 @@ export default function App() {
             {navTab === "dashboard" ? "Home" : tabLabel(navTab)}
           </button>
         ))}
+        <button
+          type="button"
+          className={mobileSecondaryNavTabs.includes(tab) ? "active" : ""}
+          onClick={() => setIsMobileMoreOpen(true)}
+        >
+          More
+        </button>
       </nav>
+
+      <Dialog open={isMobileMoreOpen} onClose={() => setIsMobileMoreOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>More</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {mobileSecondaryNavTabs.map((navTab) => (
+            <Button
+              key={navTab}
+              variant={tab === navTab ? "contained" : "outlined"}
+              onClick={() => {
+                setTab(navTab);
+                setIsMobileMoreOpen(false);
+              }}
+            >
+              {tabLabel(navTab)}
+            </Button>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsMobileMoreOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={isCreateExpeditionOpen} onClose={closeCreateExpedition} fullWidth maxWidth="sm">
         <DialogTitle>Create expedition</DialogTitle>
