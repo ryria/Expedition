@@ -425,6 +425,10 @@
   gap: 0.75rem;
 }
 
+.dashboard-mobile-shortcuts {
+  display: none;
+}
+
 .dashboard-card {
   padding: 0.85rem;
   border-radius: var(--radius-md) !important;
@@ -599,6 +603,21 @@
     min-height: 0;
   }
 
+  .dashboard-map-preview {
+    order: 1;
+  }
+
+  .dashboard-hero-copy {
+    order: 2;
+    padding-top: 0.8rem;
+  }
+
+  .dashboard-hero-copy .hero-detail,
+  .dashboard-hero-copy .hero-message,
+  .dashboard-hero-copy .hero-meta-row {
+    display: none;
+  }
+
   .dashboard-map-preview .map-view {
     min-height: 220px;
   }
@@ -616,7 +635,21 @@
   }
 
   .dashboard-cards-row {
-    grid-template-columns: 1fr;
+    display: none;
+  }
+
+  .dashboard-lower {
+    display: none;
+  }
+
+  .dashboard-mobile-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .dashboard-mobile-shortcuts .MuiButton-root {
+    width: 100%;
   }
 
   .onboarding-profile-row,

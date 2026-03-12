@@ -185,7 +185,6 @@ export default function App() {
   const [isCreateExpeditionOpen, setIsCreateExpeditionOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugSummary, setBugSummary] = useState("");
   const [bugReproSteps, setBugReproSteps] = useState("");
@@ -266,8 +265,7 @@ export default function App() {
   } = useRoadRoute(createRouteTemplate.waypoints, `create-flow:${createRouteTemplate.key}`);
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "challenges", "members", "settings"];
-  const mobilePrimaryNavTabs: AppTab[] = ["dashboard", "map", "feed"];
-  const mobileSecondaryNavTabs: AppTab[] = ["stats", "challenges", "members", "settings"];
+  const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "settings"];
 
   const scopedActivity = useMemo(() => {
     if (activeExpeditionId == null) return [];
@@ -1179,8 +1177,8 @@ export default function App() {
               <div className="dashboard-hero-copy">
                 <p className="hero-kicker">{activeExpedition?.name ?? "Current Expedition"}</p>
                 <h2 className="hero-progress-number">{formatDistance(dashboardMetrics.totalKm, distanceUnit)} {distanceLabel}</h2>
-                <p>{completionLabel} of {formatDistance(dashboardMetrics.routeTotalKm, distanceUnit, 0)} {distanceLabel} route</p>
-                <p>{formatDistance(dashboardMetrics.remainingToLandmark, distanceUnit)} {distanceLabel} to {dashboardMetrics.nextLandmark.name}</p>
+                <p className="hero-detail">{completionLabel} of {formatDistance(dashboardMetrics.routeTotalKm, distanceUnit, 0)} {distanceLabel} route</p>
+                <p className="hero-detail">{formatDistance(dashboardMetrics.remainingToLandmark, distanceUnit)} {distanceLabel} to {dashboardMetrics.nextLandmark.name}</p>
                 <p className="hero-message">{journeyMessage}</p>
                 <div className="hero-meta-row">
                   <span>+{formatDistance(dashboardMetrics.weeklyKm, distanceUnit)} {distanceLabel} this week</span>
@@ -1197,6 +1195,12 @@ export default function App() {
                   distanceUnit={distanceUnit}
                 />
               </div>
+            </section>
+
+            <section className="dashboard-mobile-shortcuts" aria-label="Home shortcuts">
+              <Button variant="outlined" onClick={() => setTab("members")}>Team</Button>
+              <Button variant="outlined" onClick={() => setTab("challenges")}>Challenges</Button>
+              <Button variant="outlined" onClick={() => setTab("feed")}>Activity</Button>
             </section>
 
             <section className="dashboard-cards-row">
@@ -1311,45 +1315,17 @@ export default function App() {
       </div>
 
       <nav className="mobile-bottom-nav" aria-label="Mobile">
-        {mobilePrimaryNavTabs.map((navTab) => (
+        {mobileNavTabs.map((navTab) => (
           <button
             key={navTab}
             type="button"
             className={tab === navTab ? "active" : ""}
             onClick={() => setTab(navTab)}
           >
-            {navTab === "dashboard" ? "Home" : tabLabel(navTab)}
+            {navTab === "dashboard" ? "Home" : navTab === "feed" ? "Activity" : tabLabel(navTab)}
           </button>
         ))}
-        <button
-          type="button"
-          className={mobileSecondaryNavTabs.includes(tab) ? "active" : ""}
-          onClick={() => setIsMobileMoreOpen(true)}
-        >
-          More
-        </button>
       </nav>
-
-      <Dialog open={isMobileMoreOpen} onClose={() => setIsMobileMoreOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>More</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {mobileSecondaryNavTabs.map((navTab) => (
-            <Button
-              key={navTab}
-              variant={tab === navTab ? "contained" : "outlined"}
-              onClick={() => {
-                setTab(navTab);
-                setIsMobileMoreOpen(false);
-              }}
-            >
-              {tabLabel(navTab)}
-            </Button>
-          ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsMobileMoreOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={isCreateExpeditionOpen} onClose={closeCreateExpedition} fullWidth maxWidth="sm">
         <DialogTitle>Create expedition</DialogTitle>
