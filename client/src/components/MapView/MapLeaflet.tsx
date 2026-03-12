@@ -62,11 +62,25 @@ export function MapLeaflet({ segments, totalKm, waypoints, landmarks, distanceUn
         subdomains="abcd"
         maxZoom={19}
       />
+      <MapRouteFocus bounds={bounds} />
       <MapResizeSync hubOpen={hubOpen} />
       <TrailsPolyline segments={segments} totalKm={totalKm} waypoints={waypoints} distanceUnit={distanceUnit} />
       <LandmarksMarkers totalKm={totalKm} landmarks={landmarks} />
     </MapContainer>
   );
+}
+
+function MapRouteFocus({ bounds }: { bounds: [[number, number], [number, number]] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.fitBounds(bounds, {
+      padding: [24, 24],
+      animate: false,
+    });
+  }, [map, bounds]);
+
+  return null;
 }
 
 function MapResizeSync({ hubOpen }: { hubOpen: boolean }) {
