@@ -261,15 +261,6 @@ export function SettingsPanel({
     DEFAULT_BETA_ONBOARDING_STATUS,
   );
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
-  const [supportSummary, setSupportSummary] = useState("");
-  const [supportCategory, setSupportCategory] = useState("onboarding");
-  const [supportSource, setSupportSource] = useState("in_app");
-  const [supportImpact, setSupportImpact] = useState("medium");
-  const [supportFrequency, setSupportFrequency] = useState("single");
-  const [supportReproSteps, setSupportReproSteps] = useState("");
-  const [supportNextAction, setSupportNextAction] = useState("");
-  const [supportSeverity, setSupportSeverity] = useState<SupportSeverity>("medium");
-  const [supportStatus, setSupportStatus] = useState("");
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
@@ -1056,74 +1047,6 @@ export function SettingsPanel({
         milestone,
       });
     }
-  }
-
-  function handleSubmitSupportTicket(e: FormEvent) {
-    e.preventDefault();
-    setSupportStatus("");
-
-    if (!activeExpedition || !linkedMember) {
-      setSupportStatus("Select an active expedition and linked profile first.");
-      return;
-    }
-
-    if (!supportSummary.trim()) {
-      setSupportStatus("Issue summary is required.");
-      return;
-    }
-
-    if (!supportReproSteps.trim()) {
-      setSupportStatus("Repro steps are required.");
-      return;
-    }
-
-    if (!supportNextAction.trim()) {
-      setSupportStatus("Next action is required.");
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const feedbackTag = `beta-feedback:${supportCategory}:${supportSeverity}`;
-    const nextTicket: SupportTicket = {
-      id: crypto.randomUUID(),
-      summary: supportSummary.trim(),
-      category: supportCategory,
-      source: supportSource,
-      impact: supportImpact,
-      frequency: supportFrequency,
-      reproSteps: supportReproSteps.trim(),
-      severity: supportSeverity,
-      status: "new",
-      owner: "unassigned",
-      nextAction: supportNextAction.trim(),
-      feedbackTag,
-      createdAtIso: now,
-      triagedAtIso: null,
-      firstResponseAtIso: null,
-      closedAtIso: null,
-    };
-
-    setSupportTickets((current) => [nextTicket, ...current]);
-    setSupportSummary("");
-    setSupportCategory("onboarding");
-    setSupportSource("in_app");
-    setSupportImpact("medium");
-    setSupportFrequency("single");
-    setSupportReproSteps("");
-    setSupportNextAction("");
-    setSupportSeverity("medium");
-    setSupportStatus("Support ticket created and queued for triage.");
-
-    trackSupportKpiEvent("beta_support_ticket_submitted", {
-      ticketId: nextTicket.id,
-      severity: nextTicket.severity,
-      category: nextTicket.category,
-      source: nextTicket.source,
-      impact: nextTicket.impact,
-      frequency: nextTicket.frequency,
-      nextAction: nextTicket.nextAction,
-      account: sub ?? "unknown",
-    });
   }
 
   function handleTicketOwnerChange(ticketId: string, owner: string) {
