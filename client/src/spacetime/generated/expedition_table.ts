@@ -18,4 +18,5 @@ export default __t.row({
   isArchived: __t.bool().name("is_archived"),
   createdAt: __t.timestamp().name("created_at"),
   archivedAt: __t.option(__t.timestamp()).name("archived_at"),
+  inviteOnly: __t.bool().name("invite_only"),
 });

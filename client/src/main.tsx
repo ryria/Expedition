@@ -5,6 +5,12 @@ import { SpacetimeDBProvider, useSpacetimeDB } from "spacetimedb/react";
 import App from "./App.tsx";
 import "./index.css";
 import { DbConnection } from "./spacetime/generated";
+import {
+  emitObservabilitySignal,
+  getSessionTraceId,
+  logStructuredClient,
+} from "./observability/telemetry";
+import { AppErrorBoundary } from "./observability/AppErrorBoundary";
 
 function firstNonEmptyEnv(...values: Array<string | undefined>): string | undefined {
   for (const value of values) {
@@ -84,6 +90,58 @@ function normalizeStravaCallbackParams() {
 }
 
 normalizeStravaCallbackParams();
+
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (event) => {
+    const message = event.message || "window.onerror";
+    const traceId = getSessionTraceId();
+    emitObservabilitySignal({
+      component: "client.runtime",
+      event: "window_error",
+      errorCode: "client.runtime.window_error",
+      severity: "p0",
+      message,
+      traceId,
+      metadata: {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      },
+    });
+    logStructuredClient({
+      component: "client.runtime",
+      event: "window_error",
+      errorCode: "client.runtime.window_error",
+      severity: "p0",
+      message,
+      traceId,
+    });
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const message =
+      event.reason instanceof Error
+        ? event.reason.message
+        : String(event.reason ?? "unhandled promise rejection");
+    const traceId = getSessionTraceId();
+    emitObservabilitySignal({
+      component: "client.runtime",
+      event: "unhandled_rejection",
+      errorCode: "client.runtime.unhandled_rejection",
+      severity: "p1",
+      message,
+      traceId,
+    });
+    logStructuredClient({
+      component: "client.runtime",
+      event: "unhandled_rejection",
+      errorCode: "client.runtime.unhandled_rejection",
+      severity: "p1",
+      message,
+      traceId,
+    });
+  });
+}
 
 const shouldSkipOidcSigninCallback = isStravaCallbackPath(window.location.pathname);
 
@@ -315,11 +373,45 @@ function ProviderConnectionApp({ connectionToken }: { connectionToken?: string }
       })
       .onDisconnect((_ctx, err) => {
         if (err) {
-          console.error("[SpacetimeDB][Provider] disconnected with error:", err);
+          const message = err instanceof Error ? err.message : String(err);
+          const traceId = getSessionTraceId();
+          emitObservabilitySignal({
+            component: "client.provider",
+            event: "provider_disconnect_error",
+            errorCode: "provider.disconnect.error",
+            severity: "p1",
+            message,
+            traceId,
+          });
+          logStructuredClient({
+            component: "client.provider",
+            event: "provider_disconnect_error",
+            errorCode: "provider.disconnect.error",
+            severity: "p1",
+            message,
+            traceId,
+          });
         }
       })
       .onConnectError((_ctx, err) => {
-        console.error("[SpacetimeDB][Provider] connection failed:", err);
+        const message = err instanceof Error ? err.message : String(err);
+        const traceId = getSessionTraceId();
+        emitObservabilitySignal({
+          component: "client.provider",
+          event: "provider_connect_error",
+          errorCode: "provider.connect.error",
+          severity: "p0",
+          message,
+          traceId,
+        });
+        logStructuredClient({
+          component: "client.provider",
+          event: "provider_connect_error",
+          errorCode: "provider.connect.error",
+          severity: "p0",
+          message,
+          traceId,
+        });
       });
   }, [connectionToken, retryNonce]);
 
@@ -419,5 +511,11 @@ const appRoot = AUTH_CLIENT_ID ? (
 );
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  STRICT_MODE_ENABLED ? <React.StrictMode>{appRoot}</React.StrictMode> : appRoot,
+  STRICT_MODE_ENABLED ? (
+    <React.StrictMode>
+      <AppErrorBoundary>{appRoot}</AppErrorBoundary>
+    </React.StrictMode>
+  ) : (
+    <AppErrorBoundary>{appRoot}</AppErrorBoundary>
+  ),
 );

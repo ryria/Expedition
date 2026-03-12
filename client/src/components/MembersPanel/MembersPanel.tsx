@@ -19,7 +19,7 @@ export function MembersPanel({ activeExpeditionId }: MembersPanelProps) {
       </Typography>
 
       {!members.length && (
-        <Typography className="members-empty">No members yet. Add yourself in Settings.</Typography>
+        <Typography className="members-empty">No members yet. Create your profile in Settings, then invite or join teammates to start collaborating.</Typography>
       )}
 
       <List className="member-list" disablePadding>

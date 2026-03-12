@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ActivityEntry } from "../../hooks/useActivityLog";
 import { useReactions } from "../../hooks/useReactions";
 import { useMembers } from "../../hooks/useMembers";
@@ -19,6 +19,12 @@ export function ActivityCard({ entry }: Props) {
   const { reactionsFor } = useReactions(entry.expeditionId);
   const [actionError, setActionError] = useState("");
   const reactionList = reactionsFor(entry.id);
+  const reactionCounts = useMemo(() => {
+    return reactionList.reduce<Record<string, number>>((acc, reaction) => {
+      acc[reaction.emoji] = (acc[reaction.emoji] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [reactionList]);
   const displayName = members.find((m) => m.id === entry.memberId)?.name ?? entry.personName;
   const sub = auth.user?.profile?.sub as string | undefined;
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
@@ -53,7 +59,7 @@ export function ActivityCard({ entry }: Props) {
       {entry.aiResponse && <p className="ai-response">{entry.aiResponse}</p>}
       <div className="reaction-bar">
         {EMOJIS.map((e) => {
-          const count = reactionList.filter((r) => r.emoji === e).length;
+          const count = reactionCounts[e] ?? 0;
           return (
             <button
               key={e}

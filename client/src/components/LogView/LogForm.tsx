@@ -5,10 +5,20 @@ import { useMembers } from "../../hooks/useMembers";
 import { DbConnection, tables } from "../../spacetime/generated";
 import { ACTIVITY_TYPES, ACTIVITY_ICONS } from "../../config";
 
-type ActivityLogInsertRow = { id: bigint; memberId: bigint };
+type ActivityLogInsertRow = { id: bigint; memberId: bigint; expeditionId: bigint };
 type ExpeditionProcedures = {
   requestAiCoaching(args: { logId: bigint }): Promise<unknown>;
 };
+
+type AnalyticsReducers = {
+  trackProductEvent?: (args: {
+    eventName: string;
+    expeditionId: bigint;
+    payloadJson: string;
+  }) => void;
+};
+
+const PENDING_SUBMISSION_TTL_MS = 5000;
 
 interface LogFormProps {
   activeExpeditionId?: bigint;
@@ -24,8 +34,7 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // Track the member who just submitted so we can call AI coaching on their new entry
-  const pendingMemberId = useRef<bigint | null>(null);
+  const pendingSubmission = useRef<{ memberId: bigint; expeditionId: bigint; submittedAtMs: number } | null>(null);
   const sub = auth.user?.profile?.sub as string | undefined;
 
   const linkedMember = members.find((m) => sub != null && m.ownerSub === sub) ?? null;
@@ -39,8 +48,13 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
   useTable(tables.activity_log, {
     onInsert: (row) => {
       const inserted = row as ActivityLogInsertRow;
-      if (pendingMemberId.current != null && inserted.memberId === pendingMemberId.current) {
-        pendingMemberId.current = null;
+      const pending = pendingSubmission.current;
+      if (
+        pending != null &&
+        inserted.memberId === pending.memberId &&
+        inserted.expeditionId === pending.expeditionId
+      ) {
+        pendingSubmission.current = null;
         const conn = connectionState.getConnection() as DbConnection | null;
         const procedures = conn?.procedures as ExpeditionProcedures | undefined;
         void procedures?.requestAiCoaching({ logId: inserted.id }).catch((err) => {
@@ -54,10 +68,18 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
     e.preventDefault();
     setError("");
     if (activeExpeditionId == null) {
-      setError("Select an expedition first");
+      setError("Select or create an expedition first (top bar).");
       return;
     }
     const km = parseFloat(dist);
+    const pending = pendingSubmission.current;
+    if (pending) {
+      if (Date.now() - pending.submittedAtMs < PENDING_SUBMISSION_TTL_MS) {
+        setError("Previous activity log is still processing. Please wait a moment.");
+        return;
+      }
+      pendingSubmission.current = null;
+    }
     if (sub && !linkedMember) {
       setError("Create your member profile first (Members tab)");
       return;
@@ -73,13 +95,17 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
       return;
     }
     if (!dist || isNaN(km) || km <= 0 || km > 500) {
-      setError("Distance must be 0–500 km"); return;
+      setError("Distance must be 0.1–500 km"); return;
     }
     setSubmitting(true);
     try {
       const conn = connectionState.getConnection() as DbConnection | null;
       if (!conn) throw new Error("SpacetimeDB not connected");
-      pendingMemberId.current = selectedMember.id;
+      pendingSubmission.current = {
+        memberId: selectedMember.id,
+        expeditionId: activeExpeditionId,
+        submittedAtMs: Date.now(),
+      };
       conn.reducers.logActivity({
         expeditionId: activeExpeditionId,
         memberId: selectedMember.id,
@@ -87,10 +113,19 @@ export function LogForm({ activeExpeditionId }: LogFormProps) {
         distanceKm: km,
         note: note.trim(),
       });
+      const analytics = conn.reducers as AnalyticsReducers;
+      analytics.trackProductEvent?.({
+        eventName: "activity_log_submitted",
+        expeditionId: activeExpeditionId,
+        payloadJson: JSON.stringify({
+          activityType: actType,
+          distanceKm: km,
+        }),
+      });
       setDist("");
       setNote("");
     } catch (err: unknown) {
-      pendingMemberId.current = null;
+      pendingSubmission.current = null;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);

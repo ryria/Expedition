@@ -51,6 +51,12 @@ const ABUSE_STATUS_REVIEWED: &str = "reviewed";
 const MODERATION_ACTION_DISMISS: &str = "dismiss";
 const MODERATION_ACTION_HIDE: &str = "hide";
 const MODERATION_ACTION_REMOVE: &str = "remove";
+const EXPEDITION_VISIBILITY_PUBLIC: &str = "public";
+const EXPEDITION_VISIBILITY_INVITE_ONLY: &str = "invite_only";
+const PRODUCT_EVENT_NAME_MAX_LEN: usize = 80;
+const PRODUCT_EVENT_PAYLOAD_MAX_LEN: usize = 4096;
+const OPERATION_STATUS_SUCCESS: &str = "success";
+const OPERATION_STATUS_FAILURE: &str = "failure";
 
 fn window_start(epoch_seconds: i64, window_seconds: i64) -> i64 {
     epoch_seconds - (epoch_seconds % window_seconds)
@@ -662,6 +668,8 @@ pub struct Expedition {
     pub is_archived: bool,
     pub created_at: Timestamp,
     pub archived_at: Option<Timestamp>,
+    #[default(false)]
+    pub invite_only: bool,
 }
 
 #[spacetimedb::table(accessor = membership, public)]
@@ -787,6 +795,29 @@ pub struct ModerationAudit {
     pub created_at: Timestamp,
 }
 
+#[spacetimedb::table(accessor = product_analytics_event)]
+pub struct ProductAnalyticsEvent {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub event_name: String,
+    pub member_id: u64,
+    pub expedition_id: u64,
+    pub payload_json: String,
+    pub created_at: Timestamp,
+}
+
+#[spacetimedb::table(accessor = operational_counter, public)]
+pub struct OperationalCounter {
+    #[primary_key]
+    pub key: String,
+    pub operation: String,
+    pub status: String,
+    pub count: u64,
+    pub last_error_code: String,
+    pub updated_at: Timestamp,
+}
+
 fn require_authenticated_member(ctx: &ReducerContext) -> Result<Member, String> {
     let owner_sub = authenticated_subject(ctx)?;
     ctx.db
@@ -885,6 +916,16 @@ fn is_valid_moderation_action(action: &str) -> bool {
         || action == MODERATION_ACTION_REMOVE
 }
 
+fn is_valid_expedition_visibility(visibility: &str) -> bool {
+    visibility == EXPEDITION_VISIBILITY_PUBLIC
+        || visibility == EXPEDITION_VISIBILITY_INVITE_ONLY
+}
+
+fn is_valid_product_event_name(event_name: &str) -> bool {
+    let trimmed = event_name.trim();
+    !trimmed.is_empty() && trimmed.len() <= PRODUCT_EVENT_NAME_MAX_LEN
+}
+
 fn is_valid_subscription_status(status: &str) -> bool {
     status == SUBSCRIPTION_STATUS_TRIALING
         || status == SUBSCRIPTION_STATUS_ACTIVE
@@ -907,6 +948,42 @@ fn active_members_count(ctx: &ReducerContext, expedition_id: u64) -> u32 {
         .iter()
         .filter(|membership| membership.expedition_id == expedition_id && membership.status == "active")
         .count() as u32
+}
+
+fn bump_operational_counter(
+    ctx: &ReducerContext,
+    operation: &str,
+    status: &str,
+    error_code: &str,
+) {
+    let normalized_error = if status == OPERATION_STATUS_FAILURE {
+        error_code.trim()
+    } else {
+        ""
+    };
+
+    let key = if normalized_error.is_empty() {
+        format!("{}:{}", operation, status)
+    } else {
+        format!("{}:{}:{}", operation, status, normalized_error)
+    };
+
+    if let Some(mut counter) = ctx.db.operational_counter().key().find(key.clone()) {
+        counter.count = counter.count.saturating_add(1);
+        counter.last_error_code = normalized_error.to_string();
+        counter.updated_at = ctx.timestamp;
+        ctx.db.operational_counter().key().update(counter);
+        return;
+    }
+
+    ctx.db.operational_counter().insert(OperationalCounter {
+        key,
+        operation: operation.to_string(),
+        status: status.to_string(),
+        count: 1,
+        last_error_code: normalized_error.to_string(),
+        updated_at: ctx.timestamp,
+    });
 }
 
 fn effective_member_limit(ctx: &ReducerContext, expedition_id: u64) -> u32 {
@@ -1096,6 +1173,7 @@ fn resolve_or_create_expedition_for_member_procedure(
                 is_archived: false,
                 created_at: now_ts,
                 archived_at: None,
+                invite_only: false,
             });
             tx.db
                 .expedition()
@@ -1152,18 +1230,36 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         Ok(sub) => sub,
         Err(err) => {
             log::error!("create_expedition: {}", err);
+            bump_operational_counter(
+                ctx,
+                "create_expedition",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
             return;
         }
     };
 
     let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
         log::error!("create_expedition: profile not found for authenticated user");
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "member.missing",
+        );
         return;
     };
 
     let name = name.trim().to_string();
     if name.is_empty() {
         log::error!("create_expedition: name cannot be empty");
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "validation.name_empty",
+        );
         return;
     }
 
@@ -1172,11 +1268,23 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         log::error!(
             "create_expedition: slug must contain only lowercase letters, digits, and hyphens"
         );
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "validation.slug_invalid",
+        );
         return;
     }
 
     if ctx.db.expedition().slug().find(slug.clone()).is_some() {
         log::error!("create_expedition: duplicate slug");
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "validation.slug_duplicate",
+        );
         return;
     }
 
@@ -1188,10 +1296,17 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         is_archived: false,
         created_at: ctx.timestamp,
         archived_at: None,
+        invite_only: false,
     });
 
     let Some(expedition) = ctx.db.expedition().slug().find(slug) else {
         log::error!("create_expedition: failed to resolve inserted expedition");
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "db.resolve_insert_failed",
+        );
         return;
     };
 
@@ -1204,6 +1319,12 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         .is_some()
     {
         log::error!("create_expedition: duplicate active membership");
+        bump_operational_counter(
+            ctx,
+            "create_expedition",
+            OPERATION_STATUS_FAILURE,
+            "db.membership_duplicate",
+        );
         return;
     }
 
@@ -1217,6 +1338,13 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         left_at: None,
         expedition_member_key,
     });
+
+    bump_operational_counter(
+        ctx,
+        "create_expedition",
+        OPERATION_STATUS_SUCCESS,
+        "",
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1257,6 +1385,12 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
         Ok(member) => member,
         Err(err) => {
             log::error!("join_expedition: {}", err);
+            bump_operational_counter(
+                ctx,
+                "join_expedition",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
             return;
         }
     };
@@ -1265,16 +1399,45 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
         Ok(expedition) => expedition,
         Err(err) => {
             log::error!("join_expedition: {}", err);
+            bump_operational_counter(
+                ctx,
+                "join_expedition",
+                OPERATION_STATUS_FAILURE,
+                "expedition.invalid",
+            );
             return;
         }
     };
 
+    if expedition.invite_only {
+        log::error!("join_expedition: expedition is invite-only");
+        bump_operational_counter(
+            ctx,
+            "join_expedition",
+            OPERATION_STATUS_FAILURE,
+            "expedition.invite_only",
+        );
+        return;
+    }
+
     if find_active_membership(ctx, expedition.id, me.id).is_some() {
+        bump_operational_counter(
+            ctx,
+            "join_expedition",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
         return;
     }
 
     if let Err(err) = require_member_capacity(ctx, expedition.id) {
         log::error!("join_expedition: {}", err);
+        bump_operational_counter(
+            ctx,
+            "join_expedition",
+            OPERATION_STATUS_FAILURE,
+            "capacity.limit_reached",
+        );
         return;
     }
 
@@ -1289,6 +1452,12 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
         membership.joined_at = ctx.timestamp;
         membership.left_at = None;
         ctx.db.membership().id().update(membership);
+        bump_operational_counter(
+            ctx,
+            "join_expedition",
+            OPERATION_STATUS_SUCCESS,
+            "",
+        );
         return;
     }
 
@@ -1302,6 +1471,13 @@ pub fn join_expedition(ctx: &ReducerContext, expedition_id: u64) {
         left_at: None,
         expedition_member_key,
     });
+
+    bump_operational_counter(
+        ctx,
+        "join_expedition",
+        OPERATION_STATUS_SUCCESS,
+        "",
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1477,6 +1653,53 @@ pub fn transfer_expedition_ownership(
 }
 
 #[spacetimedb::reducer]
+pub fn set_expedition_visibility(
+    ctx: &ReducerContext,
+    expedition_id: u64,
+    visibility: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("set_expedition_visibility: {}", err);
+            return;
+        }
+    };
+
+    let mut expedition = match require_joinable_expedition(ctx, expedition_id) {
+        Ok(expedition) => expedition,
+        Err(err) => {
+            log::error!("set_expedition_visibility: {}", err);
+            return;
+        }
+    };
+
+    if let Err(err) = require_membership_with_allowed_roles(
+        ctx,
+        expedition_id,
+        me.id,
+        &[MEMBERSHIP_ROLE_OWNER],
+    ) {
+        log::error!("set_expedition_visibility: {}", err);
+        return;
+    }
+
+    let visibility = visibility.trim().to_lowercase();
+    if !is_valid_expedition_visibility(&visibility) {
+        log::error!("set_expedition_visibility: invalid visibility value");
+        return;
+    }
+
+    let next_invite_only = visibility == EXPEDITION_VISIBILITY_INVITE_ONLY;
+    if expedition.invite_only == next_invite_only {
+        return;
+    }
+
+    expedition.invite_only = next_invite_only;
+    ctx.db.expedition().id().update(expedition);
+}
+
+#[spacetimedb::reducer]
 pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) {
     let me = match require_authenticated_member(ctx) {
         Ok(member) => member,
@@ -1503,6 +1726,95 @@ pub fn mark_notification_read(ctx: &ReducerContext, notification_id: u64) {
     notification.is_read = true;
     notification.read_at = Some(ctx.timestamp);
     ctx.db.notification().id().update(notification);
+}
+
+#[spacetimedb::reducer]
+pub fn track_product_event(
+    ctx: &ReducerContext,
+    event_name: String,
+    expedition_id: u64,
+    payload_json: String,
+) {
+    let me = match require_authenticated_member(ctx) {
+        Ok(member) => member,
+        Err(err) => {
+            log::error!("track_product_event: {}", err);
+            bump_operational_counter(
+                ctx,
+                "track_product_event",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
+            return;
+        }
+    };
+
+    let event_name = event_name.trim().to_string();
+    if !is_valid_product_event_name(&event_name) {
+        log::error!("track_product_event: invalid event_name");
+        bump_operational_counter(
+            ctx,
+            "track_product_event",
+            OPERATION_STATUS_FAILURE,
+            "validation.event_name_invalid",
+        );
+        return;
+    }
+
+    let payload_json = payload_json.trim().to_string();
+    if payload_json.len() > PRODUCT_EVENT_PAYLOAD_MAX_LEN {
+        log::error!("track_product_event: payload_json too large");
+        bump_operational_counter(
+            ctx,
+            "track_product_event",
+            OPERATION_STATUS_FAILURE,
+            "validation.payload_too_large",
+        );
+        return;
+    }
+
+    if !payload_json.is_empty() && serde_json::from_str::<serde_json::Value>(&payload_json).is_err() {
+        log::error!("track_product_event: payload_json must be valid JSON");
+        bump_operational_counter(
+            ctx,
+            "track_product_event",
+            OPERATION_STATUS_FAILURE,
+            "validation.payload_invalid_json",
+        );
+        return;
+    }
+
+    let scoped_expedition_id = if expedition_id == 0 {
+        0
+    } else {
+        if require_active_membership(ctx, expedition_id, me.id).is_err() {
+            log::error!("track_product_event: active membership required for expedition-scoped events");
+            bump_operational_counter(
+                ctx,
+                "track_product_event",
+                OPERATION_STATUS_FAILURE,
+                "authz.membership_required",
+            );
+            return;
+        }
+        expedition_id
+    };
+
+    ctx.db.product_analytics_event().insert(ProductAnalyticsEvent {
+        id: 0,
+        event_name,
+        member_id: me.id,
+        expedition_id: scoped_expedition_id,
+        payload_json,
+        created_at: ctx.timestamp,
+    });
+
+    bump_operational_counter(
+        ctx,
+        "track_product_event",
+        OPERATION_STATUS_SUCCESS,
+        "",
+    );
 }
 
 #[spacetimedb::reducer]
@@ -1732,6 +2044,12 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
         Ok(member) => member,
         Err(err) => {
             log::error!("accept_invite: {}", err);
+            bump_operational_counter(
+                ctx,
+                "accept_invite",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
             return;
         }
     };
@@ -1739,6 +2057,12 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
     let token = token.trim().to_string();
     if token.is_empty() {
         log::error!("accept_invite: token cannot be empty");
+        bump_operational_counter(
+            ctx,
+            "accept_invite",
+            OPERATION_STATUS_FAILURE,
+            "validation.token_empty",
+        );
         return;
     }
 
@@ -1746,23 +2070,47 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
         Some(invite) => invite,
         None => {
             log::error!("accept_invite: invite not found");
+            bump_operational_counter(
+                ctx,
+                "accept_invite",
+                OPERATION_STATUS_FAILURE,
+                "invite.not_found",
+            );
             return;
         }
     };
 
     if invite.revoked_at.is_some() {
         log::error!("accept_invite: invite has been revoked");
+        bump_operational_counter(
+            ctx,
+            "accept_invite",
+            OPERATION_STATUS_FAILURE,
+            "invite.revoked",
+        );
         return;
     }
 
     let now_epoch = now_epoch_seconds(ctx);
     if invite.expires_at_epoch <= now_epoch {
         log::error!("accept_invite: invite has expired");
+        bump_operational_counter(
+            ctx,
+            "accept_invite",
+            OPERATION_STATUS_FAILURE,
+            "invite.expired",
+        );
         return;
     }
 
     if invite.used_count >= invite.max_uses {
         log::error!("accept_invite: invite usage limit reached");
+        bump_operational_counter(
+            ctx,
+            "accept_invite",
+            OPERATION_STATUS_FAILURE,
+            "invite.limit_reached",
+        );
         return;
     }
 
@@ -1770,6 +2118,12 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
         Ok(expedition) => expedition,
         Err(err) => {
             log::error!("accept_invite: {}", err);
+            bump_operational_counter(
+                ctx,
+                "accept_invite",
+                OPERATION_STATUS_FAILURE,
+                "expedition.invalid",
+            );
             return;
         }
     };
@@ -1777,6 +2131,12 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
     if find_active_membership(ctx, expedition.id, me.id).is_none() {
         if let Err(err) = require_member_capacity(ctx, expedition.id) {
             log::error!("accept_invite: {}", err);
+            bump_operational_counter(
+                ctx,
+                "accept_invite",
+                OPERATION_STATUS_FAILURE,
+                "capacity.limit_reached",
+            );
             return;
         }
 
@@ -1819,6 +2179,8 @@ pub fn accept_invite(ctx: &ReducerContext, token: String) {
         "expedition",
         expedition.id,
     );
+
+    bump_operational_counter(ctx, "accept_invite", OPERATION_STATUS_SUCCESS, "");
 }
 
 #[spacetimedb::reducer]
@@ -1917,6 +2279,7 @@ pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64
             is_archived: false,
             created_at: ctx.timestamp,
             archived_at: None,
+            invite_only: false,
         });
     }
 
@@ -2155,37 +2518,79 @@ pub fn log_activity(
         Ok(sub) => sub,
         Err(err) => {
             log::error!("log_activity: {}", err);
+            bump_operational_counter(
+                ctx,
+                "log_activity",
+                OPERATION_STATUS_FAILURE,
+                "auth.required",
+            );
             return;
         }
     };
 
     let Some(me) = ctx.db.member().owner_sub().find(owner_sub) else {
         log::error!("log_activity: profile not found for authenticated user");
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "member.missing",
+        );
         return;
     };
 
     if me.id != member_id {
         log::error!("log_activity: you can only log activity for your own profile");
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "authz.member_mismatch",
+        );
         return;
     }
 
     let valid_types = ["run", "row", "walk", "cycle"];
     if !valid_types.contains(&activity_type.as_str()) {
         log::error!("log_activity: invalid activity_type: {}", activity_type);
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "validation.activity_type_invalid",
+        );
         return;
     }
     if distance_km <= 0.0 || distance_km > 500.0 {
         log::error!("log_activity: distance_km out of range: {}", distance_km);
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "validation.distance_out_of_range",
+        );
         return;
     }
 
     if let Err(err) = require_joinable_expedition(ctx, expedition_id) {
         log::error!("log_activity: {}", err);
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "expedition.invalid",
+        );
         return;
     }
 
     if let Err(err) = require_active_membership(ctx, expedition_id, me.id) {
         log::error!("log_activity: {}", err);
+        bump_operational_counter(
+            ctx,
+            "log_activity",
+            OPERATION_STATUS_FAILURE,
+            "authz.membership_required",
+        );
         return;
     }
 
@@ -2219,6 +2624,8 @@ pub fn log_activity(
             expedition_id,
         );
     }
+
+    bump_operational_counter(ctx, "log_activity", OPERATION_STATUS_SUCCESS, "");
 }
 
 // ─── Reaction ─────────────────────────────────────────────────────────────────
@@ -3302,5 +3709,12 @@ mod tests {
         let replay = resolve_subscription_status_for_event("customer.subscription.updated", &object);
         assert_eq!(first, replay);
         assert_eq!(first.as_deref(), Some(SUBSCRIPTION_STATUS_ACTIVE));
+    }
+
+    #[test]
+    fn fixture_product_event_name_validation() {
+        assert!(is_valid_product_event_name("expedition_switch_success"));
+        assert!(!is_valid_product_event_name("   "));
+        assert!(!is_valid_product_event_name(&"x".repeat(PRODUCT_EVENT_NAME_MAX_LEN + 1)));
     }
 }

@@ -8,6 +8,7 @@ import { useMembers } from "./hooks/useMembers";
 import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { DbConnection, tables } from "./spacetime/generated";
 import { emitExpeditionEvent } from "./hooks/expeditionEvents";
+import { OBS_EVENT_NAME, getSessionTraceId } from "./observability/telemetry";
 import {
   Alert,
   AppBar,
@@ -49,6 +50,14 @@ interface MembershipRow {
   memberId: bigint;
   status: string;
   leftAt: unknown;
+}
+
+interface AnalyticsReducers {
+  trackProductEvent?: (args: {
+    eventName: string;
+    expeditionId: bigint;
+    payloadJson: string;
+  }) => void;
 }
 
 function parsePersistedExpeditionId(raw: string | null): bigint | null {
@@ -141,6 +150,25 @@ export default function App() {
 
   const visibleTabs: AppTab[] = ["expedition", "members", "settings"];
 
+  function trackProductEvent(
+    eventName: string,
+    payload: Record<string, unknown>,
+    expeditionId?: bigint | null,
+  ) {
+    try {
+      const conn = connectionState.getConnection() as DbConnection | null;
+      if (!conn) return;
+      const reducers = conn.reducers as AnalyticsReducers;
+      if (!reducers.trackProductEvent) return;
+
+      reducers.trackProductEvent({
+        eventName,
+        expeditionId: expeditionId ?? 0n,
+        payloadJson: JSON.stringify({ traceId: getSessionTraceId(), ...payload }),
+      });
+    } catch {}
+  }
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -149,6 +177,65 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(MAP_MODE_STORAGE_KEY, mapMode);
   }, [mapMode]);
+
+  useEffect(() => {
+    const trackedEvents = [
+      "expedition_switch_success",
+      "expedition_switch_failure",
+      "expedition_create_success",
+      "expedition_create_failure",
+      "expedition_restore_success",
+      "expedition_restore_failure",
+    ] as const;
+
+    const listeners = trackedEvents.map((eventName) => {
+      const handler = (event: Event) => {
+        const detail = (event as CustomEvent<Record<string, unknown>>).detail ?? {};
+        const rawExpeditionId = detail.expeditionId;
+        const expeditionId =
+          typeof rawExpeditionId === "string" && rawExpeditionId.trim().length > 0
+            ? BigInt(rawExpeditionId)
+            : activeExpeditionId ?? 0n;
+
+        trackProductEvent(eventName, detail, expeditionId);
+      };
+
+      window.addEventListener(eventName, handler as EventListener);
+      return { eventName, handler };
+    });
+
+    return () => {
+      for (const listener of listeners) {
+        window.removeEventListener(listener.eventName, listener.handler as EventListener);
+      }
+    };
+  }, [activeExpeditionId, connectionState]);
+
+  useEffect(() => {
+    trackProductEvent(
+      "ui_tab_changed",
+      { tab },
+      activeExpeditionId,
+    );
+  }, [tab, activeExpeditionId]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail ?? {};
+      const rawExpeditionId = detail.expeditionId;
+      const expeditionId =
+        typeof rawExpeditionId === "string" && rawExpeditionId.trim().length > 0
+          ? BigInt(rawExpeditionId)
+          : activeExpeditionId ?? 0n;
+
+      trackProductEvent("client_observability_signal", detail, expeditionId);
+    };
+
+    window.addEventListener(OBS_EVENT_NAME, handler as EventListener);
+    return () => {
+      window.removeEventListener(OBS_EVENT_NAME, handler as EventListener);
+    };
+  }, [activeExpeditionId, connectionState]);
 
   useEffect(() => {
     if (!linkedMember) {
@@ -369,8 +456,16 @@ export default function App() {
           </Paper>
         )}
         {!isRegistered && (
-          <Alert severity="info" className="onboarding-alert">
-            Please complete onboarding in Settings (set your name and colour) to unlock Log and Stats.
+          <Alert
+            severity="info"
+            className="onboarding-alert"
+            action={
+              <Button color="inherit" size="small" onClick={() => setTab("settings")}>
+                Open Settings
+              </Button>
+            }
+          >
+            Complete onboarding in Settings: set your profile name and color, then create or join an expedition to unlock activity logging.
           </Alert>
         )}
         {tab === "expedition" && activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (

@@ -680,6 +680,18 @@ Use this section as your weekly board. Keep each issue updated with status and o
 - 2026-03-12: Completed `EXP-040` by adding public `notification` records + read-state transition reducer (`mark_notification_read`) and event producers in `module/src/lib.rs` for invite lifecycle, membership role/ownership changes, comment/reaction engagement, and activity milestone events; regenerated bindings, validated with `cargo check`, `npx vitest run` (28/28), and `npm run build`, then published to `hostinger-tls`.
 - 2026-03-12: Completed `EXP-041` in `client/src/components/SettingsPanel/SettingsPanel.tsx` + `SettingsPanel.css` by adding a notification center backed by `tables.notification`, mark-as-read reducer wiring (`mark_notification_read`), and persisted reminder/engagement preference controls (cadence, quiet hours, timezone) per member in local storage; validated with `npx vitest run src/components/SettingsPanel/SettingsPanel.test.tsx` (8/8), `npx vitest run` (30/30), and `npm run build`.
 - 2026-03-12: Completed `EXP-042` by adding `abuse_report` + `moderation_audit` public tables and reducers in `module/src/lib.rs` (`report_activity_abuse`, `report_comment_abuse`, `review_abuse_report`) with owner/admin moderation gates, hide/remove/dismiss actions, and auditable moderation records; regenerated bindings, validated with `cargo check`, `npx vitest run` (30/30), and `npm run build`, then published to `hostinger-tls`.
+- 2026-03-12: Completed `EXP-043` by adding expedition visibility/privacy controls: new `invite_only` expedition flag + owner-gated `set_expedition_visibility` reducer in `module/src/lib.rs`, server-side enforcement in `join_expedition`, and Settings UI controls in `client/src/components/SettingsPanel/SettingsPanel.tsx`; regenerated bindings and validated with `cargo check`, `npx vitest run src/components/SettingsPanel/SettingsPanel.test.tsx` (9/9), `npx vitest run` (31/31), `npm run build`, then published to `hostinger-tls`.
+- 2026-03-12: Completed `EXP-044` by expanding safety/privacy regression coverage in `client/src/components/SettingsPanel/SettingsPanel.test.tsx` (11 focused tests) to assert authorization gates for role changes and expedition visibility changes (owner vs non-owner), plus abuse/limit error surfacing and invite safety paths; validated with `npx vitest run src/components/SettingsPanel/SettingsPanel.test.tsx` (11/11), `npx vitest run` (33/33), and `npm run build`.
+- 2026-03-12: Completed `EXP-050` by adding private `product_analytics_event` ingestion schema and `track_product_event` reducer in `module/src/lib.rs`, then instrumenting core frontend flows in `client/src/App.tsx` (expedition create/switch/restore/failure + tab changes) and `client/src/components/LogView/LogForm.tsx` (activity submission); regenerated bindings and validated with `cargo check`, `npx vitest run src/components/LogView/LogForm.test.tsx src/components/SettingsPanel/SettingsPanel.test.tsx` (16/16), `npx vitest run` (33/33), `npm run build`, then published to `hostinger-tls`.
+- 2026-03-12: Completed `EXP-051` by adding `client/src/components/StatsView/KpiDashboard.tsx` to compute and render WAE, activation, D7 retention proxy, free→paid conversion, and paid churn from existing tables (`expedition`, `membership`, `activity_log`, `plan_subscription`), wiring it into `client/src/components/StatsView/StatsView.tsx`, and extending styles in `client/src/components/StatsView/StatsView.css`; validated with `npx vitest run src/components/StatsView/KpiDashboard.test.tsx` (1/1), `npx vitest run` (34/34), and `npm run build`.
+- 2026-03-12: Completed `EXP-052` by implementing client observability primitives (`client/src/observability/telemetry.ts`) with session trace IDs, structured signal emission, and error taxonomy; wiring runtime/provider/error-boundary capture in `client/src/main.tsx` + `client/src/observability/AppErrorBoundary.tsx`; routing observability signals through analytics ingestion in `client/src/App.tsx`; and adding module-side reducer health counters in `module/src/lib.rs` via public `operational_counter` buckets across `create_expedition`, `join_expedition`, `accept_invite`, `log_activity`, and `track_product_event`; operational triage queries/runbook documented in `docs/plans/2026-03-12-exp-052-observability-runbook.md`.
+- 2026-03-12: Completed `EXP-053` by adding a beta onboarding/support workflow in `client/src/components/SettingsPanel/SettingsPanel.tsx` + `SettingsPanel.css` (milestone checklist for invite/session/activity/collaboration, support intake with required metadata, triage queue with owner/status transitions `new → acknowledged → investigating → resolved`, and support KPI snapshot for first-response/resolution timing), with analytics hooks (`beta_onboarding_milestone_completed`, `beta_support_ticket_submitted`, `beta_support_ticket_status_changed`, `beta_support_first_response_recorded`, `beta_support_resolution_recorded`) routed via `track_product_event`; validated with `npx vitest run src/components/SettingsPanel/SettingsPanel.test.tsx` and `npx vitest run` + `npm run build`.
+- 2026-03-12: Completed `EXP-054` by publishing GA readiness decision artifact in `docs/plans/2026-03-12-exp-054-ga-readiness-gate.md` with quantitative/qualitative thresholds, evidence mapping to Sprint 6 implementations (KPI dashboard, observability counters/runbook, beta support workflow), dry-run review agenda/attendees, scorecard snapshot, and approved remediation plan; current recommendation is No-Go for immediate GA with conditional beta continuation until 7-day evidence and incident drill gates are satisfied.
+- 2026-03-12: Completed `EXP-060` by extending the beta support triage workflow in `client/src/components/SettingsPanel/SettingsPanel.tsx` to include required triage fields (`source`, `impact`, `frequency`, `severity`, `owner`, `next_action`), standardized workflow states (`new → triaged → in-progress → validated → closed`), feedback tags (`beta-feedback:<category>:<severity>`), and SLA metrics (time-to-first-triage + unresolved high-severity count); documented weekly triage loop in `docs/plans/2026-03-12-exp-060-beta-feedback-triage.md`.
+- 2026-03-12: Completed `EXP-061` with all burn-down items closed in `docs/plans/2026-03-12-exp-061-bug-burndown.md` (`B1`..`B10`): stabilized map completion display bounds, deterministic social ordering, ownership transition race handling, duplicate log-submit guard, Strava callback interruption/reload replay, support-ticket schema compatibility normalization, and delayed-activity-subscription loading behavior; validated with focused suites, full `npx vitest run` (54/54), and `npm run build`.
+- 2026-03-12: Completed `EXP-062` with performance/reliability tuning documented in `docs/plans/2026-03-12-exp-062-performance-reliability.md`: optimized hot read/render paths in `useComments`, `useReactions`, `MapView`, and `ActivityCard`; added exponential reconnect backoff in `useLiveTable` (+ new hook regression test); validated with focused suites (`12/12`), full `npx vitest run` (`55/55`), and `npm run build`.
+- 2026-03-12: Completed `EXP-063` with onboarding/conversion polish documented in `docs/plans/2026-03-12-exp-063-onboarding-conversion-polish.md`: improved first-run guidance and actionable next steps in `App`, `MembersPanel`, `ActivityFeed`, `LogForm`, and Strava callback/auth states in `SettingsPanel`; validated with focused onboarding suites (`29/29`), full `npx vitest run` (`56/56`), and `npm run build`.
+- 2026-03-12: Completed `EXP-064` launch-readiness re-check in `docs/plans/2026-03-12-exp-064-launch-readiness-recheck.md` with explicit pass/conditional gate decisions, residual-risk ownership, and recommendation (`Conditional Go` for beta continuation, `No-Go` for immediate GA); verification baseline captured with `npx vitest run` (`56/56`), `npm run build`, and module `cargo check` pass.
 
 ---
 
@@ -703,11 +715,11 @@ Use this section as your weekly board. Keep each issue updated with status and o
   **Priority:** P0 · **Owner:** BE · **Effort:** M · **Depends on:** EXP-021  
   **Done when:** report/hide/remove flows are role-gated and auditable.
 
-- [ ] `EXP-043` Privacy controls for expedition visibility  
+- [x] `EXP-043` Privacy controls for expedition visibility  
   **Priority:** P1 · **Owner:** FE/BE · **Effort:** S · **Depends on:** EXP-011  
   **Done when:** expedition can be marked private/invite-only and enforced server-side.
 
-- [ ] `EXP-044` Safety/privacy regression suite  
+- [x] `EXP-044` Safety/privacy regression suite  
   **Priority:** P0 · **Owner:** QA · **Effort:** S · **Depends on:** EXP-042, EXP-043  
   **Done when:** moderation and privacy policies are validated by tests.
 
@@ -726,30 +738,30 @@ Use this section as your weekly board. Keep each issue updated with status and o
 
 ### Issues
 
-- [ ] `EXP-050` Implement product analytics events end-to-end  
+- [x] `EXP-050` Implement product analytics events end-to-end  
   **Priority:** P0 · **Owner:** FS · **Effort:** M · **Depends on:** EXP-002  
   **Done when:** event schema is implemented and validated in all core flows.
 
-- [ ] `EXP-051` Build growth/revenue dashboards  
+- [x] `EXP-051` Build growth/revenue dashboards  
   **Priority:** P0 · **Owner:** FS/PM · **Effort:** S · **Depends on:** EXP-050  
   **Done when:** dashboard tracks WAE, activation, retention, conversion, churn.
 
-- [ ] `EXP-052` Observability hardening (errors, alerts, runbooks)  
+- [x] `EXP-052` Observability hardening (errors, alerts, runbooks)  
   **Priority:** P0 · **Owner:** OPS · **Effort:** M · **Depends on:** EXP-044  
   **Done when:** production alerts and incident playbook are active and tested.
 
-- [ ] `EXP-053` Beta cohort onboarding kit + support process  
+- [x] `EXP-053` Beta cohort onboarding kit + support process  
   **Priority:** P1 · **Owner:** PM · **Effort:** S · **Depends on:** EXP-051  
   **Done when:** beta users can onboard with documentation and support path.
 
-- [ ] `EXP-054` GA readiness review and launch/no-launch decision  
+- [x] `EXP-054` GA readiness review and launch/no-launch decision  
   **Priority:** P0 · **Owner:** PM/OPS · **Effort:** S · **Depends on:** EXP-051, EXP-052  
   **Done when:** KPI thresholds and stability gates are either met or remedial plan approved.
 
 ### Sprint Exit Criteria
 
 - [ ] Beta running with live KPI monitoring
-- [ ] GA decision made from agreed thresholds
+- [x] GA decision made from agreed thresholds
 
 ---
 
@@ -1279,14 +1291,14 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [x] `EXP-040` notification model + event producers
 - [x] `EXP-041` notification center + preferences UI
 - [x] `EXP-042` abuse report + moderation actions
-- [ ] `EXP-043` expedition visibility/privacy controls
-- [ ] `EXP-044` safety/privacy regression and authorization gate
+- [x] `EXP-043` expedition visibility/privacy controls
+- [x] `EXP-044` safety/privacy regression and authorization gate
 
 ### Dependency graph
 
-- [ ] Primary chain: `EXP-042 -> EXP-044`
-- [ ] Notifications chain: `EXP-040 -> EXP-041 -> EXP-044`
-- [ ] Privacy chain: `EXP-043 -> EXP-044`
+- [x] Primary chain: `EXP-042 -> EXP-044`
+- [x] Notifications chain: `EXP-040 -> EXP-041 -> EXP-044`
+- [x] Privacy chain: `EXP-043 -> EXP-044`
 - [ ] `EXP-040` and `EXP-042` can run in parallel once contracts are locked
 
 ### Critical path and bottlenecks
@@ -1334,17 +1346,17 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 
 ### Scope
 
-- [ ] `EXP-050` product instrumentation rollout
-- [ ] `EXP-051` KPI dashboards for growth/revenue/retention
-- [ ] `EXP-052` observability hardening (alerts/runbooks)
-- [ ] `EXP-053` beta onboarding + support process
-- [ ] `EXP-054` GA readiness review and launch decision
+- [x] `EXP-050` product instrumentation rollout
+- [x] `EXP-051` KPI dashboards for growth/revenue/retention
+- [x] `EXP-052` observability hardening (alerts/runbooks)
+- [x] `EXP-053` beta onboarding + support process
+- [x] `EXP-054` GA readiness review and launch decision
 
 ### Dependency graph
 
-- [ ] Core analytics chain: `EXP-050 -> EXP-051 -> EXP-054`
-- [ ] Reliability chain: `EXP-052 -> EXP-054`
-- [ ] Beta operations chain: `EXP-053 -> EXP-054`
+- [x] Core analytics chain: `EXP-050 -> EXP-051 -> EXP-054`
+- [x] Reliability chain: `EXP-052 -> EXP-054`
+- [x] Beta operations chain: `EXP-053 -> EXP-054`
 - [ ] `EXP-050` and `EXP-052` can run in parallel in early sprint
 
 ### Critical path and bottlenecks
@@ -1360,7 +1372,7 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [ ] `A2` Day 4: baseline events visible in staging and validated
 - [ ] `A3` Day 6: dashboards + observability stack functional with sample data
 - [ ] `A4` Day 8: beta onboarding/support runbook rehearsed
-- [ ] `A5` Day 10: GA readiness decision made from agreed thresholds
+- [x] `A5` Day 10: GA readiness decision made from agreed thresholds
 
 ### 10-day schedule checklist
 
@@ -1368,15 +1380,15 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [ ] Day 3-4: complete event validation and start `EXP-051` (`A2`)
 - [ ] Day 5-6: finalize dashboards + alerts/runbooks (`A3`)
 - [ ] Day 7-8: execute beta operations rehearsal (`A4`)
-- [ ] Day 9-10: readiness review and launch decision (`A5`)
+- [x] Day 9-10: readiness review and launch decision (`A5`)
 
 ---
 
 ## 30) Sprint 6 Execution Assets (Generated)
 
-- [ ] GitHub-ready issue templates (`EXP-050..054`) in [docs/plans/2026-03-10-exp-050-054-github-issue-templates.md](docs/plans/2026-03-10-exp-050-054-github-issue-templates.md)
-- [ ] Sprint 6 dependency roadmap in [docs/plans/2026-03-10-sprint-6-exp-050-054-roadmap.md](docs/plans/2026-03-10-sprint-6-exp-050-054-roadmap.md)
-- [ ] Sprint 6 kickoff runbook in [docs/plans/2026-03-10-sprint-6-kickoff-runbook.md](docs/plans/2026-03-10-sprint-6-kickoff-runbook.md)
+- [x] GitHub-ready issue templates (`EXP-050..054`) in [docs/plans/2026-03-10-exp-050-054-github-issue-templates.md](docs/plans/2026-03-10-exp-050-054-github-issue-templates.md)
+- [x] Sprint 6 dependency roadmap in [docs/plans/2026-03-10-sprint-6-exp-050-054-roadmap.md](docs/plans/2026-03-10-sprint-6-exp-050-054-roadmap.md)
+- [x] Sprint 6 kickoff runbook in [docs/plans/2026-03-10-sprint-6-kickoff-runbook.md](docs/plans/2026-03-10-sprint-6-kickoff-runbook.md)
 
 ### Immediate use checklist
 
@@ -1384,7 +1396,7 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [ ] Assign owners for `EXP-050..054`
 - [ ] Add gate tags (`A1..A5`) to Sprint 6 issues
 - [ ] Attach Sprint 6 runbook to planning ticket
-- [ ] Confirm KPI thresholds before `EXP-054` review meeting
+- [x] Confirm KPI thresholds before `EXP-054` review meeting
 
 ---
 
@@ -1392,18 +1404,18 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 
 ### Scope
 
-- [ ] `EXP-060` beta feedback triage and prioritization
-- [ ] `EXP-061` bug burn-down for launch blockers
-- [ ] `EXP-062` performance/reliability tuning
-- [ ] `EXP-063` onboarding/conversion polish
-- [ ] `EXP-064` final launch-readiness re-check
+- [x] `EXP-060` beta feedback triage and prioritization
+- [x] `EXP-061` bug burn-down for launch blockers
+- [x] `EXP-062` performance/reliability tuning
+- [x] `EXP-063` onboarding/conversion polish
+- [x] `EXP-064` final launch-readiness re-check
 
 ### Dependency graph
 
-- [ ] Feedback chain: `EXP-060 -> EXP-061 -> EXP-064`
-- [ ] Reliability chain: `EXP-062 -> EXP-064`
-- [ ] Conversion chain: `EXP-063 -> EXP-064`
-- [ ] `EXP-061`, `EXP-062`, `EXP-063` can run in parallel after triage
+- [x] Feedback chain: `EXP-060 -> EXP-061 -> EXP-064`
+- [x] Reliability chain: `EXP-062 -> EXP-064`
+- [x] Conversion chain: `EXP-063 -> EXP-064`
+- [x] `EXP-061`, `EXP-062`, `EXP-063` can run in parallel after triage
 
 ### Critical path and bottlenecks
 
@@ -1414,27 +1426,28 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 
 ### Decision gates (Sprint 7)
 
-- [ ] `S1` Day 2: blocker triage freeze and ownership assignment
-- [ ] `S2` Day 4: P0/P1 fixes in progress with validated repro paths
-- [ ] `S3` Day 6: reliability/performance improvements verified
-- [ ] `S4` Day 8: onboarding/conversion fixes validated in beta
-- [ ] `S5` Day 10: final launch/no-launch decision
+- [x] `S1` Day 2: blocker triage freeze and ownership assignment
+- [x] `S2` Day 4: P0/P1 fixes in progress with validated repro paths
+- [x] `S3` Day 6: reliability/performance improvements verified
+- [x] `S4` Day 8: onboarding/conversion fixes validated in beta
+- [x] `S5` Day 10: final launch/no-launch decision
 
 ### 10-day schedule checklist
 
-- [ ] Day 1-2: execute `EXP-060` and lock blocker queue (`S1`)
-- [ ] Day 3-4: run bug burn-down (`EXP-061`) (`S2`)
-- [ ] Day 5-6: performance/reliability hardening (`EXP-062`) (`S3`)
-- [ ] Day 7-8: onboarding/conversion polish (`EXP-063`) (`S4`)
-- [ ] Day 9-10: final launch readiness review (`EXP-064`) (`S5`)
+- [x] Day 1-2: execute `EXP-060` and lock blocker queue (`S1`)
+- [x] Day 3-4: run bug burn-down (`EXP-061`) (`S2`)
+- [x] Day 5-6: performance/reliability hardening (`EXP-062`) (`S3`)
+- [x] Day 7-8: onboarding/conversion polish (`EXP-063`) (`S4`)
+- [x] Day 9-10: final launch readiness review (`EXP-064`) (`S5`)
 
 ---
 
 ## 32) Sprint 7 Execution Assets (Generated)
 
-- [ ] GitHub-ready issue templates (`EXP-060..064`) in [docs/plans/2026-03-10-exp-060-064-github-issue-templates.md](docs/plans/2026-03-10-exp-060-064-github-issue-templates.md)
-- [ ] Sprint 7 dependency roadmap in [docs/plans/2026-03-10-sprint-7-exp-060-064-roadmap.md](docs/plans/2026-03-10-sprint-7-exp-060-064-roadmap.md)
-- [ ] Sprint 7 kickoff runbook in [docs/plans/2026-03-10-sprint-7-kickoff-runbook.md](docs/plans/2026-03-10-sprint-7-kickoff-runbook.md)
+- [x] GitHub-ready issue templates (`EXP-060..064`) in [docs/plans/2026-03-10-exp-060-064-github-issue-templates.md](docs/plans/2026-03-10-exp-060-064-github-issue-templates.md)
+- [x] Sprint 7 dependency roadmap in [docs/plans/2026-03-10-sprint-7-exp-060-064-roadmap.md](docs/plans/2026-03-10-sprint-7-exp-060-064-roadmap.md)
+- [x] Sprint 7 kickoff runbook in [docs/plans/2026-03-10-sprint-7-kickoff-runbook.md](docs/plans/2026-03-10-sprint-7-kickoff-runbook.md)
+- [x] Sprint 7 wrap-up handoff in [docs/plans/2026-03-12-sprint-7-wrap-up.md](docs/plans/2026-03-12-sprint-7-wrap-up.md)
 
 ### Immediate use checklist
 
@@ -1442,17 +1455,17 @@ Detailed spec prepared in [docs/plans/2026-03-10-exp-013-frontend-client-impleme
 - [ ] Assign owners for `EXP-060..064`
 - [ ] Add gate tags (`S1..S5`) to Sprint 7 issues
 - [ ] Attach Sprint 7 runbook to planning ticket
-- [ ] Ensure launch decision criteria are explicitly documented before `EXP-064`
+- [x] Ensure launch decision criteria are explicitly documented before `EXP-064`
 
 ---
 
 ## 33) Master Execution Controls
 
-- [ ] Execution index (all sprint docs): [docs/plans/2026-03-10-execution-index.md](docs/plans/2026-03-10-execution-index.md)
-- [ ] New-chat orchestration prompt (subagent loop): [docs/plans/2026-03-10-subagent-execution-prompt.md](docs/plans/2026-03-10-subagent-execution-prompt.md)
+- [x] Execution index (all sprint docs): [docs/plans/2026-03-10-execution-index.md](docs/plans/2026-03-10-execution-index.md)
+- [x] New-chat orchestration prompt (subagent loop): [docs/plans/2026-03-10-subagent-execution-prompt.md](docs/plans/2026-03-10-subagent-execution-prompt.md)
 
 ### Usage checklist
 
 - [ ] Open the execution index first to select active sprint assets
 - [ ] Paste the orchestration prompt into a fresh chat when you want autonomous execution
-- [ ] Keep this master plan updated after every completed EXP item
+- [x] Keep this master plan updated after every completed EXP item

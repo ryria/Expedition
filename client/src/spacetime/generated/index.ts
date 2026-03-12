@@ -53,7 +53,9 @@ import ReportCommentAbuseReducer from "./report_comment_abuse_reducer";
 import ReviewAbuseReportReducer from "./review_abuse_report_reducer";
 import RevokeInviteReducer from "./revoke_invite_reducer";
 import SetConfigReducer from "./set_config_reducer";
+import SetExpeditionVisibilityReducer from "./set_expedition_visibility_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
+import TrackProductEventReducer from "./track_product_event_reducer";
 import TransferExpeditionOwnershipReducer from "./transfer_expedition_ownership_reducer";
 import UpsertEntitlementReducer from "./upsert_entitlement_reducer";
 import UpsertPlanSubscriptionReducer from "./upsert_plan_subscription_reducer";
@@ -269,7 +271,9 @@ const reducersSchema = __reducers(
   __reducerSchema("review_abuse_report", ReviewAbuseReportReducer),
   __reducerSchema("revoke_invite", RevokeInviteReducer),
   __reducerSchema("set_config", SetConfigReducer),
+  __reducerSchema("set_expedition_visibility", SetExpeditionVisibilityReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
+  __reducerSchema("track_product_event", TrackProductEventReducer),
   __reducerSchema("transfer_expedition_ownership", TransferExpeditionOwnershipReducer),
   __reducerSchema("upsert_entitlement", UpsertEntitlementReducer),
   __reducerSchema("upsert_plan_subscription", UpsertPlanSubscriptionReducer),

@@ -315,6 +315,70 @@
 }
 
 /* ============================================================
+   Beta operations
+   ============================================================ */
+
+.support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.support-repro {
+  min-width: 120px;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.support-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.support-ticket-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+}
+
+.support-ticket-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 220px;
+}
+
+.support-ticket-copy span {
+  font-size: 0.79rem;
+  color: var(--text-dim);
+}
+
+.support-ticket-controls {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.support-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+/* ============================================================
    Role management
    ============================================================ */
 

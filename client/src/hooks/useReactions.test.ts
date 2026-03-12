@@ -93,4 +93,39 @@ describe("useReactions", () => {
     const { result } = renderHook(() => useReactions());
     expect(result.current.reactionsFor(100n).map((reaction) => reaction.id)).toEqual([1n, 2n]);
   });
+
+  it("orders same-timestamp reactions deterministically by id", () => {
+    useTableMock.mockReturnValueOnce([
+      [
+        {
+          id: 30n,
+          expeditionId: 10n,
+          logId: 901n,
+          emoji: "🔥",
+          reactedBy: "C",
+          timestamp: { toDate: () => new Date("2026-03-10T00:00:00Z") },
+        },
+        {
+          id: 10n,
+          expeditionId: 10n,
+          logId: 901n,
+          emoji: "🎉",
+          reactedBy: "A",
+          timestamp: { toDate: () => new Date("2026-03-10T00:00:00Z") },
+        },
+        {
+          id: 20n,
+          expeditionId: 10n,
+          logId: 901n,
+          emoji: "🚀",
+          reactedBy: "B",
+          timestamp: { toDate: () => new Date("2026-03-10T00:00:00Z") },
+        },
+      ],
+      true,
+    ]);
+
+    const { result } = renderHook(() => useReactions(10n));
+    expect(result.current.reactionsFor(901n).map((reaction) => reaction.id)).toEqual([10n, 20n, 30n]);
+  });
 });

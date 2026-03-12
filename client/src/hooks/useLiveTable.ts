@@ -22,6 +22,7 @@ interface UseLiveTableOptions<Row, Table extends LiveTable<Row>> {
   onUpdate?: UpdateCb<Row>;
   onDelete?: DeleteCb<Row>;
   retryDelayMs?: number;
+  maxRetryDelayMs?: number;
 }
 
 export function useLiveTable<Row, Table extends LiveTable<Row>>({
@@ -31,11 +32,13 @@ export function useLiveTable<Row, Table extends LiveTable<Row>>({
   onUpdate,
   onDelete,
   retryDelayMs = 250,
+  maxRetryDelayMs = 4000,
 }: UseLiveTableOptions<Row, Table>) {
   useEffect(() => {
     let disposed = false;
     let table: Table | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryAttempts = 0;
 
     const attach = () => {
       if (disposed) return;
@@ -44,9 +47,13 @@ export function useLiveTable<Row, Table extends LiveTable<Row>>({
       try {
         conn = getConnection();
       } catch {
-        retryTimer = setTimeout(attach, retryDelayMs);
+        const nextDelay = Math.min(maxRetryDelayMs, retryDelayMs * 2 ** retryAttempts);
+        retryAttempts += 1;
+        retryTimer = setTimeout(attach, nextDelay);
         return;
       }
+
+      retryAttempts = 0;
 
       table = getTable(conn);
       onInitialRows([...table]);
@@ -75,5 +82,5 @@ export function useLiveTable<Row, Table extends LiveTable<Row>>({
         table.removeOnDelete(onDelete);
       }
     };
-  }, [getTable, onInitialRows, onInsert, onUpdate, onDelete, retryDelayMs]);
+  }, [getTable, onInitialRows, onInsert, onUpdate, onDelete, retryDelayMs, maxRetryDelayMs]);
 }

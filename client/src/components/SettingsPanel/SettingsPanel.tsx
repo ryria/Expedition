@@ -45,6 +45,13 @@ type EntitlementRow = {
   enabled: boolean;
   limitValue: number;
 };
+type ExpeditionRow = {
+  id: bigint;
+  name: string;
+  slug: string;
+  inviteOnly: boolean;
+  isArchived: boolean;
+};
 type NotificationRow = {
   id: bigint;
   recipientMemberId: bigint;
@@ -72,6 +79,101 @@ interface NotificationPreferences {
   timezone: string;
 }
 
+type BetaMilestone = "inviteAccepted" | "firstSession" | "firstActivity" | "firstCollaboration";
+
+interface BetaOnboardingStatus {
+  inviteAccepted: boolean;
+  firstSession: boolean;
+  firstActivity: boolean;
+  firstCollaboration: boolean;
+}
+
+type SupportSeverity = "low" | "medium" | "high" | "blocker";
+type SupportTicketStatus = "new" | "triaged" | "in-progress" | "validated" | "closed";
+
+interface SupportTicket {
+  id: string;
+  summary: string;
+  category: string;
+  source: string;
+  impact: string;
+  frequency: string;
+  reproSteps: string;
+  severity: SupportSeverity;
+  status: SupportTicketStatus;
+  owner: string;
+  nextAction: string;
+  feedbackTag: string;
+  createdAtIso: string;
+  triagedAtIso: string | null;
+  firstResponseAtIso: string | null;
+  closedAtIso: string | null;
+}
+
+function normalizeSupportSeverity(value: unknown): SupportSeverity {
+  if (value === "low" || value === "medium" || value === "high" || value === "blocker") return value;
+  return "medium";
+}
+
+function normalizeSupportStatus(value: unknown): SupportTicketStatus {
+  if (value === "new" || value === "triaged" || value === "in-progress" || value === "validated" || value === "closed") {
+    return value;
+  }
+  return "new";
+}
+
+function normalizeSupportTicket(raw: unknown, fallbackIndex: number): SupportTicket | null {
+  if (!raw || typeof raw !== "object") return null;
+  const ticket = raw as Partial<SupportTicket> & Record<string, unknown>;
+  const summary = typeof ticket.summary === "string" ? ticket.summary.trim() : "";
+  if (!summary) return null;
+
+  const category = typeof ticket.category === "string" && ticket.category.trim() ? ticket.category : "bug";
+  const source = typeof ticket.source === "string" && ticket.source.trim() ? ticket.source : "in_app";
+  const impact = typeof ticket.impact === "string" && ticket.impact.trim() ? ticket.impact : "medium";
+  const frequency = typeof ticket.frequency === "string" && ticket.frequency.trim() ? ticket.frequency : "single";
+  const reproSteps = typeof ticket.reproSteps === "string" ? ticket.reproSteps : "";
+  const owner = typeof ticket.owner === "string" && ticket.owner.trim() ? ticket.owner : "unassigned";
+  const nextAction = typeof ticket.nextAction === "string" ? ticket.nextAction : "";
+
+  const severity = normalizeSupportSeverity(ticket.severity);
+  const status = normalizeSupportStatus(ticket.status);
+  const createdAtIso = typeof ticket.createdAtIso === "string" && ticket.createdAtIso
+    ? ticket.createdAtIso
+    : new Date().toISOString();
+
+  const feedbackTag = typeof ticket.feedbackTag === "string" && ticket.feedbackTag.trim()
+    ? ticket.feedbackTag
+    : `beta-feedback:${category}:${severity}`;
+
+  return {
+    id: typeof ticket.id === "string" && ticket.id.trim() ? ticket.id : `ticket-${fallbackIndex + 1}`,
+    summary,
+    category,
+    source,
+    impact,
+    frequency,
+    reproSteps,
+    severity,
+    status,
+    owner,
+    nextAction,
+    feedbackTag,
+    createdAtIso,
+    triagedAtIso: typeof ticket.triagedAtIso === "string" ? ticket.triagedAtIso : null,
+    firstResponseAtIso: typeof ticket.firstResponseAtIso === "string" ? ticket.firstResponseAtIso : null,
+    closedAtIso: typeof ticket.closedAtIso === "string" ? ticket.closedAtIso : null,
+  };
+}
+
+function parseSupportTickets(raw: string): SupportTicket[] {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((ticket, index) => normalizeSupportTicket(ticket, index))
+    .filter((ticket): ticket is SupportTicket => ticket != null);
+}
+
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   inviteEvents: true,
   engagementEvents: true,
@@ -83,6 +185,16 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 };
 
 const NOTIFICATION_PREFERENCES_STORAGE_KEY = "expedition-notification-preferences";
+const BETA_ONBOARDING_STORAGE_KEY = "expedition-beta-onboarding";
+const BETA_SUPPORT_TICKETS_STORAGE_KEY = "expedition-beta-support-tickets";
+const STRAVA_PENDING_CALLBACK_STORAGE_KEY = "expedition-strava-oauth-callback-pending";
+
+const DEFAULT_BETA_ONBOARDING_STATUS: BetaOnboardingStatus = {
+  inviteAccepted: false,
+  firstSession: false,
+  firstActivity: false,
+  firstCollaboration: false,
+};
 
 const PRICING_TIERS = [
   { name: "Free", summary: "1 expedition · up to 5 members · base stats" },
@@ -136,17 +248,33 @@ export function SettingsPanel({
   const [revokingToken, setRevokingToken] = useState<string | null>(null);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<bigint | null>(null);
   const [transferringToMemberId, setTransferringToMemberId] = useState<bigint | null>(null);
+  const [ownershipTransferPendingUntilMs, setOwnershipTransferPendingUntilMs] = useState(0);
   const [billingStatus, setBillingStatus] = useState("");
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
+  const [visibilityStatus, setVisibilityStatus] = useState("");
   const [markingNotificationId, setMarkingNotificationId] = useState<bigint | null>(null);
   const [notificationStatus, setNotificationStatus] = useState("");
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
   );
+  const [onboardingStatus, setOnboardingStatus] = useState<BetaOnboardingStatus>(
+    DEFAULT_BETA_ONBOARDING_STATUS,
+  );
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [supportSummary, setSupportSummary] = useState("");
+  const [supportCategory, setSupportCategory] = useState("onboarding");
+  const [supportSource, setSupportSource] = useState("in_app");
+  const [supportImpact, setSupportImpact] = useState("medium");
+  const [supportFrequency, setSupportFrequency] = useState("single");
+  const [supportReproSteps, setSupportReproSteps] = useState("");
+  const [supportNextAction, setSupportNextAction] = useState("");
+  const [supportSeverity, setSupportSeverity] = useState<SupportSeverity>("medium");
+  const [supportStatus, setSupportStatus] = useState("");
 
   const STRAVA_STATE_STORAGE_KEY = "expedition-strava-oauth-state";
   const conn = connectionState.getConnection() as DbConnection | null;
   const [inviteRows] = useTable(tables.invite);
+  const [expeditionRows] = useTable(tables.expedition);
   const [membershipRows] = useTable(tables.membership);
   const [planSubscriptionRows] = useTable(tables.plan_subscription);
   const [entitlementRows] = useTable(tables.entitlement);
@@ -182,6 +310,22 @@ export function SettingsPanel({
     (activeMembership.role.toLowerCase() === "owner" || activeMembership.role.toLowerCase() === "admin");
 
   const isOwner = activeMembership?.role.toLowerCase() === "owner";
+  const isOwnershipTransferPending = ownershipTransferPendingUntilMs > Date.now();
+
+  useEffect(() => {
+    if (!isOwnershipTransferPending) return;
+    const timeoutMs = Math.max(0, ownershipTransferPendingUntilMs - Date.now());
+    const timeoutId = window.setTimeout(() => {
+      setOwnershipTransferPendingUntilMs(0);
+    }, timeoutMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [isOwnershipTransferPending, ownershipTransferPendingUntilMs]);
+
+  useEffect(() => {
+    if (!isOwner && ownershipTransferPendingUntilMs !== 0) {
+      setOwnershipTransferPendingUntilMs(0);
+    }
+  }, [isOwner, ownershipTransferPendingUntilMs]);
 
   const expeditionMemberships = useMemo(() => {
     if (!activeExpedition) return [] as Array<{ memberId: bigint; memberName: string; role: string }>;
@@ -237,6 +381,11 @@ export function SettingsPanel({
       .sort((a, b) => a.featureKey.localeCompare(b.featureKey));
   }, [activeExpedition, entitlementRows]);
 
+  const activeExpeditionRow = useMemo(() => {
+    if (!activeExpedition) return null;
+    return (expeditionRows as readonly ExpeditionRow[]).find((row) => row.id === activeExpedition.id) ?? null;
+  }, [activeExpedition, expeditionRows]);
+
   const visibleNotifications = useMemo(() => {
     if (!activeExpedition || !linkedMember) return [] as NotificationRow[];
 
@@ -254,6 +403,50 @@ export function SettingsPanel({
     () => visibleNotifications.filter((notification) => !notification.isRead).length,
     [visibleNotifications],
   );
+
+  const onboardingProgress = useMemo(() => {
+    const values = Object.values(onboardingStatus);
+    return {
+      completed: values.filter(Boolean).length,
+      total: values.length,
+    };
+  }, [onboardingStatus]);
+
+  const supportMetrics = useMemo(() => {
+    const firstTriageMinutes: number[] = [];
+    const resolutionMinutes: number[] = [];
+
+    for (const ticket of supportTickets) {
+      const createdAt = new Date(ticket.createdAtIso).getTime();
+      if (ticket.triagedAtIso) {
+        const triagedAt = new Date(ticket.triagedAtIso).getTime();
+        if (triagedAt >= createdAt) {
+          firstTriageMinutes.push((triagedAt - createdAt) / 60_000);
+        }
+      }
+
+      if (ticket.closedAtIso) {
+        const closedAt = new Date(ticket.closedAtIso).getTime();
+        if (closedAt >= createdAt) {
+          resolutionMinutes.push((closedAt - createdAt) / 60_000);
+        }
+      }
+    }
+
+    const avg = (nums: number[]) =>
+      nums.length === 0 ? 0 : nums.reduce((sum, value) => sum + value, 0) / nums.length;
+
+    return {
+      totalTickets: supportTickets.length,
+      unresolvedTickets: supportTickets.filter((ticket) => ticket.status !== "closed").length,
+      unresolvedHighSeverityCount: supportTickets.filter(
+        (ticket) =>
+          ticket.status !== "closed" && (ticket.severity === "high" || ticket.severity === "blocker"),
+      ).length,
+      avgFirstTriageMinutes: avg(firstTriageMinutes),
+      avgResolutionMinutes: avg(resolutionMinutes),
+    };
+  }, [supportTickets]);
 
   useEffect(() => {
     if (!isSaving) return;
@@ -323,12 +516,68 @@ export function SettingsPanel({
   }, [linkedMember, notificationPrefs]);
 
   useEffect(() => {
+    if (!linkedMember || !activeExpedition) {
+      setOnboardingStatus(DEFAULT_BETA_ONBOARDING_STATUS);
+      return;
+    }
+
+    const key = `${BETA_ONBOARDING_STORAGE_KEY}:${linkedMember.id.toString()}:${activeExpedition.id.toString()}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      setOnboardingStatus(DEFAULT_BETA_ONBOARDING_STATUS);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<BetaOnboardingStatus>;
+      setOnboardingStatus({
+        inviteAccepted: parsed.inviteAccepted ?? false,
+        firstSession: parsed.firstSession ?? false,
+        firstActivity: parsed.firstActivity ?? false,
+        firstCollaboration: parsed.firstCollaboration ?? false,
+      });
+    } catch {
+      setOnboardingStatus(DEFAULT_BETA_ONBOARDING_STATUS);
+    }
+  }, [linkedMember, activeExpedition]);
+
+  useEffect(() => {
+    if (!linkedMember || !activeExpedition) return;
+    const key = `${BETA_ONBOARDING_STORAGE_KEY}:${linkedMember.id.toString()}:${activeExpedition.id.toString()}`;
+    localStorage.setItem(key, JSON.stringify(onboardingStatus));
+  }, [linkedMember, activeExpedition, onboardingStatus]);
+
+  useEffect(() => {
+    if (!linkedMember || !activeExpedition) {
+      setSupportTickets([]);
+      return;
+    }
+
+    const key = `${BETA_SUPPORT_TICKETS_STORAGE_KEY}:${linkedMember.id.toString()}:${activeExpedition.id.toString()}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      setSupportTickets([]);
+      return;
+    }
+
+    try {
+      setSupportTickets(parseSupportTickets(raw));
+    } catch {
+      setSupportTickets([]);
+    }
+  }, [linkedMember, activeExpedition]);
+
+  useEffect(() => {
+    if (!linkedMember || !activeExpedition) return;
+    const key = `${BETA_SUPPORT_TICKETS_STORAGE_KEY}:${linkedMember.id.toString()}:${activeExpedition.id.toString()}`;
+    localStorage.setItem(key, JSON.stringify(supportTickets));
+  }, [linkedMember, activeExpedition, supportTickets]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("strava_code");
     const callbackState = params.get("strava_state");
     const callbackError = params.get("strava_error");
-
-    if (!code && !callbackError) return;
 
     const cleanup = () => {
       params.delete("strava_code");
@@ -340,27 +589,62 @@ export function SettingsPanel({
       window.history.replaceState({}, document.title, url);
     };
 
-    if (callbackError) {
-      setStravaStatus(`Strava link failed: ${callbackError}`);
+    if (code || callbackError) {
+      localStorage.setItem(
+        STRAVA_PENDING_CALLBACK_STORAGE_KEY,
+        JSON.stringify({
+          code,
+          state: callbackState,
+          error: callbackError,
+        }),
+      );
       cleanup();
+    }
+
+    const pendingRaw = localStorage.getItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
+    if (!pendingRaw) return;
+
+    let pending: { code: string | null; state: string | null; error: string | null } | null = null;
+    try {
+      pending = JSON.parse(pendingRaw) as { code: string | null; state: string | null; error: string | null };
+    } catch {
+      localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
       return;
     }
 
-    if (!code) {
-      cleanup();
+    if (!pending) {
+      localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
       return;
     }
+
+    if (pending.error) {
+      setStravaStatus(`Strava link failed: ${pending.error}. Click Connect Strava to try again.`);
+      localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
+      localStorage.removeItem(STRAVA_STATE_STORAGE_KEY);
+      return;
+    }
+
+    if (!pending.code) {
+      localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
+      return;
+    }
+    const pendingCode = pending.code;
 
     const expectedState = localStorage.getItem(STRAVA_STATE_STORAGE_KEY);
-    if (!expectedState || callbackState !== expectedState) {
-      setStravaStatus("Strava link failed: invalid OAuth state.");
-      cleanup();
+    if (!expectedState || pending.state !== expectedState) {
+      setStravaStatus("Strava link failed: invalid OAuth state. Click Connect Strava to restart linking.");
+      localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
+      localStorage.removeItem(STRAVA_STATE_STORAGE_KEY);
       return;
     }
 
     if (!sub) {
-      setStravaStatus("Strava link failed: sign in required.");
-      cleanup();
+      setStravaStatus("Strava link failed: sign in required. Sign in again, then click Connect Strava.");
+      return;
+    }
+
+    if (!conn) {
+      setStravaStatus("Strava callback received. Waiting for connection — keep this tab open.");
       return;
     }
 
@@ -383,14 +667,21 @@ export function SettingsPanel({
           setStravaStatus("Strava link unavailable until client bindings are regenerated.");
           return;
         }
-        await procedures.linkStravaAccount({ code, redirectUri });
+        await procedures.linkStravaAccount({ code: pendingCode, redirectUri });
+        localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
         localStorage.removeItem(STRAVA_STATE_STORAGE_KEY);
         setStravaStatus("Strava linked. Use Sync now to import recent activities.");
       } catch (err) {
-        setStravaStatus(err instanceof Error ? `Strava link failed: ${err.message}` : `Strava link failed: ${String(err)}`);
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.toLowerCase().includes("not connected")) {
+          setStravaStatus("Strava callback received. Waiting for connection — keep this tab open.");
+          return;
+        }
+        localStorage.removeItem(STRAVA_PENDING_CALLBACK_STORAGE_KEY);
+        localStorage.removeItem(STRAVA_STATE_STORAGE_KEY);
+        setStravaStatus(`Strava link failed: ${message}`);
       } finally {
         setIsLinkingStrava(false);
-        cleanup();
       }
     })();
   }, [conn, linkedMember, sub]);
@@ -583,6 +874,10 @@ export function SettingsPanel({
 
   function handleSetRole(targetMemberId: bigint, newRole: "admin" | "member") {
     setRoleStatus("");
+    if (isOwnershipTransferPending) {
+      setRoleStatus("Ownership transfer in progress. Wait for membership refresh.");
+      return;
+    }
     if (!conn) {
       setRoleStatus("SpacetimeDB not connected");
       return;
@@ -613,6 +908,10 @@ export function SettingsPanel({
 
   function handleTransferOwnership(newOwnerMemberId: bigint) {
     setRoleStatus("");
+    if (isOwnershipTransferPending) {
+      setRoleStatus("Ownership transfer in progress. Wait for membership refresh.");
+      return;
+    }
     if (!conn) {
       setRoleStatus("SpacetimeDB not connected");
       return;
@@ -627,6 +926,7 @@ export function SettingsPanel({
     }
 
     try {
+      setOwnershipTransferPendingUntilMs(Date.now() + 5000);
       setTransferringToMemberId(newOwnerMemberId);
       conn.reducers.transferExpeditionOwnership({
         expeditionId: activeExpedition.id,
@@ -634,6 +934,7 @@ export function SettingsPanel({
       });
       setRoleStatus("Ownership transfer requested.");
     } catch (err) {
+      setOwnershipTransferPendingUntilMs(0);
       setRoleStatus(err instanceof Error ? err.message : String(err));
     } finally {
       setTransferringToMemberId(null);
@@ -683,6 +984,40 @@ export function SettingsPanel({
     })();
   }
 
+  function handleSetVisibility(visibility: "public" | "invite_only") {
+    setVisibilityStatus("");
+    if (!conn) {
+      setVisibilityStatus("SpacetimeDB not connected");
+      return;
+    }
+    if (!activeExpedition) {
+      setVisibilityStatus("Select an active expedition first.");
+      return;
+    }
+    if (!isOwner) {
+      setVisibilityStatus("Only the expedition owner can change visibility.");
+      return;
+    }
+
+    try {
+      const reducers = conn.reducers as {
+        setExpeditionVisibility?: (args: { expeditionId: bigint; visibility: string }) => void;
+      };
+      if (!reducers.setExpeditionVisibility) {
+        setVisibilityStatus("Visibility controls unavailable until client bindings are regenerated.");
+        return;
+      }
+
+      reducers.setExpeditionVisibility({
+        expeditionId: activeExpedition.id,
+        visibility,
+      });
+      setVisibilityStatus(`Visibility updated to ${visibility === "invite_only" ? "invite-only" : "public"}.`);
+    } catch (err) {
+      setVisibilityStatus(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   function handleMarkNotificationRead(notificationId: bigint) {
     setNotificationStatus("");
     if (!conn) {
@@ -704,6 +1039,176 @@ export function SettingsPanel({
     patch: Partial<NotificationPreferences>,
   ) {
     setNotificationPrefs((current) => ({ ...current, ...patch }));
+  }
+
+  function trackSupportKpiEvent(eventName: string, payload: Record<string, unknown>) {
+    if (!conn || !activeExpedition) return;
+
+    const reducers = conn.reducers as {
+      trackProductEvent?: (args: {
+        eventName: string;
+        expeditionId: bigint;
+        payloadJson: string;
+      }) => void;
+    };
+
+    reducers.trackProductEvent?.({
+      eventName,
+      expeditionId: activeExpedition.id,
+      payloadJson: JSON.stringify(payload),
+    });
+  }
+
+  function updateOnboardingMilestone(milestone: BetaMilestone, completed: boolean) {
+    setOnboardingStatus((current) => ({ ...current, [milestone]: completed }));
+
+    if (completed) {
+      trackSupportKpiEvent("beta_onboarding_milestone_completed", {
+        milestone,
+      });
+    }
+  }
+
+  function handleSubmitSupportTicket(e: FormEvent) {
+    e.preventDefault();
+    setSupportStatus("");
+
+    if (!activeExpedition || !linkedMember) {
+      setSupportStatus("Select an active expedition and linked profile first.");
+      return;
+    }
+
+    if (!supportSummary.trim()) {
+      setSupportStatus("Issue summary is required.");
+      return;
+    }
+
+    if (!supportReproSteps.trim()) {
+      setSupportStatus("Repro steps are required.");
+      return;
+    }
+
+    if (!supportNextAction.trim()) {
+      setSupportStatus("Next action is required.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const feedbackTag = `beta-feedback:${supportCategory}:${supportSeverity}`;
+    const nextTicket: SupportTicket = {
+      id: crypto.randomUUID(),
+      summary: supportSummary.trim(),
+      category: supportCategory,
+      source: supportSource,
+      impact: supportImpact,
+      frequency: supportFrequency,
+      reproSteps: supportReproSteps.trim(),
+      severity: supportSeverity,
+      status: "new",
+      owner: "unassigned",
+      nextAction: supportNextAction.trim(),
+      feedbackTag,
+      createdAtIso: now,
+      triagedAtIso: null,
+      firstResponseAtIso: null,
+      closedAtIso: null,
+    };
+
+    setSupportTickets((current) => [nextTicket, ...current]);
+    setSupportSummary("");
+    setSupportCategory("onboarding");
+    setSupportSource("in_app");
+    setSupportImpact("medium");
+    setSupportFrequency("single");
+    setSupportReproSteps("");
+    setSupportNextAction("");
+    setSupportSeverity("medium");
+    setSupportStatus("Support ticket created and queued for triage.");
+
+    trackSupportKpiEvent("beta_support_ticket_submitted", {
+      ticketId: nextTicket.id,
+      severity: nextTicket.severity,
+      category: nextTicket.category,
+      source: nextTicket.source,
+      impact: nextTicket.impact,
+      frequency: nextTicket.frequency,
+      nextAction: nextTicket.nextAction,
+      account: sub ?? "unknown",
+    });
+  }
+
+  function handleTicketOwnerChange(ticketId: string, owner: string) {
+    setSupportTickets((current) =>
+      current.map((ticket) => (ticket.id === ticketId ? { ...ticket, owner } : ticket)),
+    );
+  }
+
+  function handleTicketStatusChange(ticketId: string, nextStatus: SupportTicketStatus) {
+    setSupportTickets((current) =>
+      current.map((ticket) => {
+        if (ticket.id !== ticketId) return ticket;
+
+        const nowIso = new Date().toISOString();
+        const triagedAtIso =
+          ticket.triagedAtIso ?? (nextStatus === "new" ? null : nowIso);
+        const firstResponseAtIso =
+          ticket.firstResponseAtIso ?? (nextStatus === "new" ? null : nowIso);
+        const closedAtIso = nextStatus === "closed" ? nowIso : ticket.closedAtIso;
+
+        if (nextStatus !== ticket.status) {
+          trackSupportKpiEvent("beta_support_ticket_status_changed", {
+            ticketId,
+            previousStatus: ticket.status,
+            nextStatus,
+            severity: ticket.severity,
+          });
+
+          if (!ticket.triagedAtIso && triagedAtIso) {
+            const firstTriageMinutes = Math.max(
+              0,
+              Math.round((new Date(triagedAtIso).getTime() - new Date(ticket.createdAtIso).getTime()) / 60_000),
+            );
+            trackSupportKpiEvent("beta_feedback_first_triage_recorded", {
+              ticketId,
+              firstTriageMinutes,
+              severity: ticket.severity,
+            });
+          }
+
+          if (!ticket.firstResponseAtIso && firstResponseAtIso) {
+            const firstResponseMinutes = Math.max(
+              0,
+              Math.round((new Date(firstResponseAtIso).getTime() - new Date(ticket.createdAtIso).getTime()) / 60_000),
+            );
+            trackSupportKpiEvent("beta_support_first_response_recorded", {
+              ticketId,
+              firstResponseMinutes,
+              severity: ticket.severity,
+            });
+          }
+
+          if (nextStatus === "closed" && closedAtIso) {
+            const resolutionMinutes = Math.max(
+              0,
+              Math.round((new Date(closedAtIso).getTime() - new Date(ticket.createdAtIso).getTime()) / 60_000),
+            );
+            trackSupportKpiEvent("beta_support_resolution_recorded", {
+              ticketId,
+              resolutionMinutes,
+              severity: ticket.severity,
+            });
+          }
+        }
+
+        return {
+          ...ticket,
+          status: nextStatus,
+          triagedAtIso,
+          firstResponseAtIso,
+          closedAtIso,
+        };
+      }),
+    );
   }
 
   return (
@@ -742,6 +1247,11 @@ export function SettingsPanel({
             ? `Active expedition: ${activeExpedition.name} (${activeExpedition.slug})`
             : "No active expedition selected."}
         </p>
+        {activeExpeditionRow && (
+          <p>
+            Visibility: {activeExpeditionRow.inviteOnly ? "Invite-only" : "Public"}
+          </p>
+        )}
         <form className="strava-actions" onSubmit={handleCreateExpedition}>
           <input
             type="text"
@@ -754,6 +1264,24 @@ export function SettingsPanel({
             {isCreatingExpedition ? "Creating…" : "Create expedition"}
           </button>
         </form>
+        <div className="strava-actions">
+          <button
+            type="button"
+            onClick={() => handleSetVisibility("public")}
+            disabled={!activeExpedition || !isOwner || !activeExpeditionRow?.inviteOnly}
+          >
+            Set public
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetVisibility("invite_only")}
+            disabled={!activeExpedition || !isOwner || Boolean(activeExpeditionRow?.inviteOnly)}
+          >
+            Set invite-only
+          </button>
+        </div>
+        {!isOwner && activeExpedition && <p>Only the current owner can change expedition visibility.</p>}
+        {visibilityStatus && <p className="field-error">{visibilityStatus}</p>}
         {expeditionCreateError && <p className="field-error">{expeditionCreateError}</p>}
       </section>
 
@@ -855,21 +1383,21 @@ export function SettingsPanel({
                     <button
                       type="button"
                       onClick={() => handleSetRole(membership.memberId, "admin")}
-                      disabled={!canPromote || isUpdating || isTransferring}
+                      disabled={!canPromote || isUpdating || isTransferring || isOwnershipTransferPending}
                     >
                       {isUpdating && canPromote ? "Updating…" : "Make admin"}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSetRole(membership.memberId, "member")}
-                      disabled={!canDemote || isUpdating || isTransferring}
+                      disabled={!canDemote || isUpdating || isTransferring || isOwnershipTransferPending}
                     >
                       {isUpdating && canDemote ? "Updating…" : "Make member"}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleTransferOwnership(membership.memberId)}
-                      disabled={!canTransfer || isUpdating || isTransferring}
+                      disabled={!canTransfer || isUpdating || isTransferring || isOwnershipTransferPending}
                     >
                       {isTransferring ? "Transferring…" : "Make owner"}
                     </button>
@@ -1060,6 +1588,213 @@ export function SettingsPanel({
         </div>
         <p>Imports Run, Walk, Ride, and Rowing activities from linked Strava accounts.</p>
         {stravaStatus && <p className="field-error">{stravaStatus}</p>}
+      </section>
+
+      <section className="settings-group">
+        <h3>Beta Operations</h3>
+        <p>Track onboarding milestones and run support triage for beta cohorts.</p>
+
+        <div className="settings-subgroup">
+          <h4>
+            Onboarding Milestones ({onboardingProgress.completed}/{onboardingProgress.total})
+          </h4>
+          <div className="notification-preferences">
+            <label>
+              <input
+                type="checkbox"
+                checked={onboardingStatus.inviteAccepted}
+                onChange={(e) => updateOnboardingMilestone("inviteAccepted", e.target.checked)}
+              />
+              Invite accepted
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={onboardingStatus.firstSession}
+                onChange={(e) => updateOnboardingMilestone("firstSession", e.target.checked)}
+              />
+              First session
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={onboardingStatus.firstActivity}
+                onChange={(e) => updateOnboardingMilestone("firstActivity", e.target.checked)}
+              />
+              First activity
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={onboardingStatus.firstCollaboration}
+                onChange={(e) => updateOnboardingMilestone("firstCollaboration", e.target.checked)}
+              />
+              First collaboration action
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Support Intake</h4>
+          <form className="support-form" onSubmit={handleSubmitSupportTicket}>
+            <input
+              type="text"
+              className="invite-input"
+              value={supportSummary}
+              onChange={(e) => setSupportSummary(e.target.value)}
+              placeholder="Issue summary"
+              aria-label="Issue summary"
+              maxLength={120}
+            />
+            <select
+              className="invite-input"
+              value={supportCategory}
+              onChange={(e) => setSupportCategory(e.target.value)}
+              aria-label="Support category"
+            >
+              <option value="onboarding">Onboarding</option>
+              <option value="collaboration">Collaboration</option>
+              <option value="billing">Billing</option>
+              <option value="bug">Bug</option>
+              <option value="performance">Performance</option>
+              <option value="feature_request">Feature request</option>
+            </select>
+            <select
+              className="invite-input"
+              value={supportSource}
+              onChange={(e) => setSupportSource(e.target.value)}
+              aria-label="Support source"
+            >
+              <option value="in_app">In-app note</option>
+              <option value="github">GitHub issue</option>
+              <option value="support_message">Support message</option>
+              <option value="direct_comment">Direct beta comment</option>
+            </select>
+            <select
+              className="invite-input"
+              value={supportImpact}
+              onChange={(e) => setSupportImpact(e.target.value)}
+              aria-label="Support impact"
+            >
+              <option value="low">Low impact</option>
+              <option value="medium">Medium impact</option>
+              <option value="high">High impact</option>
+            </select>
+            <select
+              className="invite-input"
+              value={supportFrequency}
+              onChange={(e) => setSupportFrequency(e.target.value)}
+              aria-label="Support frequency"
+            >
+              <option value="single">Single report</option>
+              <option value="recurring">Recurring</option>
+              <option value="widespread">Widespread</option>
+            </select>
+            <select
+              className="invite-input"
+              value={supportSeverity}
+              onChange={(e) => setSupportSeverity(e.target.value as SupportSeverity)}
+              aria-label="Support severity"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="blocker">Blocker</option>
+            </select>
+            <textarea
+              className="support-repro"
+              value={supportReproSteps}
+              onChange={(e) => setSupportReproSteps(e.target.value)}
+              placeholder="Repro steps"
+              aria-label="Repro steps"
+              rows={3}
+            />
+            <input
+              type="text"
+              className="invite-input"
+              value={supportNextAction}
+              onChange={(e) => setSupportNextAction(e.target.value)}
+              placeholder="Next action (owner follow-up)"
+              aria-label="Next action"
+              maxLength={140}
+            />
+            <button type="submit">Submit support ticket</button>
+          </form>
+          <p>
+            Account: {sub ?? "unknown"} · Expedition: {activeExpedition?.slug ?? "none"}
+          </p>
+          {supportStatus && <p className="field-error">{supportStatus}</p>}
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Triage Queue</h4>
+          <p>
+            Workflow: new → triaged → in-progress → validated → closed. Escalate blocker incidents to owner/ops immediately.
+          </p>
+          {supportTickets.length === 0 ? (
+            <p>No support tickets yet.</p>
+          ) : (
+            <div className="support-ticket-list">
+              {supportTickets.map((ticket) => (
+                <div key={ticket.id} className="support-ticket-row">
+                  <div className="support-ticket-copy">
+                    <strong>{ticket.summary}</strong>
+                    <span>
+                      {ticket.category} · {ticket.severity} · source:{ticket.source} · impact:{ticket.impact} · frequency:{ticket.frequency}
+                    </span>
+                    <span>next action: {ticket.nextAction}</span>
+                    <span>tag:{ticket.feedbackTag}</span>
+                    <span>{ticket.reproSteps}</span>
+                  </div>
+                  <div className="support-ticket-controls">
+                    <select
+                      className="invite-input"
+                      aria-label={`Owner for ${ticket.summary}`}
+                      value={ticket.owner}
+                      onChange={(e) => handleTicketOwnerChange(ticket.id, e.target.value)}
+                    >
+                      <option value="unassigned">Unassigned</option>
+                      {expeditionMemberships.map((membership) => (
+                        <option key={membership.memberId.toString()} value={membership.memberName}>
+                          {membership.memberName}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="invite-input"
+                      aria-label={`Status for ${ticket.summary}`}
+                      value={ticket.status}
+                      onChange={(e) => handleTicketStatusChange(ticket.id, e.target.value as SupportTicketStatus)}
+                    >
+                      <option value="new">new</option>
+                      <option value="triaged">triaged</option>
+                      <option value="in-progress">in-progress</option>
+                      <option value="validated">validated</option>
+                      <option value="closed">closed</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="settings-subgroup">
+          <h4>Support KPI Snapshot</h4>
+          <div className="support-kpi-grid">
+            <div className="invite-row"><span className="invite-token">Total tickets</span><span className="invite-meta">{supportMetrics.totalTickets}</span></div>
+            <div className="invite-row"><span className="invite-token">Unresolved</span><span className="invite-meta">{supportMetrics.unresolvedTickets}</span></div>
+            <div className="invite-row"><span className="invite-token">Unresolved high/blocker</span><span className="invite-meta">{supportMetrics.unresolvedHighSeverityCount}</span></div>
+            <div className="invite-row"><span className="invite-token">Avg first triage</span><span className="invite-meta">{supportMetrics.avgFirstTriageMinutes.toFixed(1)} min</span></div>
+            <div className="invite-row"><span className="invite-token">Avg resolution</span><span className="invite-meta">{supportMetrics.avgResolutionMinutes.toFixed(1)} min</span></div>
+          </div>
+          <p>
+            Weekly review ritual: every Friday, tag backlog items as `beta-feedback:&lt;category&gt;` and capture top 3 blockers.
+          </p>
+          <p>
+            Playbook templates: welcome note, known-issue acknowledgement, and resolution follow-up for high/blocker incidents.
+          </p>
+        </div>
       </section>
 
       <section className="settings-group">

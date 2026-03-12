@@ -88,6 +88,7 @@ export const Expedition = __t.object("Expedition", {
   isArchived: __t.bool(),
   createdAt: __t.timestamp(),
   archivedAt: __t.option(__t.timestamp()),
+  inviteOnly: __t.bool(),
 });
 export type Expedition = __Infer<typeof Expedition>;
 
@@ -176,6 +177,16 @@ export const PlanSubscription = __t.object("PlanSubscription", {
   updatedAt: __t.timestamp(),
 });
 export type PlanSubscription = __Infer<typeof PlanSubscription>;
+
+export const ProductAnalyticsEvent = __t.object("ProductAnalyticsEvent", {
+  id: __t.u64(),
+  eventName: __t.string(),
+  memberId: __t.u64(),
+  expeditionId: __t.u64(),
+  payloadJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type ProductAnalyticsEvent = __Infer<typeof ProductAnalyticsEvent>;
 
 export const Reaction = __t.object("Reaction", {
   id: __t.u64(),

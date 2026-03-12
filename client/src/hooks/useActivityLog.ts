@@ -16,7 +16,7 @@ export interface ActivityEntry {
 }
 
 export function useActivityLog(activeExpeditionId?: bigint | null) {
-  const [rows] = useTable(tables.activity_log);
+  const [rows, isLoaded] = useTable(tables.activity_log);
 
   const entries = useMemo(
     () =>
@@ -28,5 +28,5 @@ export function useActivityLog(activeExpeditionId?: bigint | null) {
     [rows, activeExpeditionId],
   );
 
-  return { entries };
+  return { entries, isLoaded };
 }
