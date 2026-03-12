@@ -6,7 +6,7 @@ import { useActivityLog } from "../../hooks/useActivityLog";
 import { useMembers } from "../../hooks/useMembers";
 import { getTrailSegments } from "../../data/route";
 import { useRoadRoute } from "../../hooks/useRoadRoute";
-import { LANDMARKS } from "../../data/route";
+import { useExpeditionRouteTemplate } from "../../hooks/useExpeditionRouteTemplate";
 import "./MapView.css";
 
 type ViewMode = "asRan" | "contribution";
@@ -30,7 +30,8 @@ export function completionPercent(totalKm: number, routeTotalKm: number): number
 export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId }: MapViewProps) {
   const { entries } = useActivityLog(activeExpeditionId);
   const { members } = useMembers(activeExpeditionId);
-  const { waypoints, routeTotalKm } = useRoadRoute();
+  const routeTemplate = useExpeditionRouteTemplate(activeExpeditionId);
+  const { waypoints, routeTotalKm } = useRoadRoute(routeTemplate.waypoints, routeTemplate.key);
 
   const totalKm = useMemo(() => entries.reduce((s, e) => s + e.distanceKm, 0), [entries]);
   const percentComplete = completionPercent(totalKm, routeTotalKm);
@@ -40,8 +41,8 @@ export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId
   );
   const segments = useMemo(() => getTrailSegments(orderedForTrail, members, mode), [orderedForTrail, members, mode]);
   const nextLandmark = useMemo(
-    () => LANDMARKS.find((landmark) => landmark.km > totalKm) ?? LANDMARKS[LANDMARKS.length - 1],
-    [totalKm],
+    () => routeTemplate.landmarks.find((landmark) => landmark.km > totalKm) ?? routeTemplate.landmarks[routeTemplate.landmarks.length - 1],
+    [routeTemplate.landmarks, totalKm],
   );
   const completionLabel =
     percentComplete > 0 && percentComplete < 0.1 ? "<0.1% complete" : `${percentComplete.toFixed(1)}% complete`;
@@ -71,6 +72,7 @@ export function MapView({ theme, mode, onModeChange, hubOpen, activeExpeditionId
         segments={segments}
         totalKm={totalKm}
         waypoints={waypoints}
+        landmarks={routeTemplate.landmarks}
         theme={theme}
         hubOpen={hubOpen}
       />

@@ -89,6 +89,7 @@ export const Expedition = __t.object("Expedition", {
   createdAt: __t.timestamp(),
   archivedAt: __t.option(__t.timestamp()),
   inviteOnly: __t.bool(),
+  routeTemplateKey: __t.option(__t.string()),
 });
 export type Expedition = __Infer<typeof Expedition>;
 

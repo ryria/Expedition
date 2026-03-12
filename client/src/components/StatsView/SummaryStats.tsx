@@ -1,6 +1,5 @@
 import { useActivityLog } from "../../hooks/useActivityLog";
-import { LANDMARKS } from "../../data/route";
-import { ROUTE_TOTAL_KM } from "../../config";
+import { useExpeditionRouteTemplate } from "../../hooks/useExpeditionRouteTemplate";
 
 interface SummaryStatsProps {
   activeExpeditionId?: bigint;
@@ -8,10 +7,12 @@ interface SummaryStatsProps {
 
 export function SummaryStats({ activeExpeditionId }: SummaryStatsProps) {
   const { entries } = useActivityLog(activeExpeditionId);
+  const routeTemplate = useExpeditionRouteTemplate(activeExpeditionId);
+  const routeTotalKm = routeTemplate.waypoints[routeTemplate.waypoints.length - 1]?.[2] ?? 14500;
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
-  const pctRaw = (totalKm / ROUTE_TOTAL_KM) * 100;
+  const pctRaw = (totalKm / routeTotalKm) * 100;
   const pct = pctRaw > 0 && pctRaw < 0.1 ? "<0.1" : pctRaw.toFixed(1);
-  const next = LANDMARKS.find((l) => l.km > totalKm);
+  const next = routeTemplate.landmarks.find((l) => l.km > totalKm);
   const remainingToNext = next ? (next.km - totalKm).toFixed(1) : "0.0";
   return (
     <div className="summary-stats">

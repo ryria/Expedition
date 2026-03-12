@@ -16,8 +16,7 @@ import { useSpacetimeDB, useTable } from "spacetimedb/react";
 import { DbConnection, tables } from "./spacetime/generated";
 import { emitExpeditionEvent } from "./hooks/expeditionEvents";
 import { OBS_EVENT_NAME, getSessionTraceId } from "./observability/telemetry";
-import { ROUTE_TOTAL_KM } from "./config";
-import { LANDMARKS } from "./data/route";
+import { ROUTE_TEMPLATES, getRouteTemplate, type RouteTemplateKey } from "./data/routeTemplates";
 import {
   Alert,
   Avatar,
@@ -52,6 +51,7 @@ interface ExpeditionRow {
   name: string;
   slug: string;
   isArchived: boolean;
+  routeTemplateKey: string | null;
 }
 
 interface MembershipRow {
@@ -157,9 +157,12 @@ export default function App() {
   const [activeExpeditionId, setActiveExpeditionId] = useState<bigint | null>(null);
   const [activeResolved, setActiveResolved] = useState(false);
   const [newExpeditionName, setNewExpeditionName] = useState("");
+  const [newExpeditionVisibility, setNewExpeditionVisibility] = useState<"public" | "invite_only">("public");
+  const [newExpeditionRouteTemplateKey, setNewExpeditionRouteTemplateKey] = useState<RouteTemplateKey>("classic_trail");
   const [isCreatingExpedition, setIsCreatingExpedition] = useState(false);
   const [expeditionCreateError, setExpeditionCreateError] = useState("");
   const [pendingCreatedSlug, setPendingCreatedSlug] = useState<string | null>(null);
+  const [isCreateExpeditionOpen, setIsCreateExpeditionOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
@@ -214,6 +217,10 @@ export default function App() {
     () => availableExpeditions.find((expedition) => expedition.id === activeExpeditionId) ?? null,
     [availableExpeditions, activeExpeditionId],
   );
+  const activeRouteTemplate = useMemo(
+    () => getRouteTemplate(activeExpedition?.routeTemplateKey),
+    [activeExpedition?.routeTemplateKey],
+  );
 
   const desktopNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats", "members", "settings"];
   const mobileNavTabs: AppTab[] = ["dashboard", "map", "feed", "stats"];
@@ -266,8 +273,9 @@ export default function App() {
         .map((row) => row.memberId.toString()),
     ).size;
 
-    const completionPct = Math.min((totalKm / ROUTE_TOTAL_KM) * 100, 100);
-    const nextLandmark = LANDMARKS.find((landmark) => landmark.km > totalKm) ?? LANDMARKS[LANDMARKS.length - 1];
+    const routeTotalKm = activeRouteTemplate.waypoints[activeRouteTemplate.waypoints.length - 1]?.[2] ?? 14500;
+    const completionPct = Math.min((totalKm / routeTotalKm) * 100, 100);
+    const nextLandmark = activeRouteTemplate.landmarks.find((landmark) => landmark.km > totalKm) ?? activeRouteTemplate.landmarks[activeRouteTemplate.landmarks.length - 1];
     const remainingToLandmark = Math.max(nextLandmark.km - totalKm, 0);
 
     return {
@@ -275,11 +283,12 @@ export default function App() {
       weeklyKm,
       activeToday,
       activeWeek,
+      routeTotalKm,
       completionPct,
       nextLandmark,
       remainingToLandmark,
     };
-  }, [scopedActivity]);
+  }, [activeRouteTemplate, scopedActivity]);
 
   function tabLabel(value: AppTab): string {
     switch (value) {
@@ -311,6 +320,16 @@ export default function App() {
 
   function closeQuickLog() {
     setIsQuickLogOpen(false);
+  }
+
+  function openCreateExpedition() {
+    setExpeditionCreateError("");
+    setIsCreateExpeditionOpen(true);
+  }
+
+  function closeCreateExpedition() {
+    setIsCreateExpeditionOpen(false);
+    setExpeditionCreateError("");
   }
 
   function openNotifications() {
@@ -618,8 +637,12 @@ export default function App() {
     });
   }
 
-  async function handleCreateExpedition(name: string): Promise<boolean> {
-    const trimmedName = name.trim();
+  async function handleCreateExpedition(input: {
+    name: string;
+    visibility: "public" | "invite_only";
+    routeTemplateKey: RouteTemplateKey;
+  }): Promise<boolean> {
+    const trimmedName = input.name.trim();
     if (!trimmedName) {
       setExpeditionCreateError("Expedition name is required");
       emitExpeditionEvent("expedition_create_failure", { reason: "empty_name" });
@@ -632,8 +655,17 @@ export default function App() {
     try {
       const conn = connectionState.getConnection() as DbConnection | null;
       if (!conn) throw new Error("SpacetimeDB not connected");
-      conn.reducers.createExpedition({ name: trimmedName, slug });
+      conn.reducers.createExpedition({
+        name: trimmedName,
+        slug,
+        routeTemplateKey: input.routeTemplateKey,
+        inviteOnly: input.visibility === "invite_only",
+      });
       setPendingCreatedSlug(slug);
+      setIsCreateExpeditionOpen(false);
+      setNewExpeditionName("");
+      setNewExpeditionVisibility("public");
+      setNewExpeditionRouteTemplateKey("classic_trail");
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -649,9 +681,13 @@ export default function App() {
     }
   }
 
-  function handleHeaderCreate(e: FormEvent) {
+  function handleCreateExpeditionSubmit(e: FormEvent) {
     e.preventDefault();
-    void handleCreateExpedition(newExpeditionName);
+    void handleCreateExpedition({
+      name: newExpeditionName,
+      visibility: newExpeditionVisibility,
+      routeTemplateKey: newExpeditionRouteTemplateKey,
+    });
   }
 
   const expeditionLoading = linkedMember != null && !activeResolved;
@@ -694,19 +730,9 @@ export default function App() {
                     ))}
                   </Select>
                 </FormControl>
-                <Box className="sidebar-create-expedition" component="form" onSubmit={handleHeaderCreate}>
-                  <TextField
-                    size="small"
-                    value={newExpeditionName}
-                    onChange={(e) => setNewExpeditionName(e.target.value)}
-                    placeholder="New expedition"
-                    inputProps={{ maxLength: 64 }}
-                  />
-                  <Button type="submit" variant="outlined" disabled={isCreatingExpedition}>
-                    {isCreatingExpedition ? "Creating…" : "Create"}
-                  </Button>
-                </Box>
-                {expeditionCreateError && <Typography className="field-error">{expeditionCreateError}</Typography>}
+                <Button variant="outlined" onClick={openCreateExpedition} disabled={isCreatingExpedition}>
+                  Create Expedition
+                </Button>
               </div>
             )}
           </div>
@@ -776,19 +802,11 @@ export default function App() {
         {hasNoMembership && (
           <Paper className="empty-state" variant="outlined">
             <Typography variant="body1">You are not in an expedition yet. Create one to get started.</Typography>
-            <Box className="empty-state-create" component="form" onSubmit={handleHeaderCreate}>
-              <TextField
-                size="small"
-                value={newExpeditionName}
-                onChange={(e) => setNewExpeditionName(e.target.value)}
-                placeholder="Expedition name"
-                inputProps={{ maxLength: 64 }}
-              />
-              <Button type="submit" variant="contained" disabled={isCreatingExpedition}>
-                {isCreatingExpedition ? "Creating…" : "Create expedition"}
+            <Box className="empty-state-create">
+              <Button type="button" variant="contained" onClick={openCreateExpedition} disabled={isCreatingExpedition}>
+                Create expedition
               </Button>
             </Box>
-            {expeditionCreateError && <Alert severity="error">{expeditionCreateError}</Alert>}
           </Paper>
         )}
         {!isRegistered && (
@@ -811,7 +829,7 @@ export default function App() {
               <div className="dashboard-hero-copy">
                 <p className="hero-kicker">{activeExpedition?.name ?? "Current Expedition"}</p>
                 <h2 className="hero-progress-number">{dashboardMetrics.totalKm.toFixed(1)} km</h2>
-                <p>{completionLabel} of {ROUTE_TOTAL_KM.toLocaleString()} km route</p>
+                <p>{completionLabel} of {dashboardMetrics.routeTotalKm.toLocaleString()} km route</p>
                 <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km to {dashboardMetrics.nextLandmark.name}</p>
                 <p className="hero-message">{journeyMessage}</p>
                 <div className="hero-meta-row">
@@ -946,6 +964,63 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      <Dialog open={isCreateExpeditionOpen} onClose={closeCreateExpedition} fullWidth maxWidth="sm">
+        <DialogTitle>Create expedition</DialogTitle>
+        <Box component="form" onSubmit={handleCreateExpeditionSubmit}>
+          <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
+            <TextField
+              label="Expedition name"
+              value={newExpeditionName}
+              onChange={(e) => setNewExpeditionName(e.target.value)}
+              inputProps={{ maxLength: 64 }}
+              required
+              fullWidth
+            />
+
+            <FormControl fullWidth>
+              <InputLabel id="create-expedition-visibility-label">Visibility</InputLabel>
+              <Select
+                labelId="create-expedition-visibility-label"
+                value={newExpeditionVisibility}
+                label="Visibility"
+                onChange={(e) => setNewExpeditionVisibility(e.target.value as "public" | "invite_only")}
+              >
+                <MenuItem value="public">Public</MenuItem>
+                <MenuItem value="invite_only">Invite-only</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel id="create-expedition-template-label">Route Template</InputLabel>
+              <Select
+                labelId="create-expedition-template-label"
+                value={newExpeditionRouteTemplateKey}
+                label="Route Template"
+                onChange={(e) => setNewExpeditionRouteTemplateKey(e.target.value as RouteTemplateKey)}
+              >
+                {ROUTE_TEMPLATES.map((template) => (
+                  <MenuItem key={template.key} value={template.key}>
+                    {template.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Typography variant="body2" className="page-subtitle">
+              {ROUTE_TEMPLATES.find((template) => template.key === newExpeditionRouteTemplateKey)?.description}
+            </Typography>
+
+            {expeditionCreateError && <Alert severity="error">{expeditionCreateError}</Alert>}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeCreateExpedition}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={isCreatingExpedition}>
+              {isCreatingExpedition ? "Creating…" : "Create expedition"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
 
       <Dialog open={isQuickLogOpen} onClose={closeQuickLog} fullWidth maxWidth="sm">
         <DialogTitle>Log activity</DialogTitle>

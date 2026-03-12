@@ -3,12 +3,13 @@ import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { TrailsPolyline } from "./TrailsPolyline";
 import { LandmarksMarkers } from "./LandmarksMarkers";
-import type { RouteWaypoint, TrailSegment } from "../../data/route";
+import type { Landmark, RouteWaypoint, TrailSegment } from "../../data/route";
 
 interface Props {
   segments: TrailSegment[];
   totalKm: number;
   waypoints: RouteWaypoint[];
+  landmarks: Landmark[];
   theme: "dark" | "light";
   hubOpen: boolean;
 }
@@ -19,7 +20,7 @@ const BOUNDS: [[number, number], [number, number]] = [
   [-10, 154],
 ];
 
-export function MapLeaflet({ segments, totalKm, waypoints, theme, hubOpen }: Props) {
+export function MapLeaflet({ segments, totalKm, waypoints, landmarks, theme, hubOpen }: Props) {
   const tileUrl =
     theme === "light"
       ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -40,7 +41,7 @@ export function MapLeaflet({ segments, totalKm, waypoints, theme, hubOpen }: Pro
       />
       <MapResizeSync hubOpen={hubOpen} />
       <TrailsPolyline segments={segments} totalKm={totalKm} waypoints={waypoints} />
-      <LandmarksMarkers totalKm={totalKm} />
+      <LandmarksMarkers totalKm={totalKm} landmarks={landmarks} />
     </MapContainer>
   );
 }

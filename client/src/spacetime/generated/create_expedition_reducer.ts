@@ -13,4 +13,6 @@ import {
 export default {
   name: __t.string(),
   slug: __t.string(),
+  routeTemplateKey: __t.string().name("route_template_key"),
+  inviteOnly: __t.bool().name("invite_only"),
 };

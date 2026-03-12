@@ -1,14 +1,17 @@
 import { CircleMarker, Popup } from "react-leaflet";
-import { LANDMARKS } from "../../data/route";
+import type { Landmark } from "../../data/route";
 
-interface Props { totalKm: number; }
+interface Props {
+  totalKm: number;
+  landmarks: Landmark[];
+}
 
-export function LandmarksMarkers({ totalKm }: Props) {
-  const nextLandmark = LANDMARKS.find((landmark) => landmark.km > totalKm) ?? null;
+export function LandmarksMarkers({ totalKm, landmarks }: Props) {
+  const nextLandmark = landmarks.find((landmark) => landmark.km > totalKm) ?? null;
 
   return (
     <>
-      {LANDMARKS.map((lm, i) => {
+      {landmarks.map((lm, i) => {
         const reached = totalKm >= lm.km;
         const isNext = nextLandmark != null && nextLandmark.km === lm.km;
         return (

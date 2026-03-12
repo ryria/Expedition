@@ -1,5 +1,5 @@
 import { useActivityLog } from "../../hooks/useActivityLog";
-import { LANDMARKS } from "../../data/route";
+import { useExpeditionRouteTemplate } from "../../hooks/useExpeditionRouteTemplate";
 
 interface LandmarksPassedProps {
   activeExpeditionId?: bigint;
@@ -7,8 +7,9 @@ interface LandmarksPassedProps {
 
 export function LandmarksPassed({ activeExpeditionId }: LandmarksPassedProps) {
   const { entries } = useActivityLog(activeExpeditionId);
+  const routeTemplate = useExpeditionRouteTemplate(activeExpeditionId);
   const totalKm = entries.reduce((s, e) => s + e.distanceKm, 0);
-  const passed = LANDMARKS.filter((l) => l.km <= totalKm && l.km > 0);
+  const passed = routeTemplate.landmarks.filter((l) => l.km <= totalKm && l.km > 0);
   if (!passed.length) return null;
   return (
     <div className="landmarks-passed">

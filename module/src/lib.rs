@@ -53,6 +53,9 @@ const MODERATION_ACTION_HIDE: &str = "hide";
 const MODERATION_ACTION_REMOVE: &str = "remove";
 const EXPEDITION_VISIBILITY_PUBLIC: &str = "public";
 const EXPEDITION_VISIBILITY_INVITE_ONLY: &str = "invite_only";
+const ROUTE_TEMPLATE_CLASSIC_TRAIL: &str = "classic_trail";
+const ROUTE_TEMPLATE_MOUNTAIN_PASS: &str = "mountain_pass";
+const ROUTE_TEMPLATE_COASTLINE: &str = "coastline";
 const PRODUCT_EVENT_NAME_MAX_LEN: usize = 80;
 const PRODUCT_EVENT_PAYLOAD_MAX_LEN: usize = 4096;
 const OPERATION_STATUS_SUCCESS: &str = "success";
@@ -549,7 +552,14 @@ fn upsert_auth_binding(ctx: &ReducerContext, owner_sub: &str) {
 // ─── Lifecycle reducers ───────────────────────────────────────────────────────
 
 #[spacetimedb::reducer(init)]
-pub fn init(_ctx: &ReducerContext) {}
+pub fn init(ctx: &ReducerContext) {
+    for mut expedition in ctx.db.expedition().iter() {
+        if expedition.route_template_key.is_none() {
+            expedition.route_template_key = Some(ROUTE_TEMPLATE_CLASSIC_TRAIL.to_string());
+            ctx.db.expedition().id().update(expedition);
+        }
+    }
+}
 
 #[spacetimedb::reducer(client_connected)]
 pub fn identity_connected(_ctx: &ReducerContext) {}
@@ -670,6 +680,7 @@ pub struct Expedition {
     pub archived_at: Option<Timestamp>,
     #[default(false)]
     pub invite_only: bool,
+    pub route_template_key: Option<String>,
 }
 
 #[spacetimedb::table(accessor = membership, public)]
@@ -1093,6 +1104,15 @@ fn milestone_label(distance_km: f64) -> Option<&'static str> {
     }
 }
 
+fn normalize_route_template_key(raw: &str) -> &'static str {
+    match raw.trim() {
+        ROUTE_TEMPLATE_CLASSIC_TRAIL => ROUTE_TEMPLATE_CLASSIC_TRAIL,
+        ROUTE_TEMPLATE_MOUNTAIN_PASS => ROUTE_TEMPLATE_MOUNTAIN_PASS,
+        ROUTE_TEMPLATE_COASTLINE => ROUTE_TEMPLATE_COASTLINE,
+        _ => ROUTE_TEMPLATE_CLASSIC_TRAIL,
+    }
+}
+
 fn require_member_capacity(ctx: &ReducerContext, expedition_id: u64) -> Result<(), String> {
     let member_limit = effective_member_limit(ctx, expedition_id);
     if member_limit == 0 {
@@ -1174,6 +1194,7 @@ fn resolve_or_create_expedition_for_member_procedure(
                 created_at: now_ts,
                 archived_at: None,
                 invite_only: false,
+                route_template_key: Some(ROUTE_TEMPLATE_CLASSIC_TRAIL.to_string()),
             });
             tx.db
                 .expedition()
@@ -1225,7 +1246,13 @@ fn resolve_or_create_expedition_for_member_procedure(
 }
 
 #[spacetimedb::reducer]
-pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
+pub fn create_expedition(
+    ctx: &ReducerContext,
+    name: String,
+    slug: String,
+    route_template_key: String,
+    invite_only: bool,
+) {
     let owner_sub = match authenticated_subject(ctx) {
         Ok(sub) => sub,
         Err(err) => {
@@ -1288,6 +1315,8 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         return;
     }
 
+    let route_template_key = normalize_route_template_key(&route_template_key).to_string();
+
     ctx.db.expedition().insert(Expedition {
         id: 0,
         name,
@@ -1296,7 +1325,8 @@ pub fn create_expedition(ctx: &ReducerContext, name: String, slug: String) {
         is_archived: false,
         created_at: ctx.timestamp,
         archived_at: None,
-        invite_only: false,
+        invite_only,
+        route_template_key: Some(route_template_key),
     });
 
     let Some(expedition) = ctx.db.expedition().slug().find(slug) else {
@@ -2280,6 +2310,7 @@ pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64
             created_at: ctx.timestamp,
             archived_at: None,
             invite_only: false,
+            route_template_key: Some(ROUTE_TEMPLATE_CLASSIC_TRAIL.to_string()),
         });
     }
 
@@ -2295,9 +2326,19 @@ pub fn ops_backfill_legacy_expedition(ctx: &ReducerContext, owner_member_id: u64
 
     let expedition_id = expedition.id;
 
+    let mut should_update_expedition = false;
     if expedition.is_archived {
         expedition.is_archived = false;
         expedition.archived_at = None;
+        should_update_expedition = true;
+    }
+
+    if expedition.route_template_key.is_none() {
+        expedition.route_template_key = Some(ROUTE_TEMPLATE_CLASSIC_TRAIL.to_string());
+        should_update_expedition = true;
+    }
+
+    if should_update_expedition {
         ctx.db.expedition().id().update(expedition);
     }
 

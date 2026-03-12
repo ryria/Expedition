@@ -15,8 +15,8 @@ interface UseRoadRouteResult {
 const CACHE_KEY = "expedition-road-route-v1";
 const CHUNK_SIZE = 10;
 
-function asAnchorPoints(): [number, number][] {
-  return WAYPOINTS.map(([lat, lng]) => [lat, lng]);
+function asAnchorPoints(anchorWaypoints: RouteWaypoint[]): [number, number][] {
+  return anchorWaypoints.map(([lat, lng]) => [lat, lng]);
 }
 
 function toChunkedLegs(points: [number, number][]): [number, number][][] {
@@ -69,9 +69,9 @@ function mergeLegs(legs: [number, number][][]): [number, number][] {
   return merged;
 }
 
-function loadCachedPath(): [number, number][] | null {
+function loadCachedPath(cacheKey: string): [number, number][] | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as [number, number][];
     if (!Array.isArray(parsed) || parsed.length < 2) return null;
@@ -81,22 +81,32 @@ function loadCachedPath(): [number, number][] | null {
   }
 }
 
-function storeCachedPath(path: [number, number][]) {
+function storeCachedPath(cacheKey: string, path: [number, number][]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(path));
+    localStorage.setItem(cacheKey, JSON.stringify(path));
   } catch {
     // no-op
   }
 }
 
-export function useRoadRoute(): UseRoadRouteResult {
-  const [waypoints, setWaypoints] = useState<RouteWaypoint[]>(WAYPOINTS);
+export function useRoadRoute(
+  anchorWaypoints: RouteWaypoint[] = WAYPOINTS,
+  cacheKeySuffix = "classic_trail",
+): UseRoadRouteResult {
+  const [waypoints, setWaypoints] = useState<RouteWaypoint[]>(anchorWaypoints);
   const [isSnapped, setIsSnapped] = useState(false);
 
   useEffect(() => {
     let active = true;
+    const cacheKey = `${CACHE_KEY}:${cacheKeySuffix}`;
 
-    const cached = loadCachedPath();
+    if (anchorWaypoints.length < 2) {
+      setWaypoints(WAYPOINTS);
+      setIsSnapped(false);
+      return;
+    }
+
+    const cached = loadCachedPath(cacheKey);
     if (cached) {
       const cachedWaypoints = buildDistanceWaypointsFromPath(cached);
       if (cachedWaypoints.length >= 2) {
@@ -108,7 +118,7 @@ export function useRoadRoute(): UseRoadRouteResult {
 
     const run = async () => {
       try {
-        const anchors = asAnchorPoints();
+        const anchors = asAnchorPoints(anchorWaypoints);
         const legs = toChunkedLegs(anchors);
         const snappedLegs: [number, number][][] = [];
 
@@ -123,10 +133,10 @@ export function useRoadRoute(): UseRoadRouteResult {
 
         setWaypoints(distanceWaypoints);
         setIsSnapped(true);
-        storeCachedPath(path);
+        storeCachedPath(cacheKey, path);
       } catch {
         if (!active) return;
-        setWaypoints(WAYPOINTS);
+        setWaypoints(anchorWaypoints);
         setIsSnapped(false);
       }
     };
@@ -136,7 +146,7 @@ export function useRoadRoute(): UseRoadRouteResult {
     return () => {
       active = false;
     };
-  }, []);
+  }, [anchorWaypoints, cacheKeySuffix]);
 
   const routeTotalKm = useMemo(() => {
     if (waypoints.length === 0) return ROUTE_TOTAL_KM;
