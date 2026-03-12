@@ -145,6 +145,7 @@ export default function App() {
   const [isCreatingExpedition, setIsCreatingExpedition] = useState(false);
   const [expeditionCreateError, setExpeditionCreateError] = useState("");
   const [pendingCreatedSlug, setPendingCreatedSlug] = useState<string | null>(null);
+  const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugSummary, setBugSummary] = useState("");
   const [bugReproSteps, setBugReproSteps] = useState("");
@@ -267,6 +268,14 @@ export default function App() {
   function openBugReport() {
     setBugStatus("");
     setIsBugReportOpen(true);
+  }
+
+  function openQuickLog() {
+    setIsQuickLogOpen(true);
+  }
+
+  function closeQuickLog() {
+    setIsQuickLogOpen(false);
   }
 
   function closeBugReport() {
@@ -594,10 +603,6 @@ export default function App() {
     dashboardMetrics.totalKm < 5
       ? "First steps on the route — your team has started the journey together."
       : "Every session keeps the team moving forward on the shared route.";
-  const latestActivityAt = scopedActivity.length
-    ? scopedActivity[scopedActivity.length - 1]?.timestamp.toDate().toLocaleString()
-    : "No logs yet";
-  const showRightRail = tab !== "map" && tab !== "settings";
 
   return (
     <div className="app">
@@ -668,7 +673,13 @@ export default function App() {
               </Typography>
             </div>
             <div className="page-actions">
-              <Button variant="contained" onClick={() => setTab("log")}>Log Activity</Button>
+              <Button
+                variant="contained"
+                onClick={openQuickLog}
+                disabled={activeExpeditionId == null || expeditionLoading || hasNoMembership}
+              >
+                Log Activity
+              </Button>
               <Button variant="outlined" onClick={() => setTab("members")}>Invite Members</Button>
               <Button variant="outlined" onClick={openBugReport}>Report bug</Button>
             </div>
@@ -850,93 +861,6 @@ export default function App() {
         )}
 
         </main>
-
-        {showRightRail && (
-          <aside className="context-rail">
-            {tab === "dashboard" && (
-              <>
-                <Paper className="rail-card" variant="outlined">
-                  <h4>Next milestone</h4>
-                  <p>{dashboardMetrics.nextLandmark.name}</p>
-                  <p>{dashboardMetrics.remainingToLandmark.toFixed(1)} km away</p>
-                </Paper>
-
-                <Paper className="rail-card coach-card" variant="outlined">
-                  <h4>AI Coach</h4>
-                  <p>
-                    {dashboardMetrics.activeToday > 0
-                      ? "Momentum is active today. Keep contributions flowing to reach the next landmark sooner."
-                      : "No logs yet today. One short session can restart the team’s visible momentum."}
-                  </p>
-                </Paper>
-
-                {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
-                  <Paper className="rail-card" variant="outlined">
-                    <h4>Quick Log</h4>
-                    <LogForm activeExpeditionId={activeExpeditionId} />
-                  </Paper>
-                )}
-              </>
-            )}
-
-            {tab === "feed" && (
-              <>
-                <Paper className="rail-card" variant="outlined">
-                  <h4>Recent Activity</h4>
-                  <p>{scopedActivity.length} total logs</p>
-                  <p>Latest: {latestActivityAt}</p>
-                </Paper>
-
-                <Paper className="rail-card coach-card" variant="outlined">
-                  <h4>Feed Insight</h4>
-                  <p>
-                    Encourage comments and reactions after each log to keep the team experience social, not just statistical.
-                  </p>
-                </Paper>
-
-                {activeExpeditionId != null && !expeditionLoading && !hasNoMembership && (
-                  <Paper className="rail-card" variant="outlined">
-                    <h4>Quick Log</h4>
-                    <LogForm activeExpeditionId={activeExpeditionId} />
-                  </Paper>
-                )}
-              </>
-            )}
-
-            {tab === "stats" && (
-              <>
-                <Paper className="rail-card" variant="outlined">
-                  <h4>Pacing Snapshot</h4>
-                  <p>{dashboardMetrics.weeklyKm.toFixed(1)} km this week</p>
-                  <p>{dashboardMetrics.activeWeek} members active this week</p>
-                </Paper>
-
-                <Paper className="rail-card coach-card" variant="outlined">
-                  <h4>Stats Insight</h4>
-                  <p>
-                    Keep weekly activity distributed across members to build a steadier route pace toward landmarks.
-                  </p>
-                </Paper>
-              </>
-            )}
-
-            {tab === "members" && (
-              <>
-                <Paper className="rail-card" variant="outlined">
-                  <h4>Team Activity</h4>
-                  <p>{dashboardMetrics.activeToday} active today</p>
-                  <p>{dashboardMetrics.activeWeek} active this week</p>
-                </Paper>
-
-                <Paper className="rail-card" variant="outlined">
-                  <h4>Member Actions</h4>
-                  <p>Invite and role tools are available in Settings.</p>
-                  <Button variant="outlined" onClick={() => setTab("settings")}>Open Settings</Button>
-                </Paper>
-              </>
-            )}
-          </aside>
-        )}
       </div>
 
       <nav className="mobile-bottom-nav" aria-label="Mobile">
@@ -951,6 +875,22 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      <Dialog open={isQuickLogOpen} onClose={closeQuickLog} fullWidth maxWidth="sm">
+        <DialogTitle>Log activity</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
+          {activeExpeditionId != null && !expeditionLoading && !hasNoMembership ? (
+            <LogForm activeExpeditionId={activeExpeditionId} />
+          ) : (
+            <Typography variant="body2" className="page-subtitle">
+              Select or create an expedition first.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeQuickLog}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={isBugReportOpen} onClose={closeBugReport} fullWidth maxWidth="sm">
         <DialogTitle>Report a bug</DialogTitle>

@@ -11,7 +11,7 @@
 .app-shell {
   height: 100%;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 320px;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 0;
 }
 
@@ -346,14 +346,12 @@
   color: var(--text);
 }
 
-.dashboard-chip-card,
-.rail-card {
+.dashboard-chip-card {
   padding: 0.8rem;
   border-radius: var(--radius-md) !important;
 }
 
-.dashboard-chip-card p,
-.rail-card p {
+.dashboard-chip-card p {
   color: var(--text-muted);
   font-size: 0.85rem;
 }
@@ -390,36 +388,6 @@
 }
 
 /* ============================================================
-   Right context rail
-   ============================================================ */
-
-.context-rail {
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  min-height: 0;
-  overflow: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.rail-card h4 {
-  margin-bottom: 0.4rem;
-}
-
-.rail-card .log-form {
-  box-shadow: none;
-  border: 0;
-  padding: 0;
-  background: transparent;
-}
-
-.rail-card .MuiButton-root {
-  margin-top: 0.45rem;
-}
-
-/* ============================================================
    Mobile nav
    ============================================================ */
 
@@ -430,10 +398,6 @@
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 230px minmax(0, 1fr);
-  }
-
-  .context-rail {
-    display: none;
   }
 
   .dashboard-cards-row {
