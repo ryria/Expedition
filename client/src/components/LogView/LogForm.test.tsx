@@ -59,7 +59,7 @@ describe("LogForm integration guards", () => {
     });
   });
 
-  it("submits when no active expedition is selected", () => {
+  it("submits when no active expedition is selected", async () => {
     mocks.useAuthMock.mockReturnValue({
       user: {
         profile: {
@@ -77,19 +77,16 @@ describe("LogForm integration guards", () => {
     fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Log it" }));
 
-    expect(mocks.logActivity).toHaveBeenCalledWith({
-      memberId: 1n,
-      activityType: "run",
-      distanceKm: 5,
-      note: "",
-    });
-    expect(mocks.trackProductEvent).toHaveBeenCalledWith({
-      eventName: "activity_log_submitted",
-      expeditionId: 0n,
-      payloadJson: JSON.stringify({
-        activityType: "run",
-        distanceKm: 5,
-      }),
+    await waitFor(() => {
+      expect(mocks.logActivity).toHaveBeenCalledWith(1n, "run", 5, "");
+      expect(mocks.trackProductEvent).toHaveBeenCalledWith({
+        eventName: "activity_log_submitted",
+        expeditionId: 0n,
+        payloadJson: JSON.stringify({
+          activityType: "run",
+          distanceKm: 5,
+        }),
+      });
     });
   });
 
@@ -112,7 +109,7 @@ describe("LogForm integration guards", () => {
     expect(mocks.logActivity).not.toHaveBeenCalled();
   });
 
-  it("submits user-level log activity for linked member", () => {
+  it("submits user-level log activity for linked member", async () => {
     mocks.useAuthMock.mockReturnValue({
       user: {
         profile: {
@@ -131,24 +128,21 @@ describe("LogForm integration guards", () => {
     fireEvent.change(screen.getByPlaceholderText("Note (optional)"), { target: { value: "tempo" } });
     fireEvent.click(screen.getByRole("button", { name: "Log it" }));
 
-    expect(mocks.logActivity).toHaveBeenCalledTimes(1);
-    expect(mocks.logActivity).toHaveBeenCalledWith({
-      memberId: 1n,
-      activityType: "run",
-      distanceKm: 6.5,
-      note: "tempo",
-    });
-    expect(mocks.trackProductEvent).toHaveBeenCalledWith({
-      eventName: "activity_log_submitted",
-      expeditionId: 10n,
-      payloadJson: JSON.stringify({
-        activityType: "run",
-        distanceKm: 6.5,
-      }),
+    await waitFor(() => {
+      expect(mocks.logActivity).toHaveBeenCalledTimes(1);
+      expect(mocks.logActivity).toHaveBeenCalledWith(1n, "run", 6.5, "tempo");
+      expect(mocks.trackProductEvent).toHaveBeenCalledWith({
+        eventName: "activity_log_submitted",
+        expeditionId: 10n,
+        payloadJson: JSON.stringify({
+          activityType: "run",
+          distanceKm: 6.5,
+        }),
+      });
     });
   });
 
-  it("surfaces reducer authentication-required rejection for forged unauthenticated context", () => {
+  it("surfaces reducer authentication-required rejection for forged unauthenticated context", async () => {
     mocks.logActivity.mockImplementation(() => {
       throw new Error("log_activity: Authentication required");
     });
@@ -164,12 +158,14 @@ describe("LogForm integration guards", () => {
     fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Log it" }));
 
-    expect(screen.getByText("log_activity: Authentication required")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("log_activity: Authentication required")).toBeTruthy();
+    });
     expect(mocks.logActivity).toHaveBeenCalledTimes(1);
     expect(mocks.requestAiCoaching).not.toHaveBeenCalled();
   });
 
-  it("surfaces reducer auth-mismatch rejection for forged mutation attempts", () => {
+  it("surfaces reducer auth-mismatch rejection for forged mutation attempts", async () => {
     mocks.logActivity.mockImplementation(() => {
       throw new Error("log_activity: you can only log activity for your own profile");
     });
@@ -190,7 +186,9 @@ describe("LogForm integration guards", () => {
     fireEvent.change(screen.getByPlaceholderText("Distance (km)"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Log it" }));
 
-    expect(screen.getByText("log_activity: you can only log activity for your own profile")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("log_activity: you can only log activity for your own profile")).toBeTruthy();
+    });
     expect(mocks.logActivity).toHaveBeenCalledTimes(1);
     expect(mocks.requestAiCoaching).not.toHaveBeenCalled();
   });

@@ -79,7 +79,7 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
     },
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     const enteredDistance = parseFloat(dist);
@@ -117,12 +117,29 @@ export function LogForm({ activeExpeditionId, distanceUnit = "km" }: LogFormProp
         memberId: selectedMember.id,
         submittedAtMs: Date.now(),
       };
-      conn.reducers.logActivity({
-        memberId: selectedMember.id,
-        activityType: actType,
-        distanceKm: km,
-        note: note.trim(),
-      });
+      const noteValue = note.trim();
+      const logActivityReducer = (conn.reducers as { logActivity?: (...args: unknown[]) => unknown }).logActivity;
+      if (!logActivityReducer) {
+        throw new Error("log_activity reducer unavailable");
+      }
+
+      try {
+        await Promise.resolve(logActivityReducer(selectedMember.id, actType, km, noteValue));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("invalid arguments for reducer log_activity")) {
+          throw err;
+        }
+        await Promise.resolve(
+          logActivityReducer({
+            memberId: selectedMember.id,
+            activityType: actType,
+            distanceKm: km,
+            note: noteValue,
+          }),
+        );
+      }
+
       const analytics = conn.reducers as AnalyticsReducers;
       analytics.trackProductEvent?.({
         eventName: "activity_log_submitted",
